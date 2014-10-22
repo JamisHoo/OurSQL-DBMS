@@ -1,7 +1,8 @@
-Data File Format
+Data File Format(Not finished)
 
 0th Page(Raw file description, only one page):
     // This page doesn't have a page header, its page id is 0
+    // All page ids are always in order.
     Page size(in Byte): 8 Byte
     Pages number in this file: 8 Byte
     ALIGN
@@ -46,6 +47,7 @@ Data File Format
 5th Page(Records, maybe multiple pages):
     PAGE HEADER
     Bitmap: ceil(slot count / 64) * 8 Byte
+    // RID of record is (Page Number + Slot Number)
     RECORD
     RECORD
     RECORD
