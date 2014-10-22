@@ -80,7 +80,7 @@ public:
         memcpy(_buffer + pos, &file_page_size, sizeof(file_page_size));
         pos += sizeof(file_page_size);
         // number of pages existing in this file
-        uint64 num_pages = 0;
+        uint64 num_pages = 1;
         memcpy(_buffer + pos, &num_pages, sizeof(num_pages));
         pos += sizeof(num_pages);
         // align
