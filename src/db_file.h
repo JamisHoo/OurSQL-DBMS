@@ -52,6 +52,8 @@ public:
         // open failed
         if (!isopen()) return 0;
 
+
+        expandBuffer();
         // read file header
         readPage(0, _buffer);
 
@@ -149,6 +151,10 @@ private:
         _fs.seekg(_page_size * i);
         _fs.read(buffer, _page_size);
     }
+
+    uint64 pageSize() const { return _page_size; }
+
+    uint64 numPages() const { return _num_pages; }
 
 private:
     DBFile(const DBFile&) = delete;
