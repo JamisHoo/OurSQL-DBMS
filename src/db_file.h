@@ -157,6 +157,7 @@ private:
 
 
 private:
+    // forbid copying
     DBFile(const DBFile&) = delete;
     DBFile(const DBFile&&) = delete;
     DBFile& operator=(const DBFile&) & = delete;
@@ -164,7 +165,7 @@ private:
 
     // file name
     std::string _file;
-    // page size of this file
+    // page size of this file, in byte
     uint64 _page_size;
     // number of pages existing in this file
     uint64 _num_pages;
