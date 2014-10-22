@@ -1,0 +1,69 @@
+Data File Format
+
+0th Page(Raw file description, only one page):
+    // This page doesn't have a page header, its page id is 0
+    Page size(in Byte): 8 Byte
+    Pages number in this file: 8 Byte
+    ALIGN
+
+1st Page(Data related description, only one page):
+    // This page doesn't have a page header, its page id is 1
+    Fields number: 8 Byte
+    Fields description number in each page: 8 Byte
+    First field description page: 8 Byte
+
+    Record length(in Byte): 8 Byte
+    Records number in each page / slot count: 8 Byte
+    First record page: 8 Byte
+
+    Empty slots map start page: 8 Byte
+    Pages number in each empty slots map page: 8 Byte
+
+    Empty pages map start page: 8 Byte
+    Pages number in each empty pages map page: 8 Byte
+
+    ALIGN
+
+2nd Page(Field description, maybe multiple pages):
+    // This is the first page with a page header, page id is 2
+    PAGE HEADER
+    FIELD_INFO
+    FIELD_INFO
+    ... 
+
+    ALIGN
+
+3rd Page(Empty slots map, maybe multiple pages):
+    PAGE HEADER
+    Bitmap(each bit describe one page, 0 - no empty slot, 1 - at least one empty slot)
+    ALIGN
+
+4th Page(Empty pages map, maybe multiple pages):
+    PAGE HEADER
+    Bitmap(each bit describe one page, 0 - non-empty page, 1 - empty page)
+    ALIGN
+
+5th Page(Records, maybe multiple pages):
+    PAGE HEADER
+    Bitmap: ceil(slot count / 64) * 8 Byte
+    RECORD
+    RECORD
+    RECORD
+    ...
+    ALIGN
+
+ALIGN: fill the rest of this page with align characters
+
+FIELD_INFO: 256 Byte
+    Field ID: 8 Byte
+    Field Name: 232 Byte
+    Field Type: 8 Byte
+    Field Length(in Byte): 8 Byte
+
+PAGE HEADER: 24 Byte
+    Page ID: 8 Byte
+    Prev Page ID: 8 Byte
+    Next Page ID: 8 Byte        
+
+
+
