@@ -10,7 +10,7 @@
  *  E-mail: hjm211324@gmail.com
  *  Date: Oct. 22, 2014
  *  Time: 18:57:07
- *  Description: 
+ *  Description: read and write raw file, manage file header
  *****************************************************************************/
 #ifndef DB_FILE_H_
 #define DB_FILE_H_
