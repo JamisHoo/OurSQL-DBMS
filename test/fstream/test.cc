@@ -20,7 +20,9 @@
 int main() {
     using namespace std;
 
+    int x = 5;
 
+    char* y = static_cast<char*>(&x);
 /*
     string str;
 
