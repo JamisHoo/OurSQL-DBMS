@@ -130,16 +130,6 @@ public:
         return fin.good();
     }
 
-private:
-    // keep buffer >= page size of this file.
-    void expandBuffer() {
-        if (_page_size <= _buffer_size) return;
-
-        delete[] _buffer;
-        _buffer = new char[_page_size];
-        _buffer_size = _page_size;
-    }
-
     // write data in buffer to Page i
     void writePage(const uint64 i, const char* buffer) {
         _fs.seekp(_page_size * i);
@@ -155,6 +145,17 @@ private:
     uint64 pageSize() const { return _page_size; }
 
     uint64 numPages() const { return _num_pages; }
+
+private:
+    // keep buffer >= page size of this file.
+    void expandBuffer() {
+        if (_page_size <= _buffer_size) return;
+
+        delete[] _buffer;
+        _buffer = new char[_page_size];
+        _buffer_size = _page_size;
+    }
+
 
 private:
     DBFile(const DBFile&) = delete;
