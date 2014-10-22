@@ -58,6 +58,7 @@ public:
 
         _page_size = *(reinterpret_cast<uint64*>(_buffer));
         _num_pages = *(reinterpret_cast<uint64*>(_buffer + sizeof(_page_size)));
+        return _page_size;
     };
     
     // create file and write raw file description(0th page).
