@@ -17,7 +17,6 @@
 
 #include "db_common.h"
 #include <fstream>
-#include <cassert>
 #include <cstdio>
 
 class Database::DBFile {
