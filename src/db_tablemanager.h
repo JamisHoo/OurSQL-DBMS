@@ -4,7 +4,7 @@
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
  *  Project: Database
- *  Filename: db_table.h 
+ *  Filename: db_tablemanager.h 
  *  Version: 1.0
  *  Author: Jinming Hu
  *  E-mail: hjm211324@gmail.com
@@ -12,15 +12,15 @@
  *  Time: 08:47:20
  *  Description: read and write table page, manage table header
  *****************************************************************************/
-#ifndef DB_TABLE_H_
-#define DB_TABLE_H_
+#ifndef DB_TABLEMANAGER_H_
+#define DB_TABLEMANAGER_H_
 
 #include <cassert>
 #include <string>
 #include "db_common.h"
 #include "db_file.h"
 
-class Database::DBTable {
+class Database::DBTableManager {
 private:
     static constexpr char DB_SUFFIX[] = ".tb";
     static constexpr char ALIGN = 0x00;
@@ -29,8 +29,8 @@ private:
 
 
 public:
-    DBTable(): _file(nullptr) { }
-    ~DBTable() {
+    DBTableManager(): _file(nullptr) { }
+    ~DBTableManager() {
         // open table should be closed explicitly
         // but we will close it if not
         if (isopen()) {
@@ -159,12 +159,12 @@ private:
     };
     
     // forbid copying
-    DBTable (const DBTable&) = delete;
-    DBTable (const DBTable&&) = delete;
-    DBTable& operator=(const DBTable&)& = delete;
-    DBTable& operator=(const DBTable&&)& = delete;
+    DBTableManager (const DBTableManager&) = delete;
+    DBTableManager (const DBTableManager&&) = delete;
+    DBTableManager& operator=(const DBTableManager&)& = delete;
+    DBTableManager& operator=(const DBTableManager&&)& = delete;
 
     DBFile* _file;
 };
 
-#endif /* DB_TABLE_H_ */
+#endif /* DB_TABLEMANAGER_H_ */
