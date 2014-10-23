@@ -28,14 +28,6 @@ private:
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4096 * 1024;
 
-    struct PageHeader {
-        PageHeader(const uint64 id, const uint64 nextid, const uint64 previd):
-            pageID(id), nextPageID(nextid), prevPageID(previd) { }
-        uint64 pageID;
-        uint64 nextPageID;
-        uint64 prevPageID;
-    };
-
 public:
     DBTableManager(): _file(nullptr) { }
     ~DBTableManager() {
