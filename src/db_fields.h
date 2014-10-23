@@ -30,7 +30,7 @@ public:
     static constexpr uint64 TYPE_INT64   = 6;
     static constexpr uint64 TYPE_UINT64  = 7;
     static constexpr uint64 TYPE_BOOL    = 8;
-    // TODO
+    // TODO: portable?
     static constexpr uint64 TYPE_CHAR    = 9;
     static constexpr uint64 TYPE_UCHAR   = 10;
     static constexpr uint64 TYPE_FLOAT   = 11;
@@ -40,6 +40,7 @@ public:
     DBFields(): _total_length(0) { }
     ~DBFields() { }
 
+    // insert field 
     void insertField(const uint64 field_type, const uint64 field_length,
                      const bool is_primary_key, const std::string& field_name) {
         _field_id.push_back(_field_id.size());
@@ -76,6 +77,28 @@ public:
 
     uint64 totalLength() const {
         return _total_length;
+    }
+
+    // the buffer is supposed to clear by caller
+    void generateFieldDescription(const uint64 i, char* buffer) const {
+        uint64 pos = 0;
+        // field id
+        uint64 tmp = _field_id[i];
+        memcpy(buffer + pos, &tmp, sizeof(uint64));
+        pos += sizeof(uint64);
+        // field type
+        tmp = _field_type[i];
+        memcpy(buffer + pos, &tmp, sizeof(uint64));
+        pos += sizeof(uint64);
+        // field length
+        tmp = _field_length[i];
+        memcpy(buffer + pos, &tmp, sizeof(uint64));
+        pos += sizeof(uint64);
+        // primary key
+        *(buffer + pos) = _is_primary_key[i];
+        ++pos;
+        // field name
+        memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
     }
 
 private:
