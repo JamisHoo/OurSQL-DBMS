@@ -17,6 +17,7 @@
 
 #include <cassert>
 #include <string>
+#include <tuple>
 #include "db_common.h"
 #include "db_file.h"
 
@@ -27,6 +28,14 @@ private:
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4096 * 1024;
 
+    struct PageHeader {
+        PageHeader(const uint64 id, const uint64 nextid, const uint64 previd):
+            pageID(id), nextPageID(nextid), prevPageID(previd) { }
+        uint64 pageID;
+        uint64 nextPageID;
+        uint64 prevPageID;
+    };
+ 
 
 public:
     DBTableManager(): _file(nullptr) { }
@@ -152,12 +161,18 @@ public:
     }
 
 private:
-    struct PageHeader {
-        uint64 pageID;
-        uint64 nextPageID;
-        uint64 prevPageID;
-    };
-    
+    PageHeader makePageHeader(const uint64 id, const uint64 nextid, const uint64  previd) {
+        return PageHeader(id, nextid, previd);
+    }
+    std::tuple<uint64, uint64, uint64> parsePageHeader(const char* buffer) {
+        return std::make_tuple(
+            *(reinterpret_cast<const uint64*>(buffer)),
+            *(reinterpret_cast<const uint64*>(buffer + sizeof(uint64))),
+            *(reinterpret_cast<const uint64*>(buffer + 2 * sizeof(uint64)))
+        );
+    }
+private:
+       
     // forbid copying
     DBTableManager (const DBTableManager&) = delete;
     DBTableManager (const DBTableManager&&) = delete;
