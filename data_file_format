@@ -59,10 +59,10 @@ ALIGN: fill the rest of this page with align characters
 
 FIELD_INFO: 256 Byte
     Field ID: 8 Byte
-    Primary key: 1 Byte
-    Field Name: 231 Byte
     Field Type: 8 Byte
     Field Length(in Byte): 8 Byte
+    Primary key: 1 Byte
+    Field Name: 231 Byte
 
 PAGE HEADER: 24 Byte
     Page ID: 8 Byte

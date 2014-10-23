@@ -22,7 +22,7 @@ using uint64 = unsigned long long;
 
 
 class DBFile;
-class DBFileManager;
+class DBTable;
 
 
 } // namespace Database

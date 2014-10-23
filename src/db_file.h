@@ -10,7 +10,7 @@
  *  E-mail: hjm211324@gmail.com
  *  Date: Oct. 22, 2014
  *  Time: 18:57:07
- *  Description: read and write raw file, manage file header
+ *  Description: read and write pages from/to raw file
  *****************************************************************************/
 #ifndef DB_FILE_H_
 #define DB_FILE_H_
@@ -20,11 +20,6 @@
 #include "db_common.h"
 
 class Database::DBFile {
-private:
-    static constexpr char ALIGN = 0x00;
-    // default page size, in Bytes
-    static constexpr uint64 DEFAULT_PAGE_SIZE = 4096 * 1024;
-
 public:
     DBFile(const std::string& filename): _file(filename),
                                          _page_size(0),
@@ -63,7 +58,7 @@ public:
     // create file and write raw file description(0th page).
     // returns 0 if succeed, 1 otherwise.
     // file won't be opened after creating
-    bool create(const uint64 file_page_size = DEFAULT_PAGE_SIZE) {
+    bool create(const uint64 page_size, const char* buffer) {
         // fail if file exists
         if (accessible()) return 1;
 
@@ -71,27 +66,14 @@ public:
         // create failed
         if (!isopen()) return 1;
 
-        _page_size = file_page_size;        
+        // _page_size is needed by writePage()
+        _page_size = page_size;
 
-        char* buffer = new char[file_page_size];
-        // write file header
-        // page size of this file
-        uint64 pos = 0;
-        memcpy(buffer + pos, &file_page_size, sizeof(file_page_size));
-        pos += sizeof(file_page_size);
-        // number of pages existing in this file
-        uint64 num_pages = 1;
-        memcpy(buffer + pos, &num_pages, sizeof(num_pages));
-        pos += sizeof(num_pages);
-        // align
-        memset(buffer + pos, ALIGN, file_page_size - pos);
-        
-        // write to file
+        // write first page after creating
         writePage(0, buffer);
-
-        _num_pages = 1;
-
+        
         _fs.close();
+        _page_size = 0;
         return 0;
     }
     
@@ -106,6 +88,7 @@ public:
         if (accessible()) return 1;
         
         _num_pages = 0;
+        _page_size = 0;
 
         return 0;
     }
@@ -117,6 +100,8 @@ public:
         if (!isopen()) return 1;
         _fs.close();
         if (isopen()) return 1;
+        _num_pages = 0;
+        _page_size = 0;
         return 0;
     }
 

@@ -16,10 +16,40 @@
 #include <iostream>
 #include <tuple>
 
+struct Base {
+    virtual ~Base() { }
+    virtual int size() const = 0;
+    Base 
+};
+
+template <class T>
+struct Value: Base {
+    T data;
+    explicit Value(T const& d): data(d) { }
+    virtual int size() const {
+        return sizeof(T);
+    }
+};
+
+
 int main() {
     using namespace std;
     int a;
 
-    std::cin >> a;
+    cin >> a;
+
+    Base* p;
+
+    if (a == 0) {
+        p = new Value<int>(2);
+    } else if (a == 1) {
+        p = new Value<double>(2.20);
+    } else if (a == 2) {
+        p = new Value<char>('a');
+    }
+
+    cout << p -> size() << endl;
+
+}
 
     
