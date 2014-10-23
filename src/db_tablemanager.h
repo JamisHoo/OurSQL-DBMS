@@ -234,7 +234,7 @@ private:
         pos += sizeof(pages_mapped_each_page);
 
         // record length
-        uint64 record_length = fields.totalLength();
+        uint64 record_length = fields.recordLength();
         memcpy(buffer + pos, &record_length, sizeof(record_length));
         pos += sizeof(record_length);
         // number of records in each page

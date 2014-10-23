@@ -41,8 +41,8 @@ public:
     ~DBFields() { }
 
     // insert field 
-    void insertField(const uint64 field_type, const uint64 field_length,
-                     const bool is_primary_key, const std::string& field_name) {
+    void insert(const uint64 field_type, const uint64 field_length,
+                const bool is_primary_key, const std::string& field_name) {
         _field_id.push_back(_field_id.size());
         _field_type.push_back(field_type);
         _field_length.push_back(field_length);
@@ -51,34 +51,7 @@ public:
         _total_length += field_length;
     }
 
-    uint64 size() const {
-        return _field_id.size();
-    }
-
-    const std::vector<uint64>& field_id() const {
-        return _field_id;
-    }
-
-    const std::vector<uint64>& field_type() const {
-        return _field_type;
-    }
-    
-    const std::vector<uint64>& field_length() const {
-        return _field_length;
-    }
-
-    const std::vector<bool>& primary_key() const {
-        return _is_primary_key;
-    }
-
-    const std::vector<std::string>& field_name() const {
-        return _field_name;
-    }
-
-    uint64 totalLength() const {
-        return _total_length;
-    }
-
+    // generate description of field[i]
     // the buffer is supposed to clear by caller
     void generateFieldDescription(const uint64 i, char* buffer) const {
         uint64 pos = 0;
@@ -101,6 +74,37 @@ public:
         memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
     }
 
+    // number of fields
+    uint64 size() const {
+        return _field_id.size();
+    }
+
+    // total length of each field
+    uint64 recordLength() const {
+        return _total_length;
+    }
+
+private:
+    const std::vector<uint64>& field_id() const {
+        return _field_id;
+    }
+
+    const std::vector<uint64>& field_type() const {
+        return _field_type;
+    }
+    
+    const std::vector<uint64>& field_length() const {
+        return _field_length;
+    }
+
+    const std::vector<bool>& primary_key() const {
+        return _is_primary_key;
+    }
+
+    const std::vector<std::string>& field_name() const {
+        return _field_name;
+    }
+    
 private:
     std::vector<uint64> _field_id;
     std::vector<uint64> _field_type;
