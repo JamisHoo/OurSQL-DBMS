@@ -10,22 +10,23 @@ Data File Format(Not finished)
 1st Page(Data related description, only one page):
     // This page doesn't have a page header, its page id is 1
     Table Name: 512 Byte
-    Fields number: 8 Byte
-    Fields description number in each page: 8 Byte
-    First field description page: 8 Byte
 
-    Record length(in Byte): 8 Byte
-    Records number in each page / slot count: 8 Byte
-    First record page: 8 Byte
+    Fields number: 8 Byte
+    First field description page: 8 Byte
 
     Empty slots map start page: 8 Byte
     Empty pages map start page: 8 Byte
     Pages number in each empty slots map page: 8 Byte
 
+    Record length(in Byte): 8 Byte
+    Records number in each page / slot count: 8 Byte
+    First record page: 8 Byte
+
+
 
     ALIGN
 
-2nd Page(Field description, maybe multiple pages):
+2nd Page(Field description, only pages, more pages not supported):
     // This is the first page with a page header, page id is 2
     PAGE HEADER
     FIELD_INFO
