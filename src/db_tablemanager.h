@@ -20,6 +20,7 @@
 #include <array>
 #include "db_common.h"
 #include "db_file.h"
+#include "db_fields.h"
 
 class Database::DBTableManager {
 private:
@@ -27,6 +28,17 @@ private:
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4096 * 1024;
+
+    // header pages format constants
+    static constexpr uint64 TABLE_NAME_LENGTH = 512;
+    static constexpr uint64 FIELD_INFO_LENGTH = 256;
+    static constexpr uint64 PAGE_HEADER_LENGTH = 24;
+    static constexpr uint64 FIRST_PAGE_INFO_PAGE = 2;
+    static constexpr uint64 FIRST_RECORD_PAGE = 5;
+    static constexpr uint64 FIRST_EMPTY_SLOT_PAGE = 3;
+    static constexpr uint64 FIRST_EMPTY_PAGE_PAGE = 4;
+
+
 
 public:
     DBTableManager(): _file(nullptr) { }
@@ -46,7 +58,9 @@ public:
     // i.e. no table have been opened
     // returns 0 if succeed, 1 otherwise
     // table won't be opened  after created
-    bool create(const std::string& table_name /* fields */, uint64 page_size = DEFAULT_PAGE_SIZE) {
+    bool create(const std::string& table_name,
+                const DBFields& fields, 
+                uint64 page_size = DEFAULT_PAGE_SIZE) {
         // there's already a table opened
         if (isopen()) return 1;
         
@@ -54,20 +68,11 @@ public:
         _file = new DBFile(table_name + DB_SUFFIX);
 
         char* buffer = new char[page_size];
-        
-        // file header, 0th page
-        // page size
-        uint64 pos = 0;
-        memcpy(buffer + pos, &page_size, sizeof(page_size));
-        pos += sizeof(page_size);
-        // number of pages existing in this file
-        uint64 num_pages = 1;
-        memcpy(buffer + pos, &num_pages, sizeof(num_pages));
-        pos += sizeof(num_pages);
-        // align
-        memset(buffer + pos, ALIGN, page_size - pos);
 
-        // create file and write file header(0th page)
+        // create file description page, 0th page
+        createFileDescriptionPage(page_size, buffer);
+        
+        // create file and write file description page(0th page)
         bool rtv = _file->create(page_size, buffer);
 
         // create failed
@@ -76,11 +81,18 @@ public:
             delete _file;
             return 1;
         }
+        // else create successful
+        
+        // create 1st page
+        createDataDescriptionPage(table_name, fields, page_size, buffer);
+        // write 1st page
+        _file->writePage(1, buffer);
 
-        // otherwise, create successful
+        
 
 
         // TODO
+        // modify page number
         // add table header
 
 
@@ -151,7 +163,74 @@ public:
         return 1;
     }
 
-private:
+private:   
+    // create file description page, 0th page
+    void createFileDescriptionPage(uint64 page_size, char* buffer) {
+        // page size
+        uint64 pos = 0;
+        memcpy(buffer + pos, &page_size, sizeof(page_size));
+        pos += sizeof(page_size);
+        // number of pages existing in this file
+        uint64 num_pages = 1;
+        memcpy(buffer + pos, &num_pages, sizeof(num_pages));
+        pos += sizeof(num_pages);
+        // align
+        memset(buffer + pos, ALIGN, page_size - pos);
+    }
+
+    // create data description page, 1st page
+    void createDataDescriptionPage(const std::string& table_name, 
+                                   const DBFields& fields,
+                                   const uint64 page_size,
+                                   char* buffer) {
+        // create data related description, 1st page
+        uint64 pos = 0;
+        // table name
+        memcpy(buffer + pos, table_name.c_str(), TABLE_NAME_LENGTH); 
+        pos += TABLE_NAME_LENGTH;
+        // fields num
+        uint64 fields_num = fields.size();
+        memcpy(buffer + pos, &fields_num, sizeof(fields_num));
+        pos += sizeof(fields_num);
+        // number of filed description in each page
+        uint64 field_info_each_page = (page_size - PAGE_HEADER_LENGTH) /
+                                      FIELD_INFO_LENGTH;
+        memcpy(buffer + pos, &field_info_each_page, sizeof(field_info_each_page));
+        pos += sizeof(field_info_each_page);
+        // first field description page
+        uint64 first_page_info_page = FIRST_PAGE_INFO_PAGE;
+        memcpy(buffer + pos, &first_page_info_page, sizeof(first_page_info_page));
+        pos += sizeof(first_page_info_page);
+        // record length
+        uint64 record_length = fields.totalLength();
+        memcpy(buffer + pos, &record_length, sizeof(record_length));
+        pos += sizeof(record_length);
+        // number of records in each page
+        uint64 records_num_each_page = (page_size - PAGE_HEADER_LENGTH) /
+                                       record_length;
+        memcpy(buffer + pos, &records_num_each_page, sizeof(records_num_each_page));
+        pos += sizeof(records_num_each_page);
+        // first record page
+        uint64 first_record_page = FIRST_RECORD_PAGE;
+        memcpy(buffer + pos, &first_record_page, sizeof(first_record_page));
+        pos += sizeof(first_record_page);
+        // first empty slot map page
+        uint64 first_empty_slot_page = FIRST_EMPTY_SLOT_PAGE;
+        memcpy(buffer + pos, &first_empty_slot_page, sizeof(first_empty_slot_page));
+        pos += sizeof(first_empty_slot_page);
+        // first empty page map page
+        uint64 first_empty_page_page = FIRST_EMPTY_PAGE_PAGE;
+        memcpy(buffer + pos, &first_empty_page_page, sizeof(first_empty_page_page));
+        pos += sizeof(first_empty_page_page);
+        // mapped pages in each page
+        uint64 pages_mapped_each_page = (page_size - PAGE_HEADER_LENGTH) * 8;
+        memcpy(buffer + pos, &pages_mapped_each_page, sizeof(pages_mapped_each_page));
+        pos += sizeof(pages_mapped_each_page);
+        // align
+        memset(buffer + pos, ALIGN, page_size - pos);
+        // 1st page end
+    }
+
     std::array<char, 3 * sizeof(uint64)> makePageHeader(const uint64 id, 
                                                         const uint64 nextid, 
                                                         const uint64 previd) {
