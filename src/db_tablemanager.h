@@ -17,7 +17,7 @@
 
 #include <cassert>
 #include <string>
-#include <tuple>
+#include <array>
 #include "db_common.h"
 #include "db_file.h"
 
@@ -35,7 +35,6 @@ private:
         uint64 nextPageID;
         uint64 prevPageID;
     };
- 
 
 public:
     DBTableManager(): _file(nullptr) { }
@@ -161,18 +160,24 @@ public:
     }
 
 private:
-    PageHeader makePageHeader(const uint64 id, const uint64 nextid, const uint64  previd) {
-        return PageHeader(id, nextid, previd);
+    std::array<char, 3 * sizeof(uint64)> makePageHeader(const uint64 id, 
+                                                        const uint64 nextid, 
+                                                        const uint64 previd) {
+        std::array<char, 3 * sizeof(uint64)> buffer;
+        memcpy(buffer.data(), &id, sizeof(uint64));
+        memcpy(buffer.data() + sizeof(uint64), &nextid, sizeof(uint64));
+        memcpy(buffer.data() + 2 * sizeof(uint64), &previd, sizeof(uint64));
+        return buffer; 
     }
-    std::tuple<uint64, uint64, uint64> parsePageHeader(const char* buffer) {
-        return std::make_tuple(
+
+    std::array<uint64, 3> parsePageHeader(const char* buffer) {
+        return std::array<uint64, 3>{
             *(reinterpret_cast<const uint64*>(buffer)),
             *(reinterpret_cast<const uint64*>(buffer + sizeof(uint64))),
             *(reinterpret_cast<const uint64*>(buffer + 2 * sizeof(uint64)))
-        );
+        };
     }
 private:
-       
     // forbid copying
     DBTableManager (const DBTableManager&) = delete;
     DBTableManager (const DBTableManager&&) = delete;
