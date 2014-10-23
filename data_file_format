@@ -19,10 +19,9 @@ Data File Format(Not finished)
     First record page: 8 Byte
 
     Empty slots map start page: 8 Byte
+    Empty pages map start page: 8 Byte
     Pages number in each empty slots map page: 8 Byte
 
-    Empty pages map start page: 8 Byte
-    Pages number in each empty pages map page: 8 Byte
 
     ALIGN
 
