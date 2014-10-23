@@ -3,28 +3,23 @@
  *  Distributed under the MIT license 
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
- *  Project: Database
- *  Filename: common.h 
+ *  Project: 
+ *  Filename: test.cc 
  *  Version: 1.0
  *  Author: Jinming Hu
  *  E-mail: hjm211324@gmail.com
- *  Date: Oct. 22, 2014
- *  Time: 19:01:38
- *  Description: Universal types, constants, declarations.
+ *  Date: Oct. 23, 2014
+ *  Time: 00:04:39
+ *  Description: 
  *****************************************************************************/
-#ifndef COMMON_H_
-#define COMMON_H_
 
-namespace Database {
+#include <iostream>
+#include <tuple>
 
-using int64 = long long;
-using uint64 = unsigned long long;
+int main() {
+    using namespace std;
+    int a;
 
+    std::cin >> a;
 
-class DBFile;
-class DBFileManager;
-
-
-} // namespace Database
-
-#endif /* COMMON_H_ */
+    

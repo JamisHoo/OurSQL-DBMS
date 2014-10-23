@@ -9,6 +9,7 @@ Data File Format(Not finished)
 
 1st Page(Data related description, only one page):
     // This page doesn't have a page header, its page id is 1
+    Table Name: 512 Byte
     Fields number: 8 Byte
     Fields description number in each page: 8 Byte
     First field description page: 8 Byte
@@ -58,7 +59,8 @@ ALIGN: fill the rest of this page with align characters
 
 FIELD_INFO: 256 Byte
     Field ID: 8 Byte
-    Field Name: 232 Byte
+    Primary key: 1 Byte
+    Field Name: 231 Byte
     Field Type: 8 Byte
     Field Length(in Byte): 8 Byte
 

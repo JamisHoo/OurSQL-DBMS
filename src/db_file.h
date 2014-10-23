@@ -15,9 +15,9 @@
 #ifndef DB_FILE_H_
 #define DB_FILE_H_
 
-#include "db_common.h"
 #include <fstream>
 #include <cstdio>
+#include "db_common.h"
 
 class Database::DBFile {
 private:
@@ -54,6 +54,8 @@ public:
 
         expandBuffer();
         // read file header
+        // FIXME: don't know page size before read 0th page
+        // cannot use readPage()
         readPage(0, _buffer);
 
         _page_size = *(reinterpret_cast<uint64*>(_buffer));
