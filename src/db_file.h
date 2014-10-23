@@ -28,13 +28,10 @@ private:
 public:
     DBFile(const std::string& filename): _file(filename),
                                          _page_size(0),
-                                         _buffer(nullptr),
-                                         _buffer_size(0),
                                          _num_pages(0) { }
 
     ~DBFile() {
         _fs.close();
-        delete[] _buffer;
     }
 
     // opens an existing data file.
@@ -52,14 +49,14 @@ public:
         if (!isopen()) return 0;
 
 
-        expandBuffer();
         // read file header
-        // FIXME: don't know page size before read 0th page
-        // cannot use readPage()
-        readPage(0, _buffer);
+        _fs.seekg(0);
+        char buffer[sizeof(_page_size) + sizeof(_num_pages)];
+        _fs.read(buffer, sizeof(_page_size) + sizeof(_num_pages));
+        
+        _page_size = *(reinterpret_cast<uint64*>(buffer));
+        _num_pages = *(reinterpret_cast<uint64*>(buffer + sizeof(_page_size)));
 
-        _page_size = *(reinterpret_cast<uint64*>(_buffer));
-        _num_pages = *(reinterpret_cast<uint64*>(_buffer + sizeof(_page_size)));
         return _page_size;
     };
     
@@ -75,22 +72,22 @@ public:
         if (!isopen()) return 1;
 
         _page_size = file_page_size;        
-        expandBuffer();
 
+        char* buffer = new char[file_page_size];
         // write file header
         // page size of this file
         uint64 pos = 0;
-        memcpy(_buffer + pos, &file_page_size, sizeof(file_page_size));
+        memcpy(buffer + pos, &file_page_size, sizeof(file_page_size));
         pos += sizeof(file_page_size);
         // number of pages existing in this file
         uint64 num_pages = 1;
-        memcpy(_buffer + pos, &num_pages, sizeof(num_pages));
+        memcpy(buffer + pos, &num_pages, sizeof(num_pages));
         pos += sizeof(num_pages);
         // align
-        memset(_buffer + pos, ALIGN, file_page_size - pos);
+        memset(buffer + pos, ALIGN, file_page_size - pos);
         
         // write to file
-        writePage(0, _buffer);
+        writePage(0, buffer);
 
         _num_pages = 1;
 
@@ -149,17 +146,6 @@ public:
     uint64 numPages() const { return _num_pages; }
 
 private:
-    // keep buffer >= page size of this file.
-    void expandBuffer() {
-        if (_page_size <= _buffer_size) return;
-
-        delete[] _buffer;
-        _buffer = new char[_page_size];
-        _buffer_size = _page_size;
-    }
-
-
-private:
     // forbid copying
     DBFile(const DBFile&) = delete;
     DBFile(const DBFile&&) = delete;
@@ -174,10 +160,6 @@ private:
     uint64 _num_pages;
     // file input and output stream
     std::fstream _fs;
-    // read and write buffer
-    char* _buffer;
-    // size of the buffer
-    uint64 _buffer_size;
 
 };
 
