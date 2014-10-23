@@ -152,6 +152,12 @@ public:
     }
 
 private:
+    struct PageHeader {
+        uint64 pageID;
+        uint64 nextPageID;
+        uint64 prevPageID;
+    };
+    
     // forbid copying
     DBTable (const DBTable&) = delete;
     DBTable (const DBTable&&) = delete;
