@@ -200,7 +200,8 @@ private:
         // create data related description, 1st page
         uint64 pos = 0;
         // table name
-        memcpy(buffer + pos, table_name.c_str(), TABLE_NAME_LENGTH); 
+        memset(buffer + pos, ALIGN, TABLE_NAME_LENGTH);
+        memcpy(buffer + pos, table_name.c_str(), table_name.length()); 
         pos += TABLE_NAME_LENGTH;
 
         // fields num
