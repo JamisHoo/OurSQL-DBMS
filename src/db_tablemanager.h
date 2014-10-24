@@ -18,7 +18,7 @@
 #include <cassert>
 #include <string>
 #include <array>
-#include <bitset>
+#include <initializer_list>
 #include "db_common.h"
 #include "db_file.h"
 #include "db_fields.h"
@@ -44,7 +44,10 @@ public:
                       _num_fields(0), 
                       _pages_each_map_page(0),
                       _record_length(0),
-                      _num_records_each_page(0) { }
+                      _num_records_each_page(0),
+                      _last_empty_slots_map_page(0),
+                      _last_empty_pages_map_page(0),
+                      _last_record_page(0) { }
 
     ~DBTableManager() {
         // open table should be closed explicitly
@@ -104,15 +107,40 @@ public:
         // create empty slots bitmap page, the first is 3rd page
         // 0 means full, 1 means there's at least one empty slot
         memset(buffer, 0x00, page_size);
+        // write page header
+        auto page_header = makePageHeader(FIRST_EMPTY_SLOTS_PAGE, 0, 0);
+        memcpy(buffer, page_header.data(), page_header.size());
+        // set 5th page as empty slots
+        buffer[PAGE_HEADER_LENGTH] |= (1 << FIRST_RECORD_PAGE);
+
+        // write 3rd page
         _file->writePage(3, buffer);
 
         // create empty pagess bitmap page, the first is 4nd page
         // 0 means full, 1 means there's at least one empty slot
+
+        // no need to do, effect is the same because of last step.
         // memset(buffer, 0x00, page_size);
+
+        // make page header
+        page_header = makePageHeader(FIRST_EMPTY_PAGES_PAGE, 0, 0);
+        memcpy(buffer, page_header.data(), page_header.size());
+
+        // no need to do, effect is the same because of last step.
+        // set 5th page as empty page
+        // buffer[PAGE_HEADER_LENGTH] |= (1 << FIRST_RECORD_PAGE);
+
+        // write 4th page
         _file->writePage(4, buffer);
 
+
+        // write the first empty record page, 5th page
+        uint64 first_page = FIRST_RECORD_PAGE;
+        memcpy(buffer, &first_page, sizeof(first_page));
+        _file->writePage(5, buffer);
+
+        // close table
         _file->close();
-        
 
         // delete DBFile
         delete[] buffer;
@@ -148,15 +176,36 @@ public:
         // read 3rd page
         _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
         // parse 3rd page
-        parseEmptyMapPages(buffer, _empty_slots_map);
+        parseEmptyMapPages(buffer, _empty_slots_map, _last_empty_slots_map_page);
 
         // read 4th page
         _file->readPage(FIRST_EMPTY_PAGES_PAGE, buffer);
         // parse 4th page
-        parseEmptyMapPages(buffer, _empty_pages_map);
+        parseEmptyMapPages(buffer, _empty_pages_map, _last_empty_pages_map_page);
         
         delete[] buffer;
         return !page_size;
+    }
+    
+    // insert a record
+    // args: { void*, void*, void* ... }
+    // assert number of args == number of fields
+    // assert file is open
+    // returns 0 if succeed, 1 otherwise
+    bool insert(std::initializer_list<void*> args) {
+        if (!isopen()) return 1;
+        if (args.size() != _fields.size()) return 1;
+
+        // TODO
+        // generate record
+
+        // find a empty record slot
+
+        // if not found, create a new page
+            // add to empty_slot_map 
+            // add to empty_page_map
+
+
     }
 
     // close an open table
@@ -166,8 +215,6 @@ public:
         if (!isopen()) return 1;
 
         bool rtv = _file -> close();
-        
-   
 
         // close successful
         if (rtv == 0) {
@@ -179,6 +226,9 @@ public:
             _pages_each_map_page = 0;
             _record_length = 0;
             _num_records_each_page = 0;
+            _last_empty_slots_map_page = 0;
+            _last_empty_pages_map_page = 0;
+            _last_record_page = 0;
             _empty_slots_map.clear();
             _empty_pages_map.clear();
             return 0;
@@ -215,7 +265,7 @@ public:
 
 private:   
     // create file description page, 0th page
-    void createFileDescriptionPage(uint64 page_size, char* buffer) {
+    void createFileDescriptionPage(uint64 page_size, char* buffer) const {
         // page size
         uint64 pos = 0;
         memcpy(buffer + pos, &page_size, sizeof(page_size));
@@ -235,7 +285,7 @@ private:
     void createDataDescriptionPage(const std::string& table_name, 
                                    const DBFields& fields,
                                    const uint64 page_size,
-                                   char* buffer) {
+                                   char* buffer) const {
         // create data related description, 1st page
         uint64 pos = 0;
         // table name
@@ -256,24 +306,6 @@ private:
         memcpy(buffer + pos, &field_info_each_page, sizeof(field_info_each_page));
         pos += sizeof(field_info_each_page);
         */
-        /*
-        // abandoned
-        // first field description page
-        uint64 first_page_info_page = FIRST_FIELDS_INFO_PAGE;
-        memcpy(buffer + pos, &first_page_info_page, sizeof(first_page_info_page));
-        pos += sizeof(first_page_info_page);
-        */
-        /* 
-        // abandoned
-        // first empty slot map page
-        uint64 first_empty_slot_page = FIRST_EMPTY_SLOTS_PAGE;
-        memcpy(buffer + pos, &first_empty_slot_page, sizeof(first_empty_slot_page));
-        pos += sizeof(first_empty_slot_page);
-        // first empty page map page
-        uint64 first_empty_page_page = FIRST_EMPTY_PAGES_PAGE;
-        memcpy(buffer + pos, &first_empty_page_page, sizeof(first_empty_page_page));
-        pos += sizeof(first_empty_page_page);
-        */
         // mapped pages in each page
         uint64 pages_mapped_each_page = (page_size - PAGE_HEADER_LENGTH) * 8;
         memcpy(buffer + pos, &pages_mapped_each_page, sizeof(pages_mapped_each_page));
@@ -291,13 +323,19 @@ private:
             --records_num_each_page;
         memcpy(buffer + pos, &records_num_each_page, sizeof(records_num_each_page));
         pos += sizeof(records_num_each_page);
-        /*
-        // abandoned
-        // first record page
-        uint64 first_record_page = FIRST_RECORD_PAGE;
-        memcpy(buffer + pos, &first_record_page, sizeof(first_record_page));
-        pos += sizeof(first_record_page);
-        */
+
+        // last empty slots map page
+        uint64 last_empty_slots_map_page = FIRST_EMPTY_SLOTS_PAGE;
+        memcpy(buffer + pos, &last_empty_slots_map_page, sizeof(last_empty_slots_map_page));
+        pos += sizeof(last_empty_slots_map_page);
+        // last empty pages map page
+        uint64 last_empty_pages_map_page = FIRST_EMPTY_PAGES_PAGE;
+        memcpy(buffer + pos, &last_empty_pages_map_page, sizeof(last_empty_pages_map_page));
+        pos += sizeof(last_empty_pages_map_page);
+        // last empty record page
+        uint64 last_record_page = FIRST_RECORD_PAGE;
+        memcpy(buffer + pos, &last_record_page, sizeof(last_record_page));
+        pos += sizeof(last_record_page);
         // align
         memset(buffer + pos, ALIGN, page_size - pos);
         // 1st page end
@@ -314,20 +352,6 @@ private:
         _num_fields = *(reinterpret_cast<const uint64*>(buffer + pos));
         pos += sizeof(_num_fields);
         
-        /*
-        // abandoned
-        // first field description page
-        _page_info_page = *(reinterpret_cast<const uint64*>(buffer + pos));
-        pos += sizeof(_page_info_page);
-
-        // first empty slots map page
-        _empty_slots_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
-        pos += sizeof(_empty_slots_map_page);
-
-        // first empty pages map page
-        _empty_pages_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
-        pos += sizeof(_empty_slots_map_page);
-        */
 
         // mapped pages in each page
         _pages_each_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
@@ -340,17 +364,22 @@ private:
         // number of records stored in each page
         _num_records_each_page = *(reinterpret_cast<const uint64*>(buffer + pos));
         pos += sizeof(_num_records_each_page);
+        
+        // last empty slots map page
+        _last_empty_slots_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_last_empty_slots_map_page);
 
-        /*
-        // abandoned
-        // first records page
-        _records_page = *(reinterpret_cast<const uint64*>(buffer + pos));
-        pos += sizeof(_records_page);
-        */
+        // last empty pages map page
+        _last_empty_pages_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_last_empty_pages_map_page);
+
+        // last record page
+        _last_record_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_last_record_page);
     }
 
     void createFieldsDescriptionPages(const DBFields& fields, 
-                                      uint64 page_size, char* buffer) {
+                                      uint64 page_size, char* buffer) const {
         // generate page header
         auto page_header = makePageHeader(FIRST_FIELDS_INFO_PAGE, 0, 0);
         assert(page_header.size() == PAGE_HEADER_LENGTH);
@@ -388,7 +417,9 @@ private:
         }
     }
 
-    void parseEmptyMapPages(char* buffer, std::vector<bool>& vec) {
+    void parseEmptyMapPages(char* buffer, std::vector<bool>& vec, uint64& last_page) const {
+        uint64 page_id = *(reinterpret_cast<const uint64*>(buffer));
+        last_page = page_id;
         buffer += sizeof(uint64);
         buffer += sizeof(uint64);
         uint64 next_page_id = *(reinterpret_cast<const uint64*>(buffer)); 
@@ -409,28 +440,49 @@ private:
 
         if (next_page_id != 0) {
             _file->readPage(next_page_id, buffer);
-            parseEmptyMapPages(buffer, vec);
+            parseEmptyMapPages(buffer, vec, last_page);
         }
     }
 
-    std::array<char, 3 * sizeof(uint64)> makePageHeader(const uint64 id, 
-                                                        const uint64 nextid, 
-                                                        const uint64 previd) {
+    // make a page header
+    std::array<char, 3 * sizeof(uint64)> makePageHeader(
+            const uint64 id, const uint64 nextid, const uint64 previd) const {
         std::array<char, 3 * sizeof(uint64)> buffer;
         memcpy(buffer.data(), &id, sizeof(uint64));
         memcpy(buffer.data() + sizeof(uint64), &nextid, sizeof(uint64));
         memcpy(buffer.data() + 2 * sizeof(uint64), &previd, sizeof(uint64));
         return buffer; 
     }
-
-    std::array<uint64, 3> parsePageHeader(const char* buffer) {
+    
+    // parse a page header
+    std::array<uint64, 3> parsePageHeader(const char* buffer) const {
         return std::array<uint64, 3>{
             *(reinterpret_cast<const uint64*>(buffer)),
             *(reinterpret_cast<const uint64*>(buffer + sizeof(uint64))),
             *(reinterpret_cast<const uint64*>(buffer + 2 * sizeof(uint64)))
         };
     }
+
+    // returns page id in which there's at least one empty slot
+    // returns 0 if not found
+    uint64 findEmptySlot() const {
+        for (uint64 i = 0; i < _empty_slots_map.size(); ++i) 
+            if (_empty_slots_map[i] == true) return i;
+        return 0;
+    }
+
+    // returns page id which is empty
+    // returns 0 if not found
+    uint64 findEmptyPage() const {
+        for (uint64 i = 0; i < _empty_pages_map.size(); ++i) 
+            if (_empty_pages_map[i] == true) return i;
+        return 0;
+    }
+
 private:
+#ifdef DEBUG
+public:
+#endif
     // forbid copying
     DBTableManager (const DBTableManager&) = delete;
     DBTableManager (const DBTableManager&&) = delete;
@@ -446,11 +498,10 @@ private:
     uint64 _pages_each_map_page;
     uint64 _record_length;
     uint64 _num_records_each_page;
-    // abandoned
-    // uint64 _page_info_page;
-    // uint64 _empty_slots_map_page;
-    // uint64 _empty_pages_map_page;
-    // uint64 _records_page;
+    
+    uint64 _last_empty_slots_map_page;
+    uint64 _last_empty_pages_map_page;
+    uint64 _last_record_page;
 
     std::vector<bool> _empty_slots_map;
     std::vector<bool> _empty_pages_map;

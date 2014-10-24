@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <string>
+#include <initializer_list>
 #include "db_common.h"
 
 class Database::DBFields {
@@ -92,6 +93,13 @@ public:
         memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
     }
 
+    void generateRecord(std::initializer_list<void*> args, char* buffer) const {
+        uint64 i = 0;
+        for (auto arg: args) {
+            memcpy(buffer, arg, _field_length[i]);
+            buffer += _field_length[i];
+        }
+    }
 
     // number of fields
     uint64 size() const {
@@ -114,6 +122,9 @@ public:
     }
 
 private:
+#ifdef DEBUG
+public:
+#endif
     const std::vector<uint64>& field_id() const {
         return _field_id;
     }

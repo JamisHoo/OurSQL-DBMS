@@ -46,12 +46,13 @@ int main() {
     fields.insert(DBFields::TYPE_CHAR, 100, 0, "Student name");
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
-    // int rtv = table.create("student", fields, 4096);
-    // cout << rtv << endl;
+    int rtv;
+    rtv = table.create("student", fields, 4096);
+    cout << rtv << endl;
 
 
     
-    int rtv = table.open("student");
+    rtv = table.open("student");
     cout << rtv << endl;
 
     cout << "Table name: " << table._table_name << endl;
@@ -59,14 +60,17 @@ int main() {
     cout << "Pages in each map page: " << table._pages_each_map_page << endl;
     cout << "Record length: " << table._record_length << endl;
     cout << "Number of records in each page: " << table._num_records_each_page << endl;
+    cout << "Last empty slots map page: " << table._last_empty_slots_map_page << endl;
+    cout << "Last empty pages map page: " << table._last_empty_pages_map_page << endl;
+    cout << "Last record page: " << table._last_record_page << endl;
 
-    cout << "Empty slots: " << endl;
+    cout << "Empty slots: " << table._empty_slots_map.size() << endl;
     for (int i = 0; i < table._empty_slots_map.size(); ++i) {
         if (table._empty_slots_map[i])
             cout << "    " << i << endl;
     }
 
-    cout << "Empty pages: " << endl;
+    cout << "Empty pages: " << table._empty_pages_map.size() << endl;
     for (int i = 0; i < table._empty_pages_map.size(); ++i) {
         if (table._empty_pages_map[i])
             cout << "    " << i << endl;
@@ -85,11 +89,13 @@ int main() {
 
 
 
-
+    // close table
+    rtv = table.close();
+    cout << rtv << endl;
 
     // test remove
-    // rtv = table.remove("student");
-    // cout << rtv << endl;
+    rtv = table.remove("student");
+    cout << rtv << endl;
 
 
 }
