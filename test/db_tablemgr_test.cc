@@ -47,5 +47,8 @@ int main() {
 
     cout << rtv << endl;
 
+    rtv = table.remove("student");
+    cout << rtv << endl;
+
 
 }
