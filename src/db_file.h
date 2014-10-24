@@ -118,6 +118,15 @@ public:
     void writePage(const uint64 i, const char* buffer) {
         _fs.seekp(_page_size * i);
         _fs.write(buffer, _page_size);
+        // enlarge file
+        if (i > _num_pages) {
+            _num_pages = i;
+            char buffer2[sizeof(_num_pages) + sizeof(_page_size)];
+            memcpy(buffer2, &_page_size, sizeof(_page_size));
+            memcpy(buffer2 + sizeof(_page_size), &_num_pages, sizeof(_num_pages));
+            _fs.seekp(0);
+            _fs.write(buffer2, sizeof(_num_pages) + sizeof(_num_pages));
+        }
     }
 
     // read data in Page i to buffer
