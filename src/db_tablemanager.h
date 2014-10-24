@@ -106,7 +106,6 @@ public:
         _file->writePage(4, buffer);
         
 
-
         // delete DBFile
         delete[] buffer;
         delete _file;
@@ -240,6 +239,9 @@ private:
         // number of records in each page
         uint64 records_num_each_page = (page_size - PAGE_HEADER_LENGTH) /
                                        record_length;
+        while (records_num_each_page * record_length + PAGE_HEADER_LENGTH + 
+               (records_num_each_page + 7) / 8 > page_size) 
+            --records_num_each_page;
         memcpy(buffer + pos, &records_num_each_page, sizeof(records_num_each_page));
         pos += sizeof(records_num_each_page);
         // first record page
