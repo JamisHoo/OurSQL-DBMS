@@ -27,7 +27,7 @@ private:
     static constexpr char DB_SUFFIX[] = ".tb";
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
-    static constexpr uint64 DEFAULT_PAGE_SIZE = 4096 * 1024;
+    static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
 
     // header pages format constants
     static constexpr uint64 TABLE_NAME_LENGTH = 512;
@@ -37,8 +37,6 @@ private:
     static constexpr uint64 FIRST_RECORD_PAGE = 5;
     static constexpr uint64 FIRST_EMPTY_SLOT_PAGE = 3;
     static constexpr uint64 FIRST_EMPTY_PAGE_PAGE = 4;
-
-
 
 public:
     DBTableManager(): _file(nullptr) { }
