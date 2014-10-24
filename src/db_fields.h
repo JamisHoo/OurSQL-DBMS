@@ -41,7 +41,8 @@ public:
     DBFields(): _total_length(0) { }
     ~DBFields() { }
 
-    // insert field 
+    // insert a field with known types data
+    // usually used by upper layer control module
     void insert(const uint64 field_type, const uint64 field_length,
                 const bool is_primary_key, const std::string& field_name) {
         _field_id.push_back(_field_id.size());
@@ -51,7 +52,9 @@ public:
         _field_name.push_back(field_name);
         _total_length += field_length;
     }
-
+    
+    // insert a field with unknown types data
+    // usually read from existing database
     void insert(const char* field_description, uint64 length) {
         uint64 pos = 0;
         _field_id.push_back(*(pointer_convert<const uint64*>(field_description + pos)));
@@ -93,6 +96,7 @@ public:
         memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
     }
 
+    // generate a record with fields info
     void generateRecord(std::initializer_list<void*> args, char* buffer) const {
         uint64 i = 0;
         for (auto arg: args) {
