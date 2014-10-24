@@ -40,7 +40,12 @@ private:
     static constexpr uint64 FIRST_EMPTY_PAGES_PAGE = 4;
 
 public:
-    DBTableManager(): _file(nullptr) { }
+    DBTableManager(): _file(nullptr), 
+                      _num_fields(0), 
+                      _pages_each_map_page(0),
+                      _record_length(0),
+                      _num_records_each_page(0) { }
+
     ~DBTableManager() {
         // open table should be closed explicitly
         // but we will close it if not
@@ -53,6 +58,7 @@ public:
     }
 
     // create a table 
+    // table name cannot be too long that exceeds system limit
     // assert _file == nullptr
     // i.e. no table have been opened
     // returns 0 if succeed, 1 otherwise
@@ -161,10 +167,20 @@ public:
 
         bool rtv = _file -> close();
         
+   
+
         // close successful
         if (rtv == 0) {
             delete _file;
             _file = nullptr;
+            _table_name = "";
+            _num_fields = 0;
+            _fields.clear();
+            _pages_each_map_page = 0;
+            _record_length = 0;
+            _num_records_each_page = 0;
+            _empty_slots_map.clear();
+            _empty_pages_map.clear();
             return 0;
         } else {
         // close failed

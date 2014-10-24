@@ -66,6 +66,7 @@ public:
         pos += sizeof(bool);
 
         _field_name.push_back(std::string(field_description + pos, length - pos));
+        _total_length += _field_length.back();
     }
 
     // generate description of field[i]
@@ -112,7 +113,7 @@ public:
         _total_length = 0;
     }
 
-// private:
+private:
     const std::vector<uint64>& field_id() const {
         return _field_id;
     }

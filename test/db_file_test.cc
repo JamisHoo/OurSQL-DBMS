@@ -21,6 +21,7 @@ int main() {
     using namespace std;
     using namespace Database;
 
+
     DBFile file("filename");
     // open an non-existing file, return 0 
     assert(file.open() == 0);
@@ -34,7 +35,8 @@ int main() {
     memcpy(buffer + 8, &num_pages, 8);
 
     // create file
-    file.create(4096, buffer);
+    cout << file.create(4096, buffer);
+    cout << endl;
     assert(file.accessible() == 1);
 
     // open file

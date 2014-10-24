@@ -39,16 +39,57 @@ int main() {
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
     */
+
+
+    // test create
     fields.insert(DBFields::TYPE_UINT32, 8, 1, "Student ID");
     fields.insert(DBFields::TYPE_CHAR, 100, 0, "Student name");
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
-    int rtv = table.create("student", fields, 4096);
+    // int rtv = table.create("student", fields, 4096);
+    // cout << rtv << endl;
 
+
+    
+    int rtv = table.open("student");
     cout << rtv << endl;
 
-    rtv = table.remove("student");
-    cout << rtv << endl;
+    cout << "Table name: " << table._table_name << endl;
+    cout << "Number of fields: " << table._num_fields << endl;
+    cout << "Pages in each map page: " << table._pages_each_map_page << endl;
+    cout << "Record length: " << table._record_length << endl;
+    cout << "Number of records in each page: " << table._num_records_each_page << endl;
+
+    cout << "Empty slots: " << endl;
+    for (int i = 0; i < table._empty_slots_map.size(); ++i) {
+        if (table._empty_slots_map[i])
+            cout << "    " << i << endl;
+    }
+
+    cout << "Empty pages: " << endl;
+    for (int i = 0; i < table._empty_pages_map.size(); ++i) {
+        if (table._empty_pages_map[i])
+            cout << "    " << i << endl;
+    }
+
+    cout << "DBField info: " << endl;
+    DBFields& fields2 = table._fields;
+    cout << "Num fields: " << fields2.size() << endl;
+    cout << "Total length: " << fields2.recordLength() << endl;
+    
+    for (int i = 0; i < fields2.size(); ++i)
+        cout << fields2.field_id()[i] << ' ' << fields2.field_type()[i] << ' ' 
+             << fields2.field_length()[i] << ' ' << fields2.primary_key()[i] << ' '
+             << fields2.field_name()[i] << endl;
+
+
+
+
+
+
+    // test remove
+    // rtv = table.remove("student");
+    // cout << rtv << endl;
 
 
 }
