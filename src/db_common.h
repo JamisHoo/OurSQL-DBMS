@@ -38,6 +38,17 @@ struct RID {
     }
 };
 
+// Maybe there's some protable problem with reinterpret_cast<T>()?
+// Use the functions below to replace it.
+template <class T>
+T pointer_convert(void* pointer) {
+    return static_cast<T>(static_cast<void*>(pointer));
+}
+
+template <class T>
+T pointer_convert(const void* pointer) {
+    return static_cast<T>(static_cast<const void*>(pointer));
+}
 
 } // namespace Database
 

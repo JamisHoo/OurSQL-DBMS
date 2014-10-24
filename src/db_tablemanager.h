@@ -349,32 +349,32 @@ private:
         pos += TABLE_NAME_LENGTH;
 
         // fields num
-        _num_fields = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _num_fields = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_num_fields);
         
 
         // mapped pages in each page
-        _pages_each_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _pages_each_map_page = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_pages_each_map_page);
         
         // record length
-        _record_length = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _record_length = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_record_length);
 
         // number of records stored in each page
-        _num_records_each_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _num_records_each_page = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_num_records_each_page);
         
         // last empty slots map page
-        _last_empty_slots_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _last_empty_slots_map_page = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_last_empty_slots_map_page);
 
         // last empty pages map page
-        _last_empty_pages_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _last_empty_pages_map_page = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_last_empty_pages_map_page);
 
         // last record page
-        _last_record_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        _last_record_page = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_last_record_page);
     }
 
@@ -418,11 +418,11 @@ private:
     }
 
     void parseEmptyMapPages(char* buffer, std::vector<bool>& vec, uint64& last_page) const {
-        uint64 page_id = *(reinterpret_cast<const uint64*>(buffer));
+        uint64 page_id = *(pointer_convert<const uint64*>(buffer));
         last_page = page_id;
         buffer += sizeof(uint64);
         buffer += sizeof(uint64);
-        uint64 next_page_id = *(reinterpret_cast<const uint64*>(buffer)); 
+        uint64 next_page_id = *(pointer_convert<const uint64*>(buffer)); 
         buffer += sizeof(uint64);
         
         const char* buffer_end = buffer + _file->pageSize() - PAGE_HEADER_LENGTH;
@@ -457,9 +457,9 @@ private:
     // parse a page header
     std::array<uint64, 3> parsePageHeader(const char* buffer) const {
         return std::array<uint64, 3>{
-            *(reinterpret_cast<const uint64*>(buffer)),
-            *(reinterpret_cast<const uint64*>(buffer + sizeof(uint64))),
-            *(reinterpret_cast<const uint64*>(buffer + 2 * sizeof(uint64)))
+            *(pointer_convert<const uint64*>(buffer)),
+            *(pointer_convert<const uint64*>(buffer + sizeof(uint64))),
+            *(pointer_convert<const uint64*>(buffer + 2 * sizeof(uint64)))
         };
     }
 

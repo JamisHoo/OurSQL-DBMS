@@ -49,8 +49,8 @@ public:
         char buffer[sizeof(_page_size) + sizeof(_num_pages)];
         _fs.read(buffer, sizeof(_page_size) + sizeof(_num_pages));
         
-        _page_size = *(reinterpret_cast<uint64*>(buffer));
-        _num_pages = *(reinterpret_cast<uint64*>(buffer + sizeof(_page_size)));
+        _page_size = *(pointer_convert<uint64*>(buffer));
+        _num_pages = *(pointer_convert<uint64*>(buffer + sizeof(_page_size)));
 
         return _page_size;
     };
