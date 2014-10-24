@@ -341,6 +341,7 @@ private:
         // 1st page end
     }
 
+    // parse 2nd page of database file
     void parseDataDescriptionPage(const char* buffer) {
         uint64 page_size = _file->pageSize();
         uint64 pos = 0;
@@ -377,7 +378,8 @@ private:
         _last_record_page = *(pointer_convert<const uint64*>(buffer + pos));
         pos += sizeof(_last_record_page);
     }
-
+    
+    // create 2nd page for a new database file
     void createFieldsDescriptionPages(const DBFields& fields, 
                                       uint64 page_size, char* buffer) const {
         // generate page header
@@ -403,6 +405,7 @@ private:
         memset(buffer + pos, ALIGN, page_size - pos);
     }
 
+    // parse 2nd page of a existing database file
     void parseFieldsDescriptionPages(const char* buffer) {
         uint64 pos = 0;
 
@@ -417,6 +420,7 @@ private:
         }
     }
 
+    // recursively parse 3rd or 4th page of an existing databse file
     void parseEmptyMapPages(char* buffer, std::vector<bool>& vec, uint64& last_page) const {
         uint64 page_id = *(pointer_convert<const uint64*>(buffer));
         last_page = page_id;
@@ -492,6 +496,7 @@ public:
     DBFile* _file;
     
     // variables below descript an open table
+    // they will be reset when closing the table
     std::string _table_name;
     uint64 _num_fields;
     DBFields _fields;
@@ -502,7 +507,9 @@ public:
     uint64 _last_empty_slots_map_page;
     uint64 _last_empty_pages_map_page;
     uint64 _last_record_page;
-
+    
+    // use vector<bool> to save memory
+    // if you find it slow, replace it with vector<char>
     std::vector<bool> _empty_slots_map;
     std::vector<bool> _empty_pages_map;
     
