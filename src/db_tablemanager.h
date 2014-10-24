@@ -80,6 +80,7 @@ public:
             return 1;
         }
         // else create successful
+        _file->open();
         
         // create 1st page
         createDataDescriptionPage(table_name, fields, page_size, buffer);
@@ -102,6 +103,8 @@ public:
         // 0 means full, 1 means there's at least one empty slot
         // memset(buffer, 0x00, page_size);
         _file->writePage(4, buffer);
+
+        _file->close();
         
 
         // delete DBFile
