@@ -25,6 +25,19 @@ class DBFile;
 class DBTableManager;
 class DBFields;
 
+struct RID {
+    uint64 pageID;
+    uint64 slotID;
+
+    inline bool operator==(const RID& rid) {
+        return pageID == rid.pageID && slotID == rid.slotID;
+    }
+
+    inline bool operator!=(const RID& rid) {
+        return !(*this == rid);
+    }
+};
+
 
 } // namespace Database
 
