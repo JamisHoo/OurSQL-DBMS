@@ -18,6 +18,7 @@
 #include <cassert>
 #include <string>
 #include <array>
+#include <bitset>
 #include "db_common.h"
 #include "db_file.h"
 #include "db_fields.h"
@@ -35,8 +36,8 @@ private:
     static constexpr uint64 PAGE_HEADER_LENGTH = 24;
     static constexpr uint64 FIRST_FIELDS_INFO_PAGE = 2;
     static constexpr uint64 FIRST_RECORD_PAGE = 5;
-    static constexpr uint64 FIRST_EMPTY_SLOT_PAGE = 3;
-    static constexpr uint64 FIRST_EMPTY_PAGE_PAGE = 4;
+    static constexpr uint64 FIRST_EMPTY_SLOTS_PAGE = 3;
+    static constexpr uint64 FIRST_EMPTY_PAGES_PAGE = 4;
 
 public:
     DBTableManager(): _file(nullptr) { }
@@ -126,7 +127,29 @@ public:
 
         // openfile
         uint64 page_size = _file->open();
+        
+        char* buffer = new char[page_size];
+        // read 1st page
+        _file->readPage(1, buffer); 
+        // parse 1st page
+        parseDataDescriptionPage(buffer);
 
+        // read 2nd page
+        _file->readPage(FIRST_FIELDS_INFO_PAGE, buffer);
+        // parse 2nd page
+        parseFieldsDescriptionPages(buffer);
+
+        // read 3rd page
+        _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+        // parse 3rd page
+        parseEmptyMapPages(buffer, _empty_slots_map);
+
+        // read 4th page
+        _file->readPage(FIRST_EMPTY_PAGES_PAGE, buffer);
+        // parse 4th page
+        parseEmptyMapPages(buffer, _empty_pages_map);
+        
+        delete[] buffer;
         return !page_size;
     }
 
@@ -210,25 +233,31 @@ private:
         pos += sizeof(fields_num);
         /*
         // too many fields that need more than one description page are not supported for now
+        // if u wanna implement it, don't forget that 5th page is the first records page, reserve it
         // number of filed description in each page
         uint64 field_info_each_page = (page_size - PAGE_HEADER_LENGTH) /
                                       FIELD_INFO_LENGTH;
         memcpy(buffer + pos, &field_info_each_page, sizeof(field_info_each_page));
         pos += sizeof(field_info_each_page);
         */
+        /*
+        // abandoned
         // first field description page
         uint64 first_page_info_page = FIRST_FIELDS_INFO_PAGE;
         memcpy(buffer + pos, &first_page_info_page, sizeof(first_page_info_page));
         pos += sizeof(first_page_info_page);
-        
+        */
+        /* 
+        // abandoned
         // first empty slot map page
-        uint64 first_empty_slot_page = FIRST_EMPTY_SLOT_PAGE;
+        uint64 first_empty_slot_page = FIRST_EMPTY_SLOTS_PAGE;
         memcpy(buffer + pos, &first_empty_slot_page, sizeof(first_empty_slot_page));
         pos += sizeof(first_empty_slot_page);
         // first empty page map page
-        uint64 first_empty_page_page = FIRST_EMPTY_PAGE_PAGE;
+        uint64 first_empty_page_page = FIRST_EMPTY_PAGES_PAGE;
         memcpy(buffer + pos, &first_empty_page_page, sizeof(first_empty_page_page));
         pos += sizeof(first_empty_page_page);
+        */
         // mapped pages in each page
         uint64 pages_mapped_each_page = (page_size - PAGE_HEADER_LENGTH) * 8;
         memcpy(buffer + pos, &pages_mapped_each_page, sizeof(pages_mapped_each_page));
@@ -246,13 +275,62 @@ private:
             --records_num_each_page;
         memcpy(buffer + pos, &records_num_each_page, sizeof(records_num_each_page));
         pos += sizeof(records_num_each_page);
+        /*
+        // abandoned
         // first record page
         uint64 first_record_page = FIRST_RECORD_PAGE;
         memcpy(buffer + pos, &first_record_page, sizeof(first_record_page));
         pos += sizeof(first_record_page);
+        */
         // align
         memset(buffer + pos, ALIGN, page_size - pos);
         // 1st page end
+    }
+
+    void parseDataDescriptionPage(const char* buffer) {
+        uint64 page_size = _file->pageSize();
+        uint64 pos = 0;
+        // table name
+        _table_name = std::string(buffer + pos, TABLE_NAME_LENGTH);
+        pos += TABLE_NAME_LENGTH;
+
+        // fields num
+        _num_fields = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_num_fields);
+        
+        /*
+        // abandoned
+        // first field description page
+        _page_info_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_page_info_page);
+
+        // first empty slots map page
+        _empty_slots_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_empty_slots_map_page);
+
+        // first empty pages map page
+        _empty_pages_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_empty_slots_map_page);
+        */
+
+        // mapped pages in each page
+        _pages_each_map_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_pages_each_map_page);
+        
+        // record length
+        _record_length = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_record_length);
+
+        // number of records stored in each page
+        _num_records_each_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_num_records_each_page);
+
+        /*
+        // abandoned
+        // first records page
+        _records_page = *(reinterpret_cast<const uint64*>(buffer + pos));
+        pos += sizeof(_records_page);
+        */
     }
 
     void createFieldsDescriptionPages(const DBFields& fields, 
@@ -280,6 +358,45 @@ private:
         memset(buffer + pos, ALIGN, page_size - pos);
     }
 
+    void parseFieldsDescriptionPages(const char* buffer) {
+        uint64 pos = 0;
+
+        // page header ignored
+        pos += PAGE_HEADER_LENGTH;
+
+        // parse fields description
+        _fields.clear();
+        for (uint64 i = 0; i < _num_fields; ++i) {
+            _fields.insert(buffer + pos, FIELD_INFO_LENGTH);
+            pos += FIELD_INFO_LENGTH;
+        }
+    }
+
+    void parseEmptyMapPages(char* buffer, std::vector<bool>& vec) {
+        buffer += sizeof(uint64);
+        buffer += sizeof(uint64);
+        uint64 next_page_id = *(reinterpret_cast<const uint64*>(buffer)); 
+        buffer += sizeof(uint64);
+        
+        const char* buffer_end = buffer + _file->pageSize() - PAGE_HEADER_LENGTH;
+        while (buffer != buffer_end) {
+            char bits = *(buffer++);
+            vec.push_back(bits & 0x01);
+            vec.push_back(bits & 0x02);
+            vec.push_back(bits & 0x04);
+            vec.push_back(bits & 0x08);
+            vec.push_back(bits & 0x10);
+            vec.push_back(bits & 0x20);
+            vec.push_back(bits & 0x40);
+            vec.push_back(bits & 0x80);
+        }
+
+        if (next_page_id != 0) {
+            _file->readPage(next_page_id, buffer);
+            parseEmptyMapPages(buffer, vec);
+        }
+    }
+
     std::array<char, 3 * sizeof(uint64)> makePageHeader(const uint64 id, 
                                                         const uint64 nextid, 
                                                         const uint64 previd) {
@@ -305,6 +422,23 @@ private:
     DBTableManager& operator=(const DBTableManager&&)& = delete;
 
     DBFile* _file;
+    
+    // variables below descript an open table
+    std::string _table_name;
+    uint64 _num_fields;
+    DBFields _fields;
+    uint64 _pages_each_map_page;
+    uint64 _record_length;
+    uint64 _num_records_each_page;
+    // abandoned
+    // uint64 _page_info_page;
+    // uint64 _empty_slots_map_page;
+    // uint64 _empty_pages_map_page;
+    // uint64 _records_page;
+
+    std::vector<bool> _empty_slots_map;
+    std::vector<bool> _empty_pages_map;
+    
 };
 
 #endif /* DB_TABLEMANAGER_H_ */

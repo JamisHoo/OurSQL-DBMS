@@ -50,6 +50,8 @@ int main() {
     memset(buffer, 0xf0, 4096);
     file.writePage(10, buffer);
 
+    assert(file.numPages() == 10);
+    
     // read data
     char read_buffer[4096];
     file.readPage(3, read_buffer);

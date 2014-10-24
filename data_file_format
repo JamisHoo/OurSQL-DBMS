@@ -12,15 +12,15 @@ Data File Format(Not finished)
     Table Name: 512 Byte
 
     Fields number: 8 Byte
-    First field description page: 8 Byte
+    // First field description page: 8 Byte
 
-    Empty slots map start page: 8 Byte
-    Empty pages map start page: 8 Byte
+    // Empty slots map start page: 8 Byte
+    // Empty pages map start page: 8 Byte
     Pages number in each bitmap page: 8 Byte
 
     Record length(in Byte): 8 Byte
     Records number in each page / slot count: 8 Byte
-    First record page: 8 Byte
+    // First record page: 8 Byte
 
 
 

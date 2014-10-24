@@ -51,6 +51,23 @@ public:
         _total_length += field_length;
     }
 
+    void insert(const char* field_description, uint64 length) {
+        uint64 pos = 0;
+        _field_id.push_back(*(reinterpret_cast<const uint64*>(field_description + pos)));
+        pos += sizeof(uint64);
+
+        _field_type.push_back(*(reinterpret_cast<const uint64*>(field_description + pos)));
+        pos += sizeof(uint64);
+
+        _field_length.push_back(*(reinterpret_cast<const uint64*>(field_description + pos)));
+        pos += sizeof(uint64);
+
+        _is_primary_key.push_back(*(reinterpret_cast<const bool*>(field_description + pos)));
+        pos += sizeof(bool);
+
+        _field_name.push_back(std::string(field_description + pos, length));
+    }
+
     // generate description of field[i]
     // the buffer is supposed to clear by caller
     void generateFieldDescription(const uint64 i, char* buffer) const {
@@ -69,10 +86,11 @@ public:
         pos += sizeof(uint64);
         // primary key
         *(buffer + pos) = _is_primary_key[i];
-        ++pos;
+        pos += sizeof(bool);
         // field name
         memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
     }
+
 
     // number of fields
     uint64 size() const {
@@ -82,6 +100,16 @@ public:
     // total length of each field
     uint64 recordLength() const {
         return _total_length;
+    }
+
+    // clear all saved info
+    void clear() {
+        _field_id.clear();
+        _field_type.clear();
+        _field_length.clear();
+        _is_primary_key.clear();
+        _field_name.clear();
+        _total_length = 0;
     }
 
 private:
