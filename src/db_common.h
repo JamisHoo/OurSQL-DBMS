@@ -40,13 +40,13 @@ struct RID {
 
 // Maybe there's some protable problem with reinterpret_cast<T>()?
 // Use the functions below to replace it.
-template <class T>
-T pointer_convert(void* pointer) {
+template <class T, class T2>
+T pointer_convert(T2* pointer) {
     return static_cast<T>(static_cast<void*>(pointer));
 }
 
-template <class T>
-T pointer_convert(const void* pointer) {
+template <class T, class T2>
+T pointer_convert(const T2* pointer) {
     return static_cast<T>(static_cast<const void*>(pointer));
 }
 
