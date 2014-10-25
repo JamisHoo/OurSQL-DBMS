@@ -489,7 +489,7 @@ public:
 #endif
     // forbid copying
     DBTableManager (const DBTableManager&) = delete;
-    DBTableManager (const DBTableManager&&) = delete;
+    DBTableManager (DBTableManager&&) = delete;
     DBTableManager& operator=(const DBTableManager&)& = delete;
     DBTableManager& operator=(const DBTableManager&&)& = delete;
 

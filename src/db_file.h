@@ -142,7 +142,7 @@ public:
 private:
     // forbid copying
     DBFile(const DBFile&) = delete;
-    DBFile(const DBFile&&) = delete;
+    DBFile(DBFile&&) = delete;
     DBFile& operator=(const DBFile&) & = delete;
     DBFile& operator=(const DBFile&&) & = delete;
 
