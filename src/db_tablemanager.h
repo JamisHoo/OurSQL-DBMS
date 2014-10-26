@@ -68,7 +68,7 @@ public:
     // table won't be opened  after created
     bool create(const std::string& table_name,
                 const DBFields& fields, 
-                uint64 page_size = DEFAULT_PAGE_SIZE) {
+                const uint64 page_size = DEFAULT_PAGE_SIZE) {
         // there's already a table opened
         if (isopen()) return 1;
         
@@ -220,7 +220,7 @@ public:
     // input: record ID
     // assert file is open
     // returns 0 if succeed, 1 otherwise
-    bool removeRecord(const RID& rid) {
+    bool removeRecord(const RID rid) {
         if (!isopen()) return 1;
 
         // TODO
@@ -236,7 +236,7 @@ public:
     // modify field field_id of record rid to arg
     // assert file is open
     // returns 0 if succeed, 1 otherwise
-    bool modifyRecord(const RID& rid, const uint64 field_id, const void* arg) {
+    bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
 
 
 
@@ -308,7 +308,7 @@ public:
 
 private:   
     // create file description page, 0th page
-    void createFileDescriptionPage(uint64 page_size, char* buffer) const {
+    void createFileDescriptionPage(const uint64 page_size, char* buffer) const {
         // page size
         uint64 pos = 0;
         memcpy(buffer + pos, &page_size, sizeof(page_size));
@@ -424,7 +424,7 @@ private:
     
     // create 2nd page for a new database file
     void createFieldsDescriptionPages(const DBFields& fields, 
-                                      uint64 page_size, char* buffer) const {
+                                      const uint64 page_size, char* buffer) const {
         // generate page header
         auto page_header = makePageHeader(FIRST_FIELDS_INFO_PAGE, 0, 0);
         assert(page_header.size() == PAGE_HEADER_LENGTH);
@@ -557,9 +557,9 @@ public:
     std::vector<bool> _empty_pages_map;
 
     // TODO:
-    // variable _last_empty_pages_map_page and _empty_pages_page may be useless
     // if u don't wanna release empty pages
-    
+    // variable _last_empty_pages_map_page and _empty_pages_page may be useless
+
 };
 
 #endif /* DB_TABLEMANAGER_H_ */
