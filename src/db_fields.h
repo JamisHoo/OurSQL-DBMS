@@ -46,6 +46,7 @@ public:
     void insert(const uint64 field_type, const uint64 field_length,
                 const bool is_primary_key, const std::string& field_name) {
         _field_id.push_back(_field_id.size());
+        _offset.push_back(_total_length);
         _field_type.push_back(field_type);
         _field_length.push_back(field_length);
         _is_primary_key.push_back(is_primary_key);
@@ -55,10 +56,12 @@ public:
     
     // insert a field with unknown types data
     // usually read from existing database
-    void insert(const char* field_description, uint64 length) {
+    void insert(const char* field_description, const uint64 length) {
         uint64 pos = 0;
         _field_id.push_back(*(pointer_convert<const uint64*>(field_description + pos)));
         pos += sizeof(uint64);
+
+        _offset.push_back(_total_length);
 
         _field_type.push_back(*(pointer_convert<const uint64*>(field_description + pos)));
         pos += sizeof(uint64);
@@ -97,7 +100,7 @@ public:
     }
 
     // generate a record with fields info
-    void generateRecord(std::initializer_list<void*> args, char* buffer) const {
+    void generateRecord(const std::initializer_list<void*> args, char* buffer) const {
         uint64 i = 0;
         for (auto arg: args) {
             memcpy(buffer, arg, _field_length[i]);
@@ -118,6 +121,7 @@ public:
     // clear all saved info
     void clear() {
         _field_id.clear();
+        _offset.clear();
         _field_type.clear();
         _field_length.clear();
         _is_primary_key.clear();
@@ -131,6 +135,10 @@ public:
 #endif
     const std::vector<uint64>& field_id() const {
         return _field_id;
+    }
+
+    const std::vector<uint64>& offset() const {
+        return _offset;
     }
 
     const std::vector<uint64>& field_type() const {
@@ -148,9 +156,11 @@ public:
     const std::vector<std::string>& field_name() const {
         return _field_name;
     }
+
     
 private:
     std::vector<uint64> _field_id;
+    std::vector<uint64> _offset;
     std::vector<uint64> _field_type;
     std::vector<uint64> _field_length;
     std::vector<bool> _is_primary_key;
