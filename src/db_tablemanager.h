@@ -233,6 +233,24 @@ public:
 
     }
 
+    // modify field field_id of record rid to arg
+    // assert file is open
+    // returns 0 if succeed, 1 otherwise
+    bool modifyRecord(const RID& rid, const uint64 field_id, const void* arg) {
+
+
+
+    }
+
+    // find records meet the conditions in field_id
+    // return RIDs of the records
+    // assert file is open
+    template <class CONDITION>
+    std::vector<RID> findRecords(const uint64 field_id, CONDITION condition) {
+
+
+    }
+
     // close an open table
     // assert there's an open table
     // returns 0 if succeed, 1 otherwise
