@@ -192,19 +192,44 @@ public:
     // assert number of args == number of fields
     // assert file is open
     // returns 0 if succeed, 1 otherwise
-    bool insert(std::initializer_list<void*> args) {
+    bool insertRecord(const std::initializer_list<void*> args) {
         if (!isopen()) return 1;
         if (args.size() != _fields.size()) return 1;
 
         // TODO
-        // generate record
+        // pass args to _field to generate a record in raw data
 
-        // find a empty record slot
+        // find an empty record slot
 
-        // if not found, create a new page
-            // add to empty_slot_map 
-            // add to empty_page_map
+        // if found an empty record slot, mark this slot as non-empty
+            // if this is a empty slot in a empty page,
+            // mark this page as non-empty.
 
+        // if not found, create a new page, 
+        // append this page to record pages list tail, 
+        // modify _last_record_page.
+        // add this page to empty_slots_map_page, empty_pages_map_page(this may lead to new map pages)
+        // mark this page as non-empty, this slot as non-empty, other slots as empty
+
+        // insert the record to the slot
+
+        return 0;
+    }
+
+    // remove a record
+    // input: record ID
+    // assert file is open
+    // returns 0 if succeed, 1 otherwise
+    bool removeRecord(const RID& rid) {
+        if (!isopen()) return 1;
+
+        // TODO
+        // find the record
+
+        // remove it
+        // mark the slot empty
+        
+        // check whether the page gets empty
 
     }
 
@@ -512,6 +537,10 @@ public:
     // if you find it slow, replace it with vector<char>
     std::vector<bool> _empty_slots_map;
     std::vector<bool> _empty_pages_map;
+
+    // TODO:
+    // variable _last_empty_pages_map_page and _empty_pages_page may be useless
+    // if u don't wanna release empty pages
     
 };
 
