@@ -38,7 +38,7 @@ struct RID {
     }
 };
 
-// Maybe there's some protable problem with reinterpret_cast<T>()?
+// Maybe there's some protable problems with reinterpret_cast<T>()?
 // Use the functions below to replace it.
 template <class T, class T2>
 T pointer_convert(T2* pointer) {
