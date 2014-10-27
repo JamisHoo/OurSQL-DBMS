@@ -18,7 +18,7 @@ Data File Format(Not finished)
     Record length(in Byte): 8 Byte
     Records number in each page / slot count: 8 Byte
     Last empty slots map page: 8 Byte
-    Last empty pages map page: 8 Byte
+    // Last empty pages map page: 8 Byte
     Last record page: 8 Byte
 
 
@@ -38,13 +38,14 @@ Data File Format(Not finished)
     PAGE HEADER
     Bitmap(each bit describe one page, 0 - no empty slot, 1 - at least one empty slot)
     ALIGN
-
+/*
 4th Page(Empty pages map, maybe multiple pages):
     PAGE HEADER
     Bitmap(each bit describe one page, 0 - non-empty page, 1 - empty page)
     ALIGN
-
-5th Page(Records, maybe multiple pages):
+*/
+// 5th Page(Records, maybe multiple pages):
+4th Page(Records, maybe multiple pages):
     PAGE HEADER
     Bitmap: ceil(slot count / 64) * 8 Byte
     // RID of record is (Page Number + Slot Number)

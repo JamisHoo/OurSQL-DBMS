@@ -61,18 +61,11 @@ int main() {
     cout << "Record length: " << table._record_length << endl;
     cout << "Number of records in each page: " << table._num_records_each_page << endl;
     cout << "Last empty slots map page: " << table._last_empty_slots_map_page << endl;
-    cout << "Last empty pages map page: " << table._last_empty_pages_map_page << endl;
     cout << "Last record page: " << table._last_record_page << endl;
 
     cout << "Empty slots: " << table._empty_slots_map.size() << endl;
     for (int i = 0; i < table._empty_slots_map.size(); ++i) {
         if (table._empty_slots_map[i])
-            cout << "    " << i << endl;
-    }
-
-    cout << "Empty pages: " << table._empty_pages_map.size() << endl;
-    for (int i = 0; i < table._empty_pages_map.size(); ++i) {
-        if (table._empty_pages_map[i])
             cout << "    " << i << endl;
     }
 
@@ -94,8 +87,8 @@ int main() {
     cout << rtv << endl;
 
     // test remove
-    rtv = table.remove("student");
-    cout << rtv << endl;
+    // rtv = table.remove("student");
+    // cout << rtv << endl;
 
 
 }
