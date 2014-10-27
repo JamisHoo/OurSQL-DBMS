@@ -532,7 +532,47 @@ private:
         delete[] buffer;
     }
 
+    // TODO: merge to one function with the above?
     void createNewMapPage() {
+        uint64 newPageID = _file->numPages();
+
+        char* buffer = new char[_file->pageSize()];
+
+        // record pages are double-linked list, need to modify the last page
+        _file->readPage(_last_empty_slots_map_page, buffer);
+
+        // page header of the last page
+        auto oldPageHeader = parsePageHeader(buffer);
+        
+        // modify "Next Page" to new page id
+        auto modifiedPageHeader = makePageHeader(oldPageHeader[0], 
+                                                 oldPageHeader[1],
+                                                 newPageID);
+        // copy to buffer
+        memcpy(buffer, modifiedPageHeader.data(), PAGE_HEADER_LENGTH);
+        // and overwrite
+        _file->writePage(_last_empty_slots_map_page, buffer);
+        
+        // generate new page header
+        auto newPageHeader = makePageHeader(newPageID, 
+                                            oldPageHeader[0],
+                                            0);
+        // copy to buffer
+        memset(buffer, 0x00, _file->numPages());
+        memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
+        // TODO:
+        // need to write map into this page
+
+        // write to file, and modify _last_record_page
+        _file->writePage(++_last_empty_slots_map_page, buffer);
+
+        assert(_file->numPages() == newPageID + 1);
+        
+        // add the new page to slots map
+        _empty_slots_map.push_back(0);
+        // TODO
+        // this may lead to new map page?
+
 
     }
 
