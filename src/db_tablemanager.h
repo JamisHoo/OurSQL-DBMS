@@ -443,6 +443,7 @@ private:
         uint64 next_page_id = *(pointer_convert<const uint64*>(buffer)); 
         buffer += sizeof(uint64);
         
+        // Here, we may add extra bits mapping non-existing pages
         const char* buffer_end = buffer + _file->pageSize() - PAGE_HEADER_LENGTH;
         while (buffer != buffer_end) {
             char bits = *(buffer++);
@@ -485,7 +486,7 @@ private:
     // returns 0 if not found
     uint64 findEmptySlot() const {
         for (uint64 i = 0; i < _empty_slots_map.size(); ++i) 
-            if (_empty_slots_map[i] == 0) return i;
+            if (_empty_slots_map[i] == 1) return i;
         return 0;
     }
     
@@ -523,16 +524,17 @@ private:
 
         assert(_file->numPages() == newPageID + 1);
         
-        // add the new page to slots map
-        _empty_slots_map.push_back(0);
         // this may lead to new map page
-        // TODO
+        if (_empty_slots_map.size() == newPageID)
+            createNewMapPage();
 
+        // add the new page to slots map
+        _empty_slots_map[newPageID] = 1;
 
         delete[] buffer;
     }
 
-    // TODO: merge to one function with the above?
+    // create new map page
     void createNewMapPage() {
         uint64 newPageID = _file->numPages();
 
@@ -560,20 +562,19 @@ private:
         // copy to buffer
         memset(buffer, 0x00, _file->numPages());
         memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
-        // TODO:
-        // need to write map into this page
+        // need not to write bits into this page
+        // becasue 0 stands for non-empty or non-existing page
 
-        // write to file, and modify _last_record_page
+        // write to file, and modify _last_empty_slots_map_page
         _file->writePage(++_last_empty_slots_map_page, buffer);
 
         assert(_file->numPages() == newPageID + 1);
         
         // add the new page to slots map
-        _empty_slots_map.push_back(0);
-        // TODO
-        // this may lead to new map page?
+        _empty_slots_map.resize(_empty_slots_map.size() + 
+                                8 * (_file->pageSize() - PAGE_HEADER_LENGTH), 0);
 
-
+        delete[] buffer;
     }
 
 private:
@@ -602,7 +603,8 @@ public:
     
     // use vector<bool> to save memory
     // if you find it slow, replace it with vector<char>
-    // 0 means this slot is available
+    // 1 means there's empty slot in this page
+    // 0 means page is full or non-existing
     std::vector<bool> _empty_slots_map;
 
 };
