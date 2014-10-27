@@ -294,7 +294,7 @@ private:
         // 0th - file description, 1st - table description
         // 2nd - fields description, 3rd - empty slots bitmap
         // 4th - empty pages bitmap
-        uint64 num_pages = 4;
+        uint64 num_pages = 5;
         memcpy(buffer + pos, &num_pages, sizeof(num_pages));
         pos += sizeof(num_pages);
         // align
@@ -487,6 +487,17 @@ private:
         for (uint64 i = 0; i < _empty_slots_map.size(); ++i) 
             if (_empty_slots_map[i] == 0) return i;
         return 0;
+    }
+
+    void createNewRecordPage() {
+        char* buffer = new char[_file->pageSize()];
+        _file->readPage(_last_record_page, buffer);
+        
+
+    }
+
+    void createNewMapPage() {
+
     }
 
 private:
