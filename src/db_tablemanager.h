@@ -196,22 +196,24 @@ public:
         if (!isopen()) return 1;
         if (args.size() != _fields.size()) return 1;
 
-        // TODO
         // pass args to _field to generate a record in raw data
+        char* buffer = new char[_fields.recordLength()];
+        generateRecord(args, buffer);
 
         // find an empty record slot
+        uint64 empty_slot_pageID = findEmptySlot();
 
-        // if found an empty record slot, mark this slot as non-empty
-            // if this is a empty slot in a empty page,
-            // mark this page as non-empty.
 
+        // TODO
         // if not found, create a new page, 
         // append this page to record pages list tail, 
         // modify _last_record_page.
-        // add this page to empty_slots_map_page, empty_pages_map_page(this may lead to new map pages)
-        // mark this page as non-empty, this slot as non-empty, other slots as empty
+        // add this page to empty map(this may lead to new map pages)
 
         // insert the record to the slot
+
+        // check whether there's still any empty slot in this page
+        // mark in empty page
 
         return 0;
     }
