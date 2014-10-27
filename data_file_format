@@ -35,7 +35,7 @@ Data File Format(Not finished)
 
 3rd Page(Empty slots map, maybe multiple pages):
     PAGE HEADER
-    Bitmap(each bit describe one page, 0 - there'are empty slots, 1 - no empty slot)
+    Bitmap(each bit describe one page, 1 - there'are empty slots, 0 - no empty slot or page not exists)
     ALIGN
 
 4th Page(Records, maybe multiple pages):
