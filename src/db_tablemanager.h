@@ -157,7 +157,7 @@ public:
         // read 3rd page
         _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
         // parse 3rd page
-        parseEmptyMapPages(buffer, _empty_slots_map, _last_empty_slots_map_page);
+        parseEmptyMapPages(buffer);
 
 
         delete[] buffer;
@@ -190,7 +190,7 @@ public:
         // insert the record to the slot
 
         // check whether there's still any empty slot in this page
-        // mark in empty page
+        // mark in empty in map
         delete[] buffer;
         return 0;
     }
@@ -216,7 +216,7 @@ public:
     // assert file is open
     // returns 0 if succeed, 1 otherwise
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
-
+        // TODO
 
 
     }
@@ -226,7 +226,7 @@ public:
     // assert file is open
     template <class CONDITION>
     std::vector<RID> findRecords(const uint64 field_id, CONDITION condition) {
-
+        // TODO
 
     }
 
@@ -435,9 +435,9 @@ private:
     }
 
     // recursively parse 3rd or 4th page of an existing databse file
-    void parseEmptyMapPages(char* buffer, std::vector<bool>& vec, uint64& last_page) const {
+    void parseEmptyMapPages(char* buffer) {
         uint64 page_id = *(pointer_convert<const uint64*>(buffer));
-        last_page = page_id;
+        _last_empty_slots_map_page = page_id;
         buffer += sizeof(uint64);
         buffer += sizeof(uint64);
         uint64 next_page_id = *(pointer_convert<const uint64*>(buffer)); 
@@ -446,19 +446,19 @@ private:
         const char* buffer_end = buffer + _file->pageSize() - PAGE_HEADER_LENGTH;
         while (buffer != buffer_end) {
             char bits = *(buffer++);
-            vec.push_back(bits & 0x01);
-            vec.push_back(bits & 0x02);
-            vec.push_back(bits & 0x04);
-            vec.push_back(bits & 0x08);
-            vec.push_back(bits & 0x10);
-            vec.push_back(bits & 0x20);
-            vec.push_back(bits & 0x40);
-            vec.push_back(bits & 0x80);
+            _empty_slots_map.push_back(bits & 0x01);
+            _empty_slots_map.push_back(bits & 0x02);
+            _empty_slots_map.push_back(bits & 0x04);
+            _empty_slots_map.push_back(bits & 0x08);
+            _empty_slots_map.push_back(bits & 0x10);
+            _empty_slots_map.push_back(bits & 0x20);
+            _empty_slots_map.push_back(bits & 0x40);
+            _empty_slots_map.push_back(bits & 0x80);
         }
 
         if (next_page_id != 0) {
             _file->readPage(next_page_id, buffer);
-            parseEmptyMapPages(buffer, vec, last_page);
+            parseEmptyMapPages(buffer);
         }
     }
 
