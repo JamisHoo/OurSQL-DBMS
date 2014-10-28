@@ -29,6 +29,9 @@ struct RID {
     uint64 pageID;
     uint64 slotID;
 
+    RID(const uint64 pageid, const uint64 slotid): 
+        pageID(pageid), slotID(slotid) { }
+
     inline bool operator==(const RID& rid) {
         return pageID == rid.pageID && slotID == rid.slotID;
     }
