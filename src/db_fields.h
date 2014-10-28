@@ -58,18 +58,18 @@ public:
     // usually read from existing database
     void insert(const char* field_description, const uint64 length) {
         uint64 pos = 0;
-        _field_id.push_back(*(pointer_convert<const uint64*>(field_description + pos)));
+        _field_id.push_back(*pointer_convert<const uint64*>(field_description + pos));
         pos += sizeof(uint64);
 
         _offset.push_back(_total_length);
 
-        _field_type.push_back(*(pointer_convert<const uint64*>(field_description + pos)));
+        _field_type.push_back(*pointer_convert<const uint64*>(field_description + pos));
         pos += sizeof(uint64);
 
-        _field_length.push_back(*(pointer_convert<const uint64*>(field_description + pos)));
+        _field_length.push_back(*pointer_convert<const uint64*>(field_description + pos));
         pos += sizeof(uint64);
 
-        _is_primary_key.push_back(*(pointer_convert<const bool*>(field_description + pos)));
+        _is_primary_key.push_back(*pointer_convert<const bool*>(field_description + pos));
         pos += sizeof(bool);
 
         _field_name.push_back(std::string(field_description + pos, length - pos));
