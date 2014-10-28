@@ -19,6 +19,7 @@
 #include <string>
 #include <array>
 #include <initializer_list>
+#include <tuple>
 #include "db_common.h"
 #include "db_file.h"
 #include "db_fields.h"
@@ -180,7 +181,6 @@ public:
         // find an empty record slot
         uint64 empty_slot_pageID = findEmptySlot();
 
-
         // if not found, create a new page, 
         // append this page to record pages list tail, 
         // modify _last_record_page.
@@ -188,11 +188,15 @@ public:
         if (!empty_slot_pageID)
             empty_slot_pageID = createNewRecordPage();
 
-        // TODO
         // insert the record to the slot
+        auto rtv = insertRecordtoPage(empty_slot_pageID, buffer);
+        // rtv[0]: RID, rtv[1]: empty_slots_remained
 
-        // check whether there's still any empty slot in this page
-        // mark in empty in map
+        // if there isn't any empty slot in this page
+        // mark it as full in map
+        if (!std::get<1>(rtv)) 
+            _empty_slots_map[empty_slot_pageID] = 0;
+
         delete[] buffer;
         return 0;
     }
@@ -493,7 +497,7 @@ private:
     }
     
     // create a new record page
-    unint64 createNewRecordPage() {
+    uint64 createNewRecordPage() {
         uint64 newPageID = _file->numPages();
 
         char* buffer = new char[_file->pageSize()];
@@ -520,6 +524,9 @@ private:
         // copy to buffer
         memset(buffer, 0x00, _file->numPages());
         memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
+
+        // TODO
+        // mark bitmap as empty
 
         // write to file, and modify _last_record_page
         _file->writePage(++_last_record_page, buffer);
@@ -579,7 +586,51 @@ private:
 
         delete[] buffer;
     }
+    
+    // select a slot in page pageID, insert buffer to this slot.
+    // returns RID of this slot
+    // returns whether there's still empty slot in this page
+    std::tuple<RID, bool> insertRecordtoPage(const uint64 pageID, const char* recordBuffer) {
+        char* pageBuffer = new char[_file->pageSize()];
+        // read target page
+        _file->readPage(pageID, pageBuffer);
+        
+        uint64 empty_slot_num = _num_records_each_page;
+        // scan slots bitmap, find an empty slot
+        for (uint64 i = 0; i < _num_records_each_page; ++i) 
+            // slot[i] == 1, it's empty
+            if (pageBuffer[PAGE_HEADER_LENGTH + i / 8] & ('\x01' << i % 8)) {
+                empty_slot_num = i;
+                // set this bit as full(0)
+                pageBuffer[PAGE_HEADER_LENGTH + i / 8] &= ~('\x01' << 8 % 8);
+                break;
+            }
+        
+        // there's still empty slot remained
+        bool empty_slot_remained = 0;
+        for (uint64 i = empty_slot_num; i < _num_records_each_page; ++i)
+            if (pageBuffer[PAGE_HEADER_LENGTH + i / 8] & ('\x01' << i % 8)) {
+                empty_slot_remained = 1;
+                break;
+            }
 
+        assert(empty_slot_num >= 0 && empty_slot_num < _num_records_each_page);
+
+        // write record
+        memcpy(pageBuffer + 
+                   /* page header offset */
+                   PAGE_HEADER_LENGTH + 
+                   /* bitmap offset, bitmap is n bytes aligned */
+                   (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) + 
+                   /* record offset */
+                   _record_length * empty_slot_num, 
+               recordBuffer,
+               _record_length);
+        
+        delete[] pageBuffer;
+        return std::make_tuple(RID(pageID, empty_slot_num), empty_slot_remained);
+    }
+    
 private:
 #ifdef DEBUG
 public:
