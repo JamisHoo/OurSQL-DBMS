@@ -105,6 +105,7 @@ public:
         for (auto arg: args) {
             memcpy(buffer, arg, _field_length[i]);
             buffer += _field_length[i];
+            ++i;
         }
     }
 

@@ -42,8 +42,8 @@ int main() {
 
 
     // test create
-    fields.insert(DBFields::TYPE_UINT32, 8, 1, "Student ID");
-    fields.insert(DBFields::TYPE_CHAR, 100, 0, "Student name");
+    fields.insert(DBFields::TYPE_UINT64, 8, 1, "Student ID");
+    fields.insert(DBFields::TYPE_CHAR, 2, 0, "Student name");
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
     int rtv;
@@ -78,6 +78,16 @@ int main() {
         cout << fields2.field_id()[i] << ' ' << fields2.field_type()[i] << ' ' 
              << fields2.field_length()[i] << ' ' << fields2.primary_key()[i] << ' '
              << fields2.field_name()[i] << endl;
+
+    unsigned long long student_id = 0x2001;
+    char student_name[1000] = "John Idiot";
+    bool clever = 1;
+    for (int i = 0; i < 3660; ++i) {
+        student_id += 1;
+        clever ^= 1;
+        rtv = table.insertRecord({ &student_id, student_name, &clever });
+        assert(rtv == 0);
+    }
 
 
 

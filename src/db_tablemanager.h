@@ -90,7 +90,7 @@ public:
         }
         // else create successful
         _file->open();
-        
+
         // create 1st page
         createDataDescriptionPage(table_name, fields, page_size, buffer);
 
@@ -119,6 +119,26 @@ public:
         memset(buffer, 0x00, page_size);
         uint64 first_page = FIRST_RECORD_PAGE;
         memcpy(buffer, &first_page, sizeof(first_page));
+        
+        // initialize bitmap
+        uint64 records_num_each_page = (page_size - PAGE_HEADER_LENGTH) /
+                                       fields.recordLength();
+        while (records_num_each_page * fields.recordLength() + PAGE_HEADER_LENGTH + 
+               (records_num_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * 8 > page_size) 
+            --records_num_each_page;
+
+        // mark bitmap as empty(1)
+        for (uint64 i = 0; i < records_num_each_page;) {
+            if (i + 8 < records_num_each_page) {
+                assert(i % 8 == 0);
+                buffer[PAGE_HEADER_LENGTH + i / 8] = 0xff;
+                i += 8;
+                continue;
+            }
+            buffer[PAGE_HEADER_LENGTH + i / 8] |= '\x01' << i % 8;
+            ++i;
+        }
+
         _file->writePage(FIRST_RECORD_PAGE, buffer);
 
         // close table
@@ -345,7 +365,7 @@ private:
         uint64 records_num_each_page = (page_size - PAGE_HEADER_LENGTH) /
                                        record_length;
         while (records_num_each_page * record_length + PAGE_HEADER_LENGTH + 
-               (records_num_each_page + 7) / 8 > page_size) 
+               (records_num_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * 8 > page_size) 
             --records_num_each_page;
         memcpy(buffer + pos, &records_num_each_page, sizeof(records_num_each_page));
         pos += sizeof(records_num_each_page);
@@ -507,6 +527,7 @@ private:
 
         // page header of the last page
         auto oldPageHeader = parsePageHeader(buffer);
+
         
         // modify "Next Page" to new page id
         auto modifiedPageHeader = makePageHeader(oldPageHeader[0], 
@@ -522,14 +543,25 @@ private:
                                             oldPageHeader[0],
                                             0);
         // copy to buffer
-        memset(buffer, 0x00, _file->numPages());
+        memset(buffer, 0x00, _file->pageSize());
         memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
 
-        // TODO
-        // mark bitmap as empty
+        // mark bitmap as empty(1)
+        for (uint64 i = 0; i < _num_records_each_page;) {
+            if (i + 8 < _num_records_each_page) {
+                assert(i % 8 == 0);
+                buffer[PAGE_HEADER_LENGTH + i / 8] = 0xff;
+                i += 8;
+                continue;
+            }
+            buffer[PAGE_HEADER_LENGTH + i / 8] |= '\x01' << i % 8;
+            ++i;
+        }
 
-        // write to file, and modify _last_record_page
-        _file->writePage(++_last_record_page, buffer);
+        // write to file 
+        _file->writePage(newPageID, buffer);
+        // modify _last_record_page
+        ++_last_record_page;
 
         assert(_file->numPages() == newPageID + 1);
         
@@ -602,7 +634,7 @@ private:
             if (pageBuffer[PAGE_HEADER_LENGTH + i / 8] & ('\x01' << i % 8)) {
                 empty_slot_num = i;
                 // set this bit as full(0)
-                pageBuffer[PAGE_HEADER_LENGTH + i / 8] &= ~('\x01' << 8 % 8);
+                pageBuffer[PAGE_HEADER_LENGTH + i / 8] &= ~('\x01' << i % 8);
                 break;
             }
         
@@ -621,11 +653,14 @@ private:
                    /* page header offset */
                    PAGE_HEADER_LENGTH + 
                    /* bitmap offset, bitmap is n bytes aligned */
-                   (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) + 
+                   (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
                    /* record offset */
                    _record_length * empty_slot_num, 
                recordBuffer,
                _record_length);
+
+        // write to file
+        _file->writePage(pageID, pageBuffer);
         
         delete[] pageBuffer;
         return std::make_tuple(RID(pageID, empty_slot_num), empty_slot_remained);
