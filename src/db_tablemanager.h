@@ -26,7 +26,7 @@
 
 class Database::DBTableManager {
 private:
-    static constexpr char DB_SUFFIX[] = ".tb";
+    static constexpr char* DB_SUFFIX = ".tb";
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
@@ -195,7 +195,9 @@ public:
         if (args.size() != _fields.size()) return 1;
 
         // pass args to _field to generate a record in raw data
-        char* buffer = new char[_fields.recordLength()];
+        // char* buffer = new char[_fields.recordLength()];
+        // allocate more space, reserve for later
+        char* buffer = new char[_file->pageSize()];
         _fields.generateRecord(args, buffer);
 
         // find an empty record slot
@@ -214,9 +216,21 @@ public:
 
         // if there isn't any empty slot in this page
         // mark it as full in map
-        if (!std::get<1>(rtv)) 
+        if (!std::get<1>(rtv)) {
             _empty_slots_map[empty_slot_pageID] = 0;
 
+            // write back map page to file
+            uint64 pageID = empty_slot_pageID;
+            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+            while (pageID >= _pages_each_map_page) {
+                pageID -= _pages_each_map_page;
+                uint64 nextPageID = *pointer_convert<uint64*>(buffer + 2 * sizeof(uint64));
+                _file->readPage(nextPageID, buffer);
+            }
+            buffer[PAGE_HEADER_LENGTH + pageID / 8] &= ~('\x01' << pageID % 8);
+            _file->writePage(*pointer_convert<uint64*>(buffer), buffer);
+        }
+        
         delete[] buffer;
         return 0;
     }
@@ -235,7 +249,7 @@ public:
         // mark the slot empty
         
         // check whether the page gets empty
-
+        return 0;
     }
 
     // modify field field_id of record rid to arg
@@ -243,7 +257,7 @@ public:
     // returns 0 if succeed, 1 otherwise
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
         // TODO
-
+        return 0;
 
     }
 
@@ -262,7 +276,7 @@ public:
     bool close() {
         if (!isopen()) return 1;
 
-        bool rtv = _file -> close();
+        bool rtv = _file->close();
 
         // close successful
         if (rtv == 0) {
@@ -393,29 +407,29 @@ private:
         pos += TABLE_NAME_LENGTH;
 
         // fields num
-        _num_fields = *(pointer_convert<const uint64*>(buffer + pos));
+        _num_fields = *pointer_convert<const uint64*>(buffer + pos);
         pos += sizeof(_num_fields);
         
 
         // mapped pages in each page
-        _pages_each_map_page = *(pointer_convert<const uint64*>(buffer + pos));
+        _pages_each_map_page = *pointer_convert<const uint64*>(buffer + pos);
         pos += sizeof(_pages_each_map_page);
         
         // record length
-        _record_length = *(pointer_convert<const uint64*>(buffer + pos));
+        _record_length = *pointer_convert<const uint64*>(buffer + pos);
         pos += sizeof(_record_length);
 
         // number of records stored in each page
-        _num_records_each_page = *(pointer_convert<const uint64*>(buffer + pos));
+        _num_records_each_page = *pointer_convert<const uint64*>(buffer + pos);
         pos += sizeof(_num_records_each_page);
         
         // last empty slots map page
-        _last_empty_slots_map_page = *(pointer_convert<const uint64*>(buffer + pos));
+        _last_empty_slots_map_page = *pointer_convert<const uint64*>(buffer + pos);
         pos += sizeof(_last_empty_slots_map_page);
 
 
         // last record page
-        _last_record_page = *(pointer_convert<const uint64*>(buffer + pos));
+        _last_record_page = *pointer_convert<const uint64*>(buffer + pos);
         pos += sizeof(_last_record_page);
     }
     
@@ -460,19 +474,19 @@ private:
         }
     }
 
-    // recursively parse 3rd or 4th page of an existing databse file
+    // recursively parse 3rd page of an existing databse file
     void parseEmptyMapPages(char* buffer) {
-        uint64 page_id = *(pointer_convert<const uint64*>(buffer));
+        uint64 page_id = *pointer_convert<const uint64*>(buffer);
         _last_empty_slots_map_page = page_id;
-        buffer += sizeof(uint64);
-        buffer += sizeof(uint64);
-        uint64 next_page_id = *(pointer_convert<const uint64*>(buffer)); 
-        buffer += sizeof(uint64);
-        
+        uint64 next_page_id = *pointer_convert<uint64*>(buffer + 2 * sizeof(uint64)); 
+            
         // Here, we may add extra bits mapping non-existing pages
-        const char* buffer_end = buffer + _file->pageSize() - PAGE_HEADER_LENGTH;
-        while (buffer != buffer_end) {
-            char bits = *(buffer++);
+        char* buffer_start = buffer + PAGE_HEADER_LENGTH;
+        const char* buffer_end = buffer + _file->pageSize();
+
+
+        while (buffer_start != buffer_end) {
+            char bits = *(buffer_start++);
             _empty_slots_map.push_back(bits & 0x01);
             _empty_slots_map.push_back(bits & 0x02);
             _empty_slots_map.push_back(bits & 0x04);
@@ -502,9 +516,9 @@ private:
     // parse a page header
     std::array<uint64, 3> parsePageHeader(const char* buffer) const {
         return std::array<uint64, 3>{
-            *(pointer_convert<const uint64*>(buffer)),
-            *(pointer_convert<const uint64*>(buffer + sizeof(uint64))),
-            *(pointer_convert<const uint64*>(buffer + 2 * sizeof(uint64)))
+            *pointer_convert<const uint64*>(buffer),
+            *pointer_convert<const uint64*>(buffer + sizeof(uint64)),
+            *pointer_convert<const uint64*>(buffer + 2 * sizeof(uint64))
         };
     }
 
@@ -561,7 +575,15 @@ private:
         // write to file 
         _file->writePage(newPageID, buffer);
         // modify _last_record_page
-        ++_last_record_page;
+        _last_record_page = newPageID;
+
+        // write back last record page
+        _file->readPage(1, buffer);
+        memcpy(buffer + TABLE_NAME_LENGTH + 5 * sizeof(uint64), 
+               &_last_record_page, 
+               sizeof(_last_record_page));
+        _file->writePage(1, buffer);
+
 
         assert(_file->numPages() == newPageID + 1);
         
@@ -571,6 +593,13 @@ private:
 
         // add the new page to slots map
         _empty_slots_map[newPageID] = 1;
+
+        // write map page back to file
+        _file->readPage(_last_empty_slots_map_page, buffer);
+        buffer[PAGE_HEADER_LENGTH + (newPageID % _pages_each_map_page) / 8] |=
+            '\x01' << (newPageID % _pages_each_map_page) % 8;
+        _file->writePage(_last_empty_slots_map_page, buffer);
+
 
         delete[] buffer;
         return newPageID;
@@ -608,13 +637,23 @@ private:
         // becasue 0 stands for non-empty or non-existing page
 
         // write to file, and modify _last_empty_slots_map_page
-        _file->writePage(++_last_empty_slots_map_page, buffer);
+        _file->writePage(newPageID, buffer);
+        _last_empty_slots_map_page = newPageID;;
 
         assert(_file->numPages() == newPageID + 1);
+
+        // write back _last_map_page
+        _file->readPage(1, buffer);
+        memcpy(buffer + TABLE_NAME_LENGTH + 4 * sizeof(uint64), 
+               &_last_empty_slots_map_page, 
+               sizeof(_last_empty_slots_map_page));
+        _file->writePage(1, buffer);
+
         
         // add the new page to slots map
         _empty_slots_map.resize(_empty_slots_map.size() + 
                                 8 * (_file->pageSize() - PAGE_HEADER_LENGTH), 0);
+        
 
         delete[] buffer;
     }
