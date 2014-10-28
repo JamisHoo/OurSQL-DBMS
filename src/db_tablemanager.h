@@ -181,12 +181,14 @@ public:
         uint64 empty_slot_pageID = findEmptySlot();
 
 
-        // TODO
         // if not found, create a new page, 
         // append this page to record pages list tail, 
         // modify _last_record_page.
         // add this page to empty map(this may lead to new map pages)
+        if (!empty_slot_pageID)
+            empty_slot_pageID = createNewRecordPage();
 
+        // TODO
         // insert the record to the slot
 
         // check whether there's still any empty slot in this page
@@ -491,7 +493,7 @@ private:
     }
     
     // create a new record page
-    void createNewRecordPage() {
+    unint64 createNewRecordPage() {
         uint64 newPageID = _file->numPages();
 
         char* buffer = new char[_file->pageSize()];
@@ -532,6 +534,7 @@ private:
         _empty_slots_map[newPageID] = 1;
 
         delete[] buffer;
+        return newPageID;
     }
 
     // create new map page
