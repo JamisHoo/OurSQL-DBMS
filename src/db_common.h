@@ -24,6 +24,7 @@ using uint64 = unsigned long long;
 class DBFile;
 class DBTableManager;
 class DBFields;
+class DBIndexManager;
 
 struct RID {
     uint64 pageID;
