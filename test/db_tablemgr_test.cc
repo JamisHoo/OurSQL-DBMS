@@ -48,12 +48,12 @@ int main() {
 
     int rtv;
     rtv = table.create("student", fields, 4096);
-    cout << rtv << endl;
+    assert(rtv == 0);
 
 
     
     rtv = table.open("student");
-    cout << rtv << endl;
+    assert(rtv == 0);
 
     cout << "Table name: " << table._table_name << endl;
     cout << "Number of fields: " << table._num_fields << endl;
@@ -84,13 +84,16 @@ int main() {
     unsigned long long student_id = 0x2001;
     char student_name[1000] = "John Idiot";
     bool clever = 1;
+    
+    /*
+    // insert until the first map page is full
     for (int i = 0; i < 32573 * 37; ++i) {
         student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
         assert(rtv == 0);
     }
-    
+    */
     
     
 
@@ -98,10 +101,10 @@ int main() {
 
     // close table
     rtv = table.close();
-    cout << rtv << endl;
+    assert(rtv == 0);
 
     rtv = table.open("student");
-    cout << rtv << endl;
+    assert(rtv == 0);
 
     for (int i = 0; i < 38; ++i) {
         student_id += 1;
@@ -111,8 +114,19 @@ int main() {
     }
 
 
+    /*
+    // test traverse function
+    ofstream fout("traverse_result", fstream::out | fstream::binary);
+    auto writeTofile = [&fout, &table](const char* record, const RID rid) {
+        fout.write(record, table._record_length);
+    };
+    
+    table.traverseRecords(writeTofile);
+    */
+
+
     rtv = table.close();
-    cout << rtv << endl;
+    assert(rtv == 0);
 
     // test remove
     // rtv = table.remove("student");

@@ -68,6 +68,8 @@ public:
     bool create(const std::string& table_name,
                 const DBFields& fields, 
                 const uint64 page_size = DEFAULT_PAGE_SIZE) {
+        // TODO
+        // must create index for primary key
         // there's already a table opened
         if (isopen()) return 1;
         
@@ -185,12 +187,62 @@ public:
         return !page_size;
     }
     
+    
+
+    // close an open table
+    // assert there's an open table
+    // returns 0 if succeed, 1 otherwise
+    bool close() {
+        if (!isopen()) return 1;
+
+        bool rtv = _file->close();
+
+        // close successful
+        if (rtv == 0) {
+            delete _file;
+            _file = nullptr;
+            _table_name = "";
+            _num_fields = 0;
+            _fields.clear();
+            _pages_each_map_page = 0;
+            _record_length = 0;
+            _num_records_each_page = 0;
+            _last_empty_slots_map_page = 0;
+            _last_record_page = 0;
+            _empty_slots_map.clear();
+            return 0;
+        } else {
+        // close failed
+            return 1;
+        }
+
+    }
+
+    // remove a table
+    // assert no table is opened
+    // returns 0 if succeed, 1 otherwise
+    // the table will be closed if succeed
+    bool remove(const std::string& table_name) {
+        if (isopen()) return 1;
+
+        _file = new DBFile(table_name + DB_SUFFIX);
+        bool rtv = _file->remove();
+
+        delete _file;
+        _file = nullptr;
+
+        return rtv;
+    }
+
     // insert a record
     // args: { void*, void*, void* ... }
     // assert number of args == number of fields
     // assert file is open
     // returns 0 if succeed, 1 otherwise
     bool insertRecord(const std::initializer_list<void*> args) {
+        // TODO
+        // must insert to index if there is one.
+
         if (!isopen()) return 1;
         if (args.size() != _fields.size()) return 1;
 
@@ -270,51 +322,6 @@ public:
 
     }
 
-    // close an open table
-    // assert there's an open table
-    // returns 0 if succeed, 1 otherwise
-    bool close() {
-        if (!isopen()) return 1;
-
-        bool rtv = _file->close();
-
-        // close successful
-        if (rtv == 0) {
-            delete _file;
-            _file = nullptr;
-            _table_name = "";
-            _num_fields = 0;
-            _fields.clear();
-            _pages_each_map_page = 0;
-            _record_length = 0;
-            _num_records_each_page = 0;
-            _last_empty_slots_map_page = 0;
-            _last_record_page = 0;
-            _empty_slots_map.clear();
-            return 0;
-        } else {
-        // close failed
-            return 1;
-        }
-
-    }
-
-    // remove a table
-    // assert no table is opened
-    // returns 0 if succeed, 1 otherwise
-    // the table will be closed if succeed
-    bool remove(const std::string& table_name) {
-        if (isopen()) return 1;
-
-        _file = new DBFile(table_name + DB_SUFFIX);
-        bool rtv = _file->remove();
-
-        delete _file;
-        _file = nullptr;
-
-        return rtv;
-    }
-
     // check if there's already table opened
     // returns 1 if there is, null string otherwise
     bool isopen() const {
@@ -324,6 +331,9 @@ public:
     }
 
 private:   
+#ifdef DEBUG
+public:
+#endif
     // create file description page, 0th page
     void createFileDescriptionPage(const uint64 page_size, char* buffer) const {
         // page size
@@ -703,6 +713,40 @@ private:
         
         delete[] pageBuffer;
         return std::make_tuple(RID(pageID, empty_slot_num), empty_slot_remained);
+    }
+    
+    // traverse all records
+    // callback function is: func(const char* record buffer, pageID)
+    // record buffer get invalid after func returns
+    template<class CALLBACKFUNC>
+    void traverseRecords(CALLBACKFUNC func) {
+        assert(isopen());
+        
+        char* buffer = new char[_file->pageSize()];
+
+        // current page id
+        uint64 pageID = FIRST_RECORD_PAGE;
+
+        // while page id != 0
+        while (pageID) {
+            _file->readPage(pageID, buffer);
+            
+            char* bitmap_offset = buffer + PAGE_HEADER_LENGTH;
+            char* record_offset = buffer + PAGE_HEADER_LENGTH + 
+                (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64);
+
+            // traverse each slot
+            for (uint64 i = 0; i < _num_records_each_page; ++i) 
+                // if slot is not empty
+                if ((bitmap_offset[i / 8] & ('\x01' << i % 8)) == 0) 
+                    // callback
+                    func(record_offset + _record_length * i, RID(pageID, i));
+
+            // next page id
+            pageID = *pointer_convert<uint64*>(buffer + sizeof(uint64) * 2);
+        }
+
+        delete[] buffer;
     }
     
 private:
