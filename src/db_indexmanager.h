@@ -20,6 +20,7 @@
 #include <fstream>
 #include "db_common.h"
 
+template<class Comparator>
 class Database::DBIndexManager {
 public:
 
@@ -30,8 +31,7 @@ public:
     }
 
     // insert to an open index, modify B+Tree, write back to disk(or memory buffer)
-    template<class COMPARATOR>
-    void insertRecord(const void* data, const RID rid, COMPARATOR comparator) {
+    void insertRecord(const void* data, const RID rid) {
         char* buffer = new char[_data_length];
         memcpy(buffer, data, _data_length);
 
@@ -46,7 +46,7 @@ public:
             // if not inserted yet
             // comparator returns *i - *buffer
             // *i >= *buffer
-            if (!inserted && comparator(tmp[i], buffer) >= 0) {
+            if (!inserted && _comparator(tmp[i], buffer, _data_length) >= 0) {
                 _dataSet.push_back(buffer);
                 _ridSet.push_back(rid);
                 inserted = 1;
@@ -90,8 +90,12 @@ public:
         }
     }
 
+    void setComparatorType(const uint64 type) {
+        _comparator.type = type;
+    }
 
 
+    Comparator _comparator;
     uint64 _data_length;
     std::vector<void*> _dataSet;
     std::vector<RID> _ridSet;

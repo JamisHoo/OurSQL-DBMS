@@ -63,7 +63,7 @@ int main() {
 
     // insert
     for (int i = 0; i < 38; ++i) {
-        student_id -= 1;
+        student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
         assert(rtv == 0);
@@ -80,47 +80,26 @@ int main() {
     cin >> whichField;
     assert(whichField >= 0 && whichField < 3);
 
-    DBIndexManager* index;
+    DBIndexManager<DBFields::Comparator>* index;
 
-    index = new DBIndexManager(fields.field_length()[whichField]);
+    index = new DBIndexManager<DBFields::Comparator>(fields.field_length()[whichField]);
 
-
-    auto comparator = [&fields, &whichField](const void* a, const void* b) -> int {
-        if (fields.field_type()[whichField] == 7) {
-            uint64 aa = *pointer_convert<const uint64*>(a);
-            uint64 bb = *pointer_convert<const uint64*>(b);
-            if (aa == bb) return 0;
-            if (aa < bb) return -1;
-            return 1;
-        } else if (fields.field_type()[whichField] == 9) {
-            std::string stra(pointer_convert<const char*>(a), fields.field_length()[whichField]);
-            std::string strb(pointer_convert<const char*>(b), fields.field_length()[whichField]);
-            return stra.compare(strb);
-        } else if (fields.field_type()[whichField] == 8) {
-            bool aa = *pointer_convert<const bool*>(a);
-            bool bb = *pointer_convert<const bool*>(b);
-            return aa - bb;
-        }
-        // else conditions, to be added
-        return 0;
-    };
-
-    auto insertToIndex = [&index, &comparator, &whichField](const char* record, const RID rid) {
+    auto insertToIndex = [&index, &whichField](const char* record, const RID rid) {
         int offset;
         if (whichField == 0) offset = 0;
         if (whichField == 1) offset = 8;
         if (whichField == 2) offset = 108;
-        index->insertRecord(record + offset, rid, comparator);
+        index->insertRecord(record + offset, rid);
     };
-
-
+    
+    index->setComparatorType(fields.field_type()[whichField]);
     table.traverseRecords(insertToIndex);
 
     cout << "index size: " << index->_dataSet.size() << endl << endl;
 
     // output index
-    // ofstream fout("index", fstream::out | fstream::binary);
-    // index->display(fout);
+    ofstream fout("index", fstream::out | fstream::binary);
+    index->display(fout);
 
 
 
