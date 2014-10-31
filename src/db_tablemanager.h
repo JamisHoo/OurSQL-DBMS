@@ -26,7 +26,7 @@
 
 class Database::DBTableManager {
 private:
-    static constexpr char* DB_SUFFIX = ".tb";
+    static constexpr char DB_SUFFIX[] = ".tb";
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;

@@ -26,6 +26,7 @@ using uint64 = unsigned long long;
 class DBFile;
 class DBTableManager;
 class DBFields;
+struct BTreeNode;
 template <class /* Comparator */> class DBIndexManager;
 
 struct RID {

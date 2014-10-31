@@ -20,6 +20,50 @@
 #include <fstream>
 #include "db_common.h"
 
+using RecPos = unsigned long long;
+
+struct Database::BTreeNode {
+    static constexpr uint64 INDEX_NODE_SIZE = 2 * 1024;
+    static constexpr uint64 DATA_FULL_LENGTH = INDEX_NODE_SIZE - sizeof(uint64) * 2 - sizeof(bool);
+
+    static uint64 maxNode;
+
+    // all the entries stored by _data
+    char _data[DATA_FULL_LENGTH];
+
+    // position in index file
+    RecPos _position;
+
+    // number of Entry used in _entries
+    uint64 _size;
+
+    // is leaf node or not
+    bool _leaf;
+
+    // copy one node to another, used when sloving the split of _root
+    void copyKey(BTreeNode& newNode) {
+
+    }
+
+    // split one node into two
+    void splitKey(BTreeNode& newNode) {
+
+    }
+
+    void deleteKey(uint64 pos) {
+
+    }
+
+    void insertKey(char* newKey, uint64 pos) {
+
+    }
+
+    uint64 searchKey(char* target, Comparator* cmp) {
+        uint64 location;
+        return location;
+    }
+};
+
 template<class Comparator>
 class Database::DBIndexManager {
 public:
@@ -27,37 +71,7 @@ public:
     DBIndexManager(const uint64 data_length): _data_length(data_length) { }
 
     ~DBIndexManager() {
-        for (auto pt: _dataSet) delete[] pt;
-    }
 
-    // insert to an open index, modify B+Tree, write back to disk(or memory buffer)
-    void insertRecord(const void* data, const RID rid) {
-        char* buffer = new char[_data_length];
-        memcpy(buffer, data, _data_length);
-
-        std::vector<void*> tmp(_dataSet);
-        std::vector<RID> tmp2(_ridSet);
-        _dataSet.clear();
-        _ridSet.clear();
-
-        // put it in loop
-        bool inserted = 0;
-        for (uint64 i = 0; i < tmp.size(); ++i) {
-            // if not inserted yet
-            // comparator returns *i - *buffer
-            // *i >= *buffer
-            if (!inserted && _comparator(tmp[i], buffer, _data_length) >= 0) {
-                _dataSet.push_back(buffer);
-                _ridSet.push_back(rid);
-                inserted = 1;
-            }
-            _dataSet.push_back(tmp[i]);
-            _ridSet.push_back(tmp2[i]);
-        }
-        if (!inserted) {
-            _dataSet.push_back(buffer);
-            _ridSet.push_back(rid);
-        }
     }
 
     // create an empty index file.
@@ -81,24 +95,41 @@ public:
     std::vector<RID> findRecords() { }
 
 
-    void display(std::ofstream& fout) {
-        assert(_dataSet.size() == _ridSet.size());
-        for (uint64 i = 0; i < _dataSet.size(); ++i) {
-            std::cout << _ridSet[i].pageID << ' ' << _ridSet[i].slotID << std::endl;
-            fout.seekp(i * _data_length);
-            fout.write(pointer_convert<char*>(_dataSet[i]), _data_length);
-        }
-    }
 
     void setComparatorType(const uint64 type) {
         _comparator.type = type;
     }
 
+    // some private functions to support btree
+    void solveNodeSplit() {}
+    void solveRootSplit() {}
+
+    static constexpr uint64 MAX_LEVEL = 8;
+    static constexpr uint64 BUFFER_SIZE = 16;
+
+    // track different level of BTreeNode during search
+    // record the position and offset of every node from root to the target
+    struct {
+        RecPos block;
+        uint64 offset;
+    } _level [MAX_LEVEL];
+    uint64 _levTrack;
+
+    // buffer of BTreeNode
+    struct {
+        BTreeNode node;
+        bool dirty;
+    } _buffer [BUFFER_SIZE];
+    BTreeNode* _nodeTrack;
+
+    uint64 _data_length;
+
+    // total number of pages in this index file
+    uint64 _num_pages;
 
     Comparator _comparator;
-    uint64 _data_length;
-    std::vector<void*> _dataSet;
-    std::vector<RID> _ridSet;
+    
+    BTreeNode _root;
 };
 
 #endif /* DB_INDEXMANAGER_H_ */

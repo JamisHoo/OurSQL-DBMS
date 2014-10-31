@@ -1,0 +1,8 @@
+int type??
+
+class BTreeNode{
+	RecPos _position;
+	uint64 _size;
+	char* _data;
+	bool _leaf;
+}
