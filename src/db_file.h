@@ -17,6 +17,7 @@
 
 #include <fstream>
 #include <cstdio>
+#include <cassert>
 #include "db_common.h"
 
 class Database::DBFile {
@@ -62,18 +63,21 @@ public:
         // fail if file exists
         if (accessible()) return 1;
 
+
         _fs.open(_file, std::fstream::out| std::fstream::binary);
         // create failed
         if (!isopen()) return 1;
 
         // _page_size is needed by writePage()
         _page_size = page_size;
+        _num_pages = *pointer_convert<const uint64*>(buffer + sizeof(_page_size));
 
         // write first page after creating
         writePage(0, buffer);
         
         _fs.close();
         _page_size = 0;
+        _num_pages = 0;
         return 0;
     }
     
