@@ -53,7 +53,7 @@ public:
         _num_pages = *pointer_convert<uint64*>(buffer + sizeof(_page_size));
 
         return _page_size;
-    };
+    }
     
     // create file and write raw file description(0th page).
     // returns 0 if succeed, 1 otherwise.
