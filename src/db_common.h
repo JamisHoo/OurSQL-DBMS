@@ -15,6 +15,8 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
+#include <memory.h>
+
 namespace Database {
 
 using int64 = long long;
