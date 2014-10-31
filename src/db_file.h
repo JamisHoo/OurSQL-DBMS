@@ -145,7 +145,7 @@ private:
     DBFile(const DBFile&) = delete;
     DBFile(DBFile&&) = delete;
     DBFile& operator=(const DBFile&) & = delete;
-    DBFile& operator=(const DBFile&&) & = delete;
+    DBFile& operator=(DBFile&&) & = delete;
 
     // file name
     std::string _file;
