@@ -757,7 +757,7 @@ public:
     DBTableManager (const DBTableManager&) = delete;
     DBTableManager (DBTableManager&&) = delete;
     DBTableManager& operator=(const DBTableManager&)& = delete;
-    DBTableManager& operator=(const DBTableManager&&)& = delete;
+    DBTableManager& operator=(DBTableManager&&)& = delete;
 
     DBFile* _file;
     
