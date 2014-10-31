@@ -22,7 +22,7 @@ int main() {
     using namespace Database;
 
 
-    DBFile file("filename");
+    DBFile file("file_test");
     // open an non-existing file, return 0 
     assert(file.open() == 0);
     
@@ -33,6 +33,7 @@ int main() {
     memset(buffer, 0xdd, 4096);
     memcpy(buffer, &page_size, 8);
     memcpy(buffer + 8, &num_pages, 8);
+    
 
     // create file
     cout << file.create(4096, buffer);
@@ -43,6 +44,7 @@ int main() {
     page_size = file.open();
     assert(page_size == 4096); 
     assert(file.pageSize() == page_size);
+    cout << file.numPages() << endl;
     assert(file.numPages() == num_pages);
     assert(file.isopen());
 
@@ -52,7 +54,7 @@ int main() {
     memset(buffer, 0xf0, 4096);
     file.writePage(10, buffer);
 
-    assert(file.numPages() == 10);
+    assert(file.numPages() == 11);
     
     // read data
     char read_buffer[4096];
