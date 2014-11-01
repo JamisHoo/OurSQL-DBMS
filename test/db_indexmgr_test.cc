@@ -18,12 +18,6 @@
 #include "../src/db_fields.h"
 #include "../src/db_indexmanager.h"
 
-class test{
-public:
-    static int counter;
-};
-
-
 int main() {
     using namespace std;
     using namespace Database;
@@ -63,5 +57,34 @@ int main() {
     uint64 key = 1234;
     char* target = pointer_convert<char*>(&key);
     node.searchKey(target, &cmp);
+*/
+    DBIndexManager<DBFields::Comparator> manager("index.idx");
+    //manager.create(4*1024, 8);
+    manager.open();
+
+    DBIndexManager<DBFields::Comparator>::BTreeNode node;
+    cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons<<endl;
+    cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize<<endl;
+
+    /*
+    uint64 constexpr _page_size = 4*1024;
+    DBIndexManager<DBFields::Comparator>::BTreeNode node;
+    
+    node._leaf = 1;
+    node._size = 0;
+    node._position = 1;
+    node._data = new char[_page_size];
+    DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize = sizeof(uint64) + sizeof(uint64);
+    DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons = (_page_size - sizeof(uint64)*3) / DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize;
+
+    uint64 arr[] = {1234,1,3456,2,43676,3,34734,4};
+
+    char* pointer = node._data + sizeof(uint64) * 3;
+    memcpy(pointer, arr, sizeof(uint64)*4);
+
     */
+
+    manager.close();
+
+    return 0;
 }
