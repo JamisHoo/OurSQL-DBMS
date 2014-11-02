@@ -135,11 +135,25 @@ public:
             return memcmp(pointer, key, DataLength);
         }
 
+        // write key to Entry[off], rewrite if there exist a key
+        void writeKey(char* key, uint64 off) {
+            char* pointer = _data + sizeof(uint64)*3;
+            pointer += EntrySize * off;
+            memcpy(pointer, key, DataLength);
+        }
+
         // get the position of Entry[off]
         uint64 getPosition(uint64 off) {
             char* pointer = _data + sizeof(uint64)*3;
             pointer += EntrySize * off + DataLength;
             return *(pointer_convert<uint64*>(pointer));
+        }
+
+        // get the key of Entry[off] by char*
+        char* getKey(uint64 off) {
+            char* pointer = _data  + sizeof(uint64)*3;
+            pointer += EntrySize * off;
+            return pointer;
         }
 
 #ifdef DEBUG
@@ -184,6 +198,7 @@ public:
         _fs.close();
     }
 
+// public interface of open/close/create
     // close the btree index and write back the buffer
     // return 0 if close successfully, return 1 when error
     bool close() {
@@ -257,6 +272,11 @@ public:
         _fs.close();
     }
 
+    void setComparatorType(const uint64 type) {
+        _comparator.type = type;
+    }
+
+// private support of create/open/close the index file
     // initialize during open index
     // TODO: memory need to be set to 0?
     void initialize() {
@@ -274,7 +294,56 @@ public:
     }
 
 
-    // buffer operations
+// public interface of IndexManager operation
+    // return RID(0,0) if not found
+    RID searchRecord(char* key) {
+        bool answer = locateRecords(key);
+        if(answer){
+            uint64 which = _level[_lev_track]._block;
+            uint64 off = _level[_lev_track]._offset;
+            getBuffer(which);
+            uint64 pos = _node_tracker->getPosition(off);
+            return decode(pos);
+        }
+        else{
+            return RID(0,0);
+        }
+    }
+
+    std::vector<RID> searchRecords(char* key) {
+
+    }
+
+    // insert a record into the btree, return 0 if success
+    // ifPrimary: is this key a primary key(cannot insert twice)?
+    bool insertRecord(char* key, RID rid, bool ifPrimary) {
+        bool answer = locateRecords(key);
+        if(answer && ifPrimary){
+            #ifdef DEBUG
+                std::cout<<"primary key already exist"<<std::endl;
+            #endif
+            return 1;
+        }
+        else{
+            uint64 position = encode(rid);
+            char entry[_data_length + sizeof(uint64)];
+            memcpy(entry, key, _data_length);
+            memcpy(entry + _data_length, &position, sizeof(uint64));
+            _node_tracker->insertKey(entry, _level[_lev_track].offset);
+            setDirty(_node_tracker);
+            solveNodeSplit();
+        }
+
+    }
+
+    // remove an index file
+    bool removeIndex() { }
+
+    // remove record from an open index...
+    bool removeRecord() { }
+
+
+// private buffer operations
     // TODO: memory need to be set to 0?
     void initBuffer() {
         for(int i=0; i<BUFFER_SIZE; i++) {
@@ -346,18 +415,63 @@ public:
         }
     }
 
-    // some private functions to support btree
+// private functions to support btree
+    // slove split of root, cause the btree height to update
+    void solveRootSplit(char* leftChild, char* rightChild, uint64 rightPos) {
+        // save left child first
+        int pos = clearBuffer();
+        _node_tracker->copyKey(&(_buffer[pos]._node));
+        _buffer[pos]._node._position = _write_to;
+        _buffer[pos].dirty = true;
+        char tempBuffer[_data_length + sizeof(uint64)];
+        memcpy(tempBuffer, leftChild, _data_length);
+        memcpy(tempBuffer+_data_length, &_write_to, sizeof(uint64));
+        _write_to++;
+
+        // update new root;
+        _root._size = 0;
+        _root.insertKey(tempBuffer, 0);
+        memcpy(tempBuffer, rightChild, _data_length);
+        memcpy(tempBuffer+_data_length, &rightPos, sizeof(uint64));
+        _root.insertKey(tempBuffer, 1);
+        _root._leaf = false;
+    }
+
+    // slove the split 
     void solveNodeSplit() {
+        if(_node_tracker->_size < BTreeNode::MaxSons)
+            return;
 
+        char* leftChild = _node_tracker->getKey(BTreeNode::MaxSons/2-1);
+        char* rightChild = _node_tracker->getKey(BTreeNode::MaxSons-1);
+
+        int pos = clearBuffer();
+        _node_tracker->splitKey(&(_buffer[pos]._node));
+        setDirty(_node_tracker);
+        // new node _buffer[pos] will write to indexFile[_write_to]
+        _buffer[pos]._node._position = _write_to;
+        _write_to++;
+        _buffer[pos]._dirty = true;
+
+        if(_lev_track == 0){
+            solveRootSplit(leftChild, rightChild, _buffer[pos]._node._position);
+            return;
+        }
+
+        // not the root node, recursively solve the split problem
+        _lev_track--;
+        uint64 blk = _level[_lev_track]._block;
+        uint64 off = _level[_lev_track]._offset;
+        getBuffer(blk);
+        _node_tracker->writeKey(leftChilld, off);
+
+        char tempBuffer[_data_length + sizeof(uint64)];
+        memcpy(tempBuffer, rightChild, _data_length);
+        memcpy(tempBuffer + _data_length, &(_buffer[pos]._node._position));
+        _node_tracker->insertKey(tempBuffer, off+1);
+        setDirty(_node_tracker);
+        solveNodeSplit();
     }
-
-    void solveRootSplit() {
-
-    }
-
-    // open an existing index, load index file to _container
-    // open at most one index at the same time
-    
 
     bool locateRecords(char* key) {
         _lev_track = 0;
@@ -379,53 +493,7 @@ public:
             return false;
     }
 
-    // return RID(0,0) if not found
-    RID searchRecord(char* key) {
-        bool answer = locateRecords(key);
-        if(answer){
-            uint64 which = _level[_lev_track]._block;
-            uint64 off = _level[_lev_track]._offset;
-            getBuffer(which);
-            uint64 pos = _node_tracker->getPosition(off);
-            return decode(pos);
-        }
-        else{
-            return RID(0,0);
-        }
-    }
-
-    std::vector<RID> searchRecords(char* key) {
-
-    }
-
-    // insert a record into the btree, return 0 if success
-    // ifPrimary: is this key a primary key(cannot insert twice)?
-    bool insertRecord(char* key, RID rid, bool ifPrimary) {
-        bool answer = locateRecords(key);
-        if(answer && ifPrimary){
-            #ifdef DEBUG
-                std::cout<<"primary key already exist"<<std::endl;
-            #endif
-            return 1;
-        }
-        else{
-            uint64 position = encode(rid);
-            char entry[_data_length + sizeof(uint64)];
-            memcpy(entry, key, _data_length);
-            memcpy(entry + _data_length, &position, sizeof(uint64));
-            _node_tracker->insertKey(entry, _level[_lev_track].offset);
-            setDirty(_node_tracker);
-            solveNodeSplit();
-        }
-
-    }
-
-    // remove an index file
-    bool removeIndex() { }
-
-    // remove record from an open index...
-    bool removeRecord() { }
-
+// some useful tools
     inline static uint64 encode(RID rid) {
         return (rid.pageID<<32) + rid.slotID;
     }
@@ -438,10 +506,7 @@ public:
         std::cout<<"_num_pages:"<<_num_pages<<" _write_to:"<<_write_to<<std::endl;
     }
 
-    void setComparatorType(const uint64 type) {
-        _comparator.type = type;
-    }
-
+// private basic in/out functions
     // read and write a node to index
     void writeNode(uint64 position, BTreeNode* src) {
         memcpy(src->_data, &(src->_position), sizeof(uint64)*3);
@@ -481,7 +546,7 @@ public:
     bool isopen() const { return _fs.is_open(); }
 
 
-
+// members of IndexManager
     static constexpr uint64 MAX_LEVEL = 8;
     static constexpr uint64 BUFFER_SIZE = 16;
 
