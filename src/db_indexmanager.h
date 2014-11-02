@@ -30,8 +30,14 @@
 
 template<class Comparator>
 class Database::DBIndexManager {
+#ifdef DEBUG
+public:
+#endif
 
     struct BTreeNode {
+        static int EntrySize;
+        static int MaxSons;
+        static uint64 DataLength;
 
         BTreeNode() : _position(0), _size(0), _leaf(1) 
         { _data = nullptr; }
@@ -39,7 +45,7 @@ class Database::DBIndexManager {
         // position in index file
         uint64 _position;
 
-        // number of Entry used in _entries
+        // number of Entries in _data
         uint64 _size;
 
         // is leaf node or not
@@ -49,28 +55,118 @@ class Database::DBIndexManager {
         char* _data;
 
         // copy one node to another, used when sloving the split of _root
-        void copyKey(BTreeNode& newNode) {
-
+        void copyKey(BTreeNode* newNode) {
+            char* src = _data + sizeof(uint64) * 3;
+            char* dst = newNode->_data + sizeof(uint64) * 3;
+            memcpy(dst, src, EntrySize * _size);
+            newNode->_size = _size;
+            newNode->_leaf = _leaf;
         }
 
         // split one node into two
-        void splitKey(BTreeNode& newNode) {
-    
+        void splitKey(BTreeNode* newNode) {
+            int pos = _size / 2;
+            // split _data into two 
+            char* src = _data + sizeof(uint64)*3;
+            src += EntrySize * pos;
+            char* dst = newNode->_data + sizeof(uint64)*3;
+            memcpy(dst, src, EntrySize * (MaxSons - pos));
+            newNode->_size = _size - pos;
+            newNode->_leaf = _leaf;
+            _size = pos;
         }
-    
+        
+        // delete Entry[pos]
         void deleteKey(uint64 pos) {
-    
+            if(pos >= _size)
+                return;
+            else if(pos == _size-1){
+                _size--;
+                return;
+            }
+            char* pointer = _data + sizeof(uint64) * 3;
+            pointer += EntrySize * pos;
+            memmove(pointer, pointer + EntrySize, EntrySize*(_size - pos));
+            _size--;
         }
-    
-        void insertKey(char* newKey, uint64 pos) {
-    
+        
+        // insert into Entry[pos]
+        uint64 insertKey(char* newEntry, uint64 pos) {
+            if(pos > _size || _size >= MaxSons)
+                return 0;
+            else if(pos == _size){
+                char* pointer = _data + sizeof(uint64) * 3;
+                pointer += EntrySize * pos;
+                memcpy(pointer, newEntry, EntrySize);
+                _size++;
+                return _size;
+            }
+            char* pointer = _data + sizeof(uint64) * 3;
+            pointer += EntrySize * pos;
+            memmove(pointer+EntrySize, pointer, EntrySize*(_size - pos));
+            memcpy(pointer, newEntry, EntrySize);
+            _size++;
+            return _size;
         }
-    
-        uint64 searchKey(char* target, DBFields::Comparator* cmp) {
-                
+        
+        // search for target, return the closet position in _data
+        uint64 searchKey(const char* target, DBFields::Comparator* cmp, uint64* next) {
+            char* pointer = _data + sizeof(uint64)*3;
+            uint64 i = 0;
+            if(_leaf == 1)
+                while(i < _size && ((*cmp)(target, pointer, DataLength) > 0)) {
+                    i++;
+                    pointer += EntrySize;    
+                }
+            else
+                while(i < _size-1 && ((*cmp)(target, pointer, DataLength) > 0)) {
+                    i++;
+                    pointer += EntrySize;
+                }
+            pointer += EntrySize * i + DataLength;
+            next = pointer_convert<uint64*>(pointer);
+            return i;
         }
-    };
 
+        // compare the key and Entry[off], return 0 if they are truely equal
+        int compareKey(const char* key, uint64 off) {
+            char* pointer = _data + sizeof(uint64)*3;
+            pointer += EntrySize * off;
+            return memcmp(pointer, key, DataLength);
+        }
+
+        // get the position of Entry[off]
+        uint64 getPosition(uint64 off) {
+            char* pointer = _data + sizeof(uint64)*3;
+            pointer += EntrySize * off + DataLength;
+            return *(pointer_convert<uint64*>(pointer));
+        }
+
+#ifdef DEBUG
+        char* atData(uint64 pos) {
+            char* pointer = _data + sizeof(uint64) * 3;
+            return pointer + EntrySize * pos;
+        }
+
+        uint64 atPosition(uint64 pos) {
+            char* pointer = _data + sizeof(uint64) * 3;
+            pointer += EntrySize * pos;
+            pointer += sizeof(uint64);
+            uint64 answer = *(pointer_convert<uint64*>(pointer));
+            return answer;
+        }
+
+        void display() {
+            for(int i=0; i<_size; i++) {
+                char* entry = atData(i);
+                std::cout<<*(pointer_convert<uint64*>(entry))<<" ";
+                std::cout<<atPosition(i)<<std::endl;
+            }
+            std::cout<<std::endl;
+        }
+#endif
+
+    };
 
 public:
 
@@ -88,6 +184,7 @@ public:
     bool close() {
         if(!isopen()) return 1;
 
+        writeNumPages(_write_to);
         finalize();
 
         _fs.close();
@@ -117,6 +214,10 @@ public:
 
         initialize();
 
+        BTreeNode::EntrySize = _data_length + sizeof(uint64);
+        BTreeNode::MaxSons = (_page_size - sizeof(uint64)*3) / BTreeNode::EntrySize;
+        BTreeNode::DataLength = _data_length;
+
         return _num_pages;
     }
 
@@ -132,13 +233,14 @@ public:
         _data_length = data_length;
 
         // write page0 after creating
+        _write_to = 2;
         char buffer[_page_size];
         uint64 numPages = 2;
         memset(buffer, 0xdd, _page_size);
         memcpy(buffer, &numPages, sizeof(numPages));
         memcpy(buffer + sizeof(numPages), &_page_size, sizeof(_page_size));
         memcpy(buffer + sizeof(numPages)*2, &_data_length, sizeof(_data_length));
-        wrietPage(0, buffer);
+        writePage(0, buffer);
 
         // write page1(root) after create
         BTreeNode root;
@@ -151,12 +253,10 @@ public:
     }
 
     // initialize during open index
+    // TODO: memory need to be set to 0?
     void initialize() {
         // initialize buffer and root
-        for(int i=0; i<BUFFER_SIZE; i++) {
-            _buffer[i]._node._data = new char[_page_size];
-            _buffer[i].dirty = false;
-        }
+        initBuffer();
         _root._data = new char[_page_size];
         readNode(1, &_root);
     }
@@ -169,15 +269,75 @@ public:
     }
 
 
-    // buffer operation
+    // buffer operations
+    // TODO: memory need to be set to 0?
+    void initBuffer() {
+        for(int i=0; i<BUFFER_SIZE; i++) {
+            _buffer[i]._node._data = new char[_page_size];
+            _buffer[i]._node._position = 0;
+            _buffer[i]._dirty = false;
+        }
+    }
+
+    // close buffer: release memory and write back pages
     void closeBuffer() {
         for(int i=0; i<BUFFER_SIZE; i++){
-            if(_buffer[i].dirty == true)
+            if(_buffer[i]._dirty == true)
                 writeNode(_buffer[i]._node._position, &(_buffer[i]._node));
         }
         for(int i=0; i<BUFFER_SIZE; i++) {
             delete[] _buffer[i]._node._data;
+            _buffer[i]._dirty = false;
+        }
+    }
+
+    // set the buffer pointed by tracker to be dirty
+    void setDirty(BTreeNode* tracker) {
+        if(tracker == &_root)
+            return;
+        uint64 pos = tracker->_position;
+        for(int i=0; i<BUFFER_SIZE; i++)
+            if(_buffer[i]._node._position == pos){
+                _buffer[i].dirty = true;
+                return;
+            }
+    }
+
+    // clear one buffer for new BTreeNode
+    void clearBuffer() {
+        static int i = -1;
+        while(true) {
+            i = (i + 1) % BUFFER_SIZE;
+            if(&(_buffer[i]._node) != _node_tracker)
+                break;
+        }
+        if(_buffer[i]._dirty == true){
+            writeNode(_buffer[i]._node._position, &(_buffer[i]._node));
             _buffer[i].dirty = false;
+        }
+        return i;
+    }
+
+    void loadBuffer(uint64 pos) {
+        int i = clearBuffer();
+        readNode(pos, &(_buffer[i]._node));
+        return i;
+    }
+
+    // get node through buffer
+    // _node_tracker will point to the node you want
+    void getBuffer(uint64 pos) {
+        if(pos == 1){
+            _node_tracker = &_root;
+        }
+        else{
+            for(int i=0; i<BUFFER_SIZE; i++)
+                if(_buffer[i].node._position == pos) {
+                    _node_tracker = &(_buffer[i]._node);
+                    return;
+                }
+                int position = loadBuffer(pos);
+                _node_tracker = &(_buffer[position]._node);
         }
     }
 
@@ -187,16 +347,71 @@ public:
 
     // open an existing index, load index file to _container
     // open at most one index at the same time
+    
+
+    bool locateRecords(char* key) {
+        _lev_track = 0;
+        _node_tracker = &_root;
+        _level[_lev_track]._block = 1;
+        while(_node_tracker->_leaf == false) {
+            uint64 next;
+            uint64 off = _node_tracker->searchKey(key, &_comparator, &next);
+            _level[_lev_track]._offset = off;
+            _level[_lev_track]._block = next;
+            getBuffer(next);
+        }
+        uint64 next;
+        uint64 off = _node_tracker->searchKey(key, &_comparator, &next);
+        _level[_lev_track]._offset = off;
+        if(_node_tracker->compareKey(key, off) == 0)
+            return true;
+        else
+            return false;
+    }
+
+    // return RID(0,0) if not found
+    RID searchRecord(char* key) {
+        bool answer = locateRecords(key);
+        if(answer){
+            uint64 which = _level[_lev_track]._block;
+            uint64 off = _level[_lev_track]._offset;
+            getBuffer(which);
+            uint64 pos = _node_tracker->getPosition(off);
+            return decode(pos);
+        }
+        else{
+            return RID(0,0);
+        }
+    }
+
+    std::vector<RID> searchRecords(char* key) {
+
+    }
+
+    // insert a record into the btree, return 0 if success
+    // ifPrimary: is this key a primary key(cannot insert twice)?
+    bool insertRecord(char* key, RID rid, bool ifPrimary) {
+
+    }
 
     // remove an index file
     bool removeIndex() { }
 
     // remove record from an open index...
     bool removeRecord() { }
-    
-    // find...
-    RID findRecord() { }
-    std::vector<RID> findRecords() { }
+
+    inline static uint64 encode(uint64 page, uint64 slot) {
+        return (page<<32) + slot;
+    }
+
+    // TODO: change the decode function, it should return something
+    inline static RID decode(uint64 position) {
+        return RID(position >> 32, (position << 32) >> 32);
+    }
+
+    void displayNumPages() {
+        std::cout<<"_num_pages:"<<_num_pages<<" _write_to:"<<_write_to<<std::endl;
+    }
 
     void setComparatorType(const uint64 type) {
         _comparator.type = type;
@@ -204,23 +419,21 @@ public:
 
     // read and write a node to index
     void writeNode(uint64 position, BTreeNode* src) {
-        memcpy(src->data, src->_position, sizeof(uint64)*3);
+        memcpy(src->_data, &(src->_position), sizeof(uint64)*3);
         _fs.seekp(_page_size * position);
-        _fs.write(src->data, _page_size);
-        writeNumPages(position);
+        _fs.write(src->_data, _page_size);
     }
 
     void readNode(uint64 position, BTreeNode* dst) {
         _fs.seekg(_page_size * position);
         _fs.read(dst->_data, _page_size);
-        memcpy(dst->_position, dst->data, sizeof(uint64)*3);
+        memcpy(&(dst->_position), dst->_data, sizeof(uint64)*3);
     }
 
-    // read and write page using a char buffer, use this in open/create
+    // read and write page using a char buffer, use this in create
     void writePage(uint64 position, char* buffer) {
         _fs.seekp(_page_size * position);
         _fs.write(buffer, _page_size);
-        writeNumPages(position);
     }
 
     // change _num_pages of index file in page0
@@ -250,8 +463,8 @@ public:
     // track different level of BTreeNode during search
     // record the position and offset of every node from root to the target
     struct Level {
-        uint64 block;
-        uint64 offset;
+        uint64 _block;
+        uint64 _offset;
     };
     Level _level[MAX_LEVEL];
     uint64 _lev_track;
@@ -276,5 +489,13 @@ public:
     std::string _file;
     std::fstream _fs;
 };
+
+// initialize the static virables 
+template<class Comparator>
+int Database::DBIndexManager<Comparator>::BTreeNode::MaxSons = 0;
+template<class Comparator>
+int Database::DBIndexManager<Comparator>::BTreeNode::EntrySize = 0;
+template<class Comparator>
+Database::uint64 Database::DBIndexManager<Comparator>::BTreeNode::DataLength = 0;
 
 #endif /* DB_INDEXMANAGER_H_ */
