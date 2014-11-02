@@ -39,31 +39,8 @@ int main() {
     static constexpr uint64 TYPE_UCHAR   = 10;
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
-    
-/*
-    // init BTreeNode and Compare
-    DBFields::Comparator cmp;
-    cmp.type == TYPE_INT64;
-    BTreeNode node;
-    BTreeNode::_data_length = sizeof(uint64) + BTreeNode::REC_SIZE;
-    BTreeNode::_max_node = BTreeNode::INDEX_NODE_SIZE / BTreeNode::_data_length;
 
-    // init one node
-    uint64 arr[] = {1234,1,2345,2,3456,3};
-    memcpy(node._data, arr, sizeof(uint64) * 6);
-    node._size = 3;
-
-    // try search
-    uint64 key = 1234;
-    char* target = pointer_convert<char*>(&key);
-    node.searchKey(target, &cmp);
-*/
-    /*
-    DBIndexManager<DBFields::Comparator> manager("index.idx");
-    //manager.create(4*1024, 8);
-    manager.open();
-*/
-
+// test of BTreeNode
 /*
     uint64 constexpr _page_size = 4*1024;
     DBIndexManager<DBFields::Comparator>::BTreeNode node;
@@ -100,11 +77,23 @@ int main() {
     
     node.display()    ;
     newNode.display();
-    //manager.close();
 
     node.copyKey(&newNode);
     newNode.display();
     */
-    
+
+    constexpr uint64 page_size = 4*1024;
+    constexpr uint64 data_length = 8;
+
+    DBIndexManager<DBFields::Comparator> manager("index.idx");
+    manager.setComparatorType(TYPE_INT64);
+
+    if(manager.open() == 0) {
+        manager.create(page_size, data_length);
+        manager.open();
+    }
+
+    manager.displayNumPages();
+
     return 0;
 }
