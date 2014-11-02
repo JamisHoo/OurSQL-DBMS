@@ -64,6 +64,7 @@ int main() {
     manager.open();
 */
 
+/*
     uint64 constexpr _page_size = 4*1024;
     DBIndexManager<DBFields::Comparator>::BTreeNode node;
     
@@ -86,16 +87,24 @@ int main() {
     uint64 value = 8888;
     memcpy(buffer, &key, sizeof(uint64));
     memcpy(buffer + sizeof(uint64), &value, sizeof(uint64));
-    node.insertKey(buffer, 5);
+    node.insertKey(buffer, 3);
+    node.insertKey(buffer, 3);
+    node.deleteKey(6);
 
-    for(int i=0; i<node._size; i++) {
-        char* p = node.atData(i);
-        uint64 pos = node.atPosition(i);
-        uint64 answer = *(pointer_convert<uint64*>(p));
-        cout<<answer<<" "<<pos<<endl;    
-    }
+    node.display();
+
+    DBIndexManager<DBFields::Comparator>::BTreeNode newNode;
+    newNode._data = new char[_page_size];
+
+    node.splitKey(&newNode);
     
+    node.display()    ;
+    newNode.display();
     //manager.close();
 
+    node.copyKey(&newNode);
+    newNode.display();
+    */
+    
     return 0;
 }
