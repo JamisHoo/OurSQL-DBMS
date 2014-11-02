@@ -41,7 +41,7 @@ int main() {
     static constexpr uint64 TYPE_DOUBLE  = 12;
 
 // test of BTreeNode
-/*
+
     uint64 constexpr _page_size = 4*1024;
     DBIndexManager<DBFields::Comparator>::BTreeNode node;
     
@@ -70,6 +70,13 @@ int main() {
 
     node.display();
 
+    DBFields::Comparator comp;
+    comp.type = TYPE_INT64;
+    char* pkey = pointer_convert<char*>(&key);
+    uint64 next;
+    cout<<node.searchKey(pkey, &comp, &next)<<endl;
+    cout<<endl;
+
     DBIndexManager<DBFields::Comparator>::BTreeNode newNode;
     newNode._data = new char[_page_size];
 
@@ -80,7 +87,8 @@ int main() {
 
     node.copyKey(&newNode);
     newNode.display();
-    */
+
+    /*
 
     constexpr uint64 page_size = 4*1024;
     constexpr uint64 data_length = 8;
@@ -95,5 +103,6 @@ int main() {
 
     manager.displayNumPages();
 
+*/
     return 0;
 }
