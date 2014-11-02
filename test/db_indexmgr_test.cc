@@ -58,33 +58,44 @@ int main() {
     char* target = pointer_convert<char*>(&key);
     node.searchKey(target, &cmp);
 */
+    /*
     DBIndexManager<DBFields::Comparator> manager("index.idx");
     //manager.create(4*1024, 8);
     manager.open();
+*/
 
-    DBIndexManager<DBFields::Comparator>::BTreeNode node;
-    cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons<<endl;
-    cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize<<endl;
-
-    /*
     uint64 constexpr _page_size = 4*1024;
     DBIndexManager<DBFields::Comparator>::BTreeNode node;
     
     node._leaf = 1;
-    node._size = 0;
+    node._size = 4;
     node._position = 1;
     node._data = new char[_page_size];
     DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize = sizeof(uint64) + sizeof(uint64);
     DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons = (_page_size - sizeof(uint64)*3) / DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize;
 
+    //cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize<<endl;
+    //cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons<<endl;
     uint64 arr[] = {1234,1,3456,2,43676,3,34734,4};
 
     char* pointer = node._data + sizeof(uint64) * 3;
-    memcpy(pointer, arr, sizeof(uint64)*4);
+    memcpy(pointer, arr, sizeof(uint64)*8);
 
-    */
+    char buffer[sizeof(uint64) + sizeof(uint64)];
+    uint64 key = 9999;
+    uint64 value = 8888;
+    memcpy(buffer, &key, sizeof(uint64));
+    memcpy(buffer + sizeof(uint64), &value, sizeof(uint64));
+    node.insertKey(buffer, 5);
 
-    manager.close();
+    for(int i=0; i<node._size; i++) {
+        char* p = node.atData(i);
+        uint64 pos = node.atPosition(i);
+        uint64 answer = *(pointer_convert<uint64*>(p));
+        cout<<answer<<" "<<pos<<endl;    
+    }
+    
+    //manager.close();
 
     return 0;
 }
