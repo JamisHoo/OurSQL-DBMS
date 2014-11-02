@@ -157,6 +157,11 @@ public:
         }
 
         void display() {
+            if(_leaf)
+                std::cout<<"leaf ";
+            else
+                std::cout<<"ordinary ";
+            std::cout<<"node at:"<<_position<<std::endl;
             for(int i=0; i<_size; i++) {
                 char* entry = atData(i);
                 std::cout<<*(pointer_convert<uint64*>(entry))<<" ";
@@ -304,7 +309,7 @@ public:
     }
 
     // clear one buffer for new BTreeNode
-    void clearBuffer() {
+    int clearBuffer() {
         static int i = -1;
         while(true) {
             i = (i + 1) % BUFFER_SIZE;
@@ -313,12 +318,12 @@ public:
         }
         if(_buffer[i]._dirty == true){
             writeNode(_buffer[i]._node._position, &(_buffer[i]._node));
-            _buffer[i].dirty = false;
+            _buffer[i]._dirty = false;
         }
         return i;
     }
 
-    void loadBuffer(uint64 pos) {
+    int loadBuffer(uint64 pos) {
         int i = clearBuffer();
         readNode(pos, &(_buffer[i]._node));
         return i;
@@ -332,7 +337,7 @@ public:
         }
         else{
             for(int i=0; i<BUFFER_SIZE; i++)
-                if(_buffer[i].node._position == pos) {
+                if(_buffer[i]._node._position == pos) {
                     _node_tracker = &(_buffer[i]._node);
                     return;
                 }
@@ -342,8 +347,13 @@ public:
     }
 
     // some private functions to support btree
-    void solveNodeSplit() {}
-    void solveRootSplit() {}
+    void solveNodeSplit() {
+
+    }
+
+    void solveRootSplit() {
+
+    }
 
     // open an existing index, load index file to _container
     // open at most one index at the same time
@@ -391,6 +401,22 @@ public:
     // insert a record into the btree, return 0 if success
     // ifPrimary: is this key a primary key(cannot insert twice)?
     bool insertRecord(char* key, RID rid, bool ifPrimary) {
+        bool answer = locateRecords(key);
+        if(answer && ifPrimary){
+            #ifdef DEBUG
+                std::cout<<"primary key already exist"<<std::endl;
+            #endif
+            return 1;
+        }
+        else{
+            uint64 position = encode(rid);
+            char entry[_data_length + sizeof(uint64)];
+            memcpy(entry, key, _data_length);
+            memcpy(entry + _data_length, &position, sizeof(uint64));
+            _node_tracker->insertKey(entry, _level[_lev_track].offset);
+            setDirty(_node_tracker);
+            solveNodeSplit();
+        }
 
     }
 
@@ -400,11 +426,10 @@ public:
     // remove record from an open index...
     bool removeRecord() { }
 
-    inline static uint64 encode(uint64 page, uint64 slot) {
-        return (page<<32) + slot;
+    inline static uint64 encode(RID rid) {
+        return (rid.pageID<<32) + rid.slotID;
     }
 
-    // TODO: change the decode function, it should return something
     inline static RID decode(uint64 position) {
         return RID(position >> 32, (position << 32) >> 32);
     }
@@ -438,8 +463,8 @@ public:
 
     // change _num_pages of index file in page0
     void writeNumPages(uint64 position) {
-        if(position >= _num_pages) {
-            _num_pages = position + 1;
+        if(position > _num_pages) {
+            _num_pages = position;
             char buffer[sizeof(_num_pages)];
             memcpy(buffer, &_num_pages, sizeof(_num_pages));
             _fs.seekp(0);

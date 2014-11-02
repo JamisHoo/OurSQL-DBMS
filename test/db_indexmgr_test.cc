@@ -41,7 +41,7 @@ int main() {
     static constexpr uint64 TYPE_DOUBLE  = 12;
 
 // test of BTreeNode
-
+/*
     uint64 constexpr _page_size = 4*1024;
     DBIndexManager<DBFields::Comparator>::BTreeNode node;
     
@@ -87,8 +87,10 @@ int main() {
 
     node.copyKey(&newNode);
     newNode.display();
+*/
 
-    /*
+//test of index manager
+    
 
     constexpr uint64 page_size = 4*1024;
     constexpr uint64 data_length = 8;
@@ -103,6 +105,19 @@ int main() {
 
     manager.displayNumPages();
 
+/*
+    manager._root._size = 3;
+    uint64 arr[] = {1234,1,2345,2,3456,3};
+    char* dst = manager._root._data + sizeof(uint64)*3;
+    memcpy(dst, arr, sizeof(uint64) * 8);
 */
+
+    manager._root.display();
+
+    uint64 key = 23456;
+
+    RID rid = manager.searchRecord(pointer_convert<char*>(&key));
+    cout<<rid.pageID<<" "<<rid.slotID<<endl;
+
     return 0;
 }
