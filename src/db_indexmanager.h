@@ -56,8 +56,8 @@ public:
 
         // copy one node to another, used when sloving the split of _root
         void copyKey(BTreeNode* newNode) {
-            char* src = _data + sizeof(uint64) * 3;
-            char* dst = newNode->_data + sizeof(uint64) * 3;
+            char* src = _data + sizeof(uint64)*3;
+            char* dst = newNode->_data + sizeof(uint64)*3;
             memcpy(dst, src, EntrySize * _size);
             newNode->_size = _size;
             newNode->_leaf = _leaf;
@@ -76,6 +76,18 @@ public:
             _size = pos;
         }
         
+        // merge one node into another        
+        void mergeKey(BTreeNode* newNode) {
+            char* dst = _data + sizeof(uint64)*3;
+            dst += EntrySize * _size;
+            char* src = newNode->_data;
+            src += sizeof(uint64)*3;
+            memcpy(dst, src, EntrySize * newNode->_size);
+
+            _size += newNode->_size;
+            newNode->_size = 0;
+        }
+
         // delete Entry[pos]
         void deleteKey(uint64 pos) {
             if(pos >= _size)
@@ -301,7 +313,8 @@ public:
     // return RID(0,0) if not found
     RID searchRecord(char* key) {
         bool answer = locateRecord(key);
-        if(answer){
+        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        if(answer && !checkLast){
             uint64 which = _level[_lev_track]._block;
             uint64 off = _level[_lev_track]._offset;
             getBuffer(which);
@@ -317,7 +330,7 @@ public:
 
     }
 
-    // insert a record into the btree, return 0 if success
+    // insert a record into the btree, return false if error
     // ifPrimary: is this key a primary key(cannot insert twice)?
     bool insertRecord(char* key, RID rid, bool ifPrimary) {
         bool answer = locateRecord(key);
@@ -325,7 +338,7 @@ public:
             #ifdef DEBUG
                 std::cout<<"primary key already exist"<<std::endl;
             #endif
-            return 1;
+            return false;
         }
         else{
             uint64 position = encode(rid);
@@ -338,13 +351,33 @@ public:
                 solveNodeSplit();
             else
                 solveChangeGreater(key);
-            return 0;
+            return true;
         }
 
     }
 
     // remove an index file
-    bool removeIndex() { }
+    // return true if success, else return 
+    bool removeIndex(char* key) {
+        bool answer = locateRecord(key);
+        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        if(answer && !checkLast){
+            uint64 off = _level[_lev_track]._offset;
+            _node_tracker->deleteKey(off);
+            setDirty(_node_tracker);
+            if(_node_tracker->_size < BTreeNode::Maxsons / 2);
+                solveNodeMerge();
+            else
+                sloveChangeSmaller();
+            return true;
+        }
+        else{
+            #ifdef DEBUG
+                std::cout<<"key doesn't exist"<<std::endl;
+            #endif
+            return false;
+        }
+    }
 
     // remove record from an open index...
     bool removeRecord() { }
@@ -424,7 +457,7 @@ public:
     }
 
 // private functions to support btree
-    // slove split of root, cause the btree height to update
+    // slove split of root, btree height will increase
     void solveRootSplit(char* leftChild, char* rightChild, uint64 rightPos) {
         // save left child first
         int pos = clearBuffer();
@@ -445,7 +478,7 @@ public:
         _root._leaf = 0;
     }
 
-    // slove the split 
+    // slove split of ordinary node
     void solveNodeSplit() {
         if(_node_tracker->_size < BTreeNode::MaxSons)
             return;
@@ -481,6 +514,33 @@ public:
         solveNodeSplit();
     }
 
+    // solve merge of root, btree height will decrease
+    void solveRootMerge() {
+
+    }
+
+    // check if right/left node can lend a entry 
+    bool checkLeft() {
+
+    }
+
+    bool checkRight() {
+
+    }
+
+    // solve merge of ordinary node
+    void solveNodeMerge() {
+        if(_node_tracker->_size >= BTreeNode::Maxsons / 2)
+            return;
+
+        checkLeft();
+        checkRight();
+
+
+        // recursively slove the node merge problem
+        solveNodeMerge();
+    }
+
     // solve the max son is greater than before
     void solveChangeGreater(char* key) {
         if((_level[_lev_track]._offset + 1) < _node_tracker->_size)
@@ -498,6 +558,13 @@ public:
         solveChangeGreater(key);
     }
 
+    // solve the max son is smaller than before
+    void sloveChangeSmaller() {
+
+    }
+    
+    // find the most suitable place for key and check if this key exist
+    // return true if this key exist, return false if not exist
     bool locateRecord(char* key) {
         _lev_track = 0;
         _node_tracker = &_root; 
