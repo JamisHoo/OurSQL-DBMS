@@ -123,8 +123,8 @@ public:
                     i++;
                     pointer += EntrySize;
                 }
-            pointer += EntrySize * i + DataLength;
-            next = pointer_convert<uint64*>(pointer);
+            pointer += DataLength;
+            *next = *(pointer_convert<uint64*>(pointer));
             return i;
         }
 
@@ -171,7 +171,7 @@ public:
         }
 
         void display() {
-            if(_leaf)
+            if(_leaf == 1)
                 std::cout<<"leaf ";
             else
                 std::cout<<"ordinary ";
@@ -179,7 +179,9 @@ public:
             for(int i=0; i<_size; i++) {
                 char* entry = atData(i);
                 std::cout<<*(pointer_convert<uint64*>(entry))<<" ";
-                std::cout<<atPosition(i)<<std::endl;
+                uint64 pos = atPosition(i);
+                RID rid = DBIndexManager::decode(pos);
+                std::cout<<rid.pageID<<" "<<rid.slotID<<std::endl;
             }
             std::cout<<std::endl;
         }
@@ -283,6 +285,7 @@ public:
         // initialize buffer and root
         initBuffer();
         _root._data = new char[_page_size];
+        memset(_root._data, 0, sizeof(char)*_page_size);
         readNode(1, &_root);
     }
 
@@ -297,7 +300,7 @@ public:
 // public interface of IndexManager operation
     // return RID(0,0) if not found
     RID searchRecord(char* key) {
-        bool answer = locateRecords(key);
+        bool answer = locateRecord(key);
         if(answer){
             uint64 which = _level[_lev_track]._block;
             uint64 off = _level[_lev_track]._offset;
@@ -317,7 +320,7 @@ public:
     // insert a record into the btree, return 0 if success
     // ifPrimary: is this key a primary key(cannot insert twice)?
     bool insertRecord(char* key, RID rid, bool ifPrimary) {
-        bool answer = locateRecords(key);
+        bool answer = locateRecord(key);
         if(answer && ifPrimary){
             #ifdef DEBUG
                 std::cout<<"primary key already exist"<<std::endl;
@@ -329,9 +332,13 @@ public:
             char entry[_data_length + sizeof(uint64)];
             memcpy(entry, key, _data_length);
             memcpy(entry + _data_length, &position, sizeof(uint64));
-            _node_tracker->insertKey(entry, _level[_lev_track].offset);
+            _node_tracker->insertKey(entry, _level[_lev_track]._offset);
             setDirty(_node_tracker);
-            solveNodeSplit();
+            if(_node_tracker->_size >= BTreeNode::MaxSons)
+                solveNodeSplit();
+            else
+                solveChangeGreater(key);
+            return 0;
         }
 
     }
@@ -348,6 +355,7 @@ public:
     void initBuffer() {
         for(int i=0; i<BUFFER_SIZE; i++) {
             _buffer[i]._node._data = new char[_page_size];
+            memset(_buffer[i]._node._data, 0 , sizeof(char)*_page_size);
             _buffer[i]._node._position = 0;
             _buffer[i]._dirty = false;
         }
@@ -372,7 +380,7 @@ public:
         uint64 pos = tracker->_position;
         for(int i=0; i<BUFFER_SIZE; i++)
             if(_buffer[i]._node._position == pos){
-                _buffer[i].dirty = true;
+                _buffer[i]._dirty = true;
                 return;
             }
     }
@@ -422,7 +430,7 @@ public:
         int pos = clearBuffer();
         _node_tracker->copyKey(&(_buffer[pos]._node));
         _buffer[pos]._node._position = _write_to;
-        _buffer[pos].dirty = true;
+        _buffer[pos]._dirty = true;
         char tempBuffer[_data_length + sizeof(uint64)];
         memcpy(tempBuffer, leftChild, _data_length);
         memcpy(tempBuffer+_data_length, &_write_to, sizeof(uint64));
@@ -434,7 +442,7 @@ public:
         memcpy(tempBuffer, rightChild, _data_length);
         memcpy(tempBuffer+_data_length, &rightPos, sizeof(uint64));
         _root.insertKey(tempBuffer, 1);
-        _root._leaf = false;
+        _root._leaf = 0;
     }
 
     // slove the split 
@@ -463,24 +471,41 @@ public:
         uint64 blk = _level[_lev_track]._block;
         uint64 off = _level[_lev_track]._offset;
         getBuffer(blk);
-        _node_tracker->writeKey(leftChilld, off);
+        _node_tracker->writeKey(leftChild, off);
 
         char tempBuffer[_data_length + sizeof(uint64)];
         memcpy(tempBuffer, rightChild, _data_length);
-        memcpy(tempBuffer + _data_length, &(_buffer[pos]._node._position));
+        memcpy(tempBuffer + _data_length, &(_buffer[pos]._node._position), sizeof(uint64));
         _node_tracker->insertKey(tempBuffer, off+1);
         setDirty(_node_tracker);
         solveNodeSplit();
     }
 
-    bool locateRecords(char* key) {
+    // solve the max son is greater than before
+    void solveChangeGreater(char* key) {
+        if((_level[_lev_track]._offset + 1) < _node_tracker->_size)
+            return;
+        if(_lev_track == 0)
+            return;
+
+        _lev_track--;
+        uint64 blk = _level[_lev_track]._block;
+        uint64 off = _level[_lev_track]._offset;
+        getBuffer(blk);
+        _node_tracker->writeKey(key, off);
+
+        // recursively slove the max sons problem
+        solveChangeGreater(key);
+    }
+
+    bool locateRecord(char* key) {
         _lev_track = 0;
-        _node_tracker = &_root;
+        _node_tracker = &_root; 
         _level[_lev_track]._block = 1;
-        while(_node_tracker->_leaf == false) {
+        while(_node_tracker->_leaf == 0) {
             uint64 next;
             uint64 off = _node_tracker->searchKey(key, &_comparator, &next);
-            _level[_lev_track]._offset = off;
+            _level[_lev_track++]._offset = off;
             _level[_lev_track]._block = next;
             getBuffer(next);
         }
@@ -504,6 +529,10 @@ public:
 
     void displayNumPages() {
         std::cout<<"_num_pages:"<<_num_pages<<" _write_to:"<<_write_to<<std::endl;
+    }
+
+    void basicInformation() {
+        std::cout<<"_page_size:"<<_page_size<<" _data_length:"<<_data_length<<std::endl;
     }
 
 // private basic in/out functions

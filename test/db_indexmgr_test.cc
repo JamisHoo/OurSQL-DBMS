@@ -14,6 +14,7 @@
  *****************************************************************************/
 #include <iostream>
 #include <cassert>
+#include <cstdlib>
 #include "../src/db_tablemanager.h"
 #include "../src/db_fields.h"
 #include "../src/db_indexmanager.h"
@@ -40,6 +41,7 @@ int main() {
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
 
+    srand(21514);
 // test of BTreeNode
 /*
     uint64 constexpr _page_size = 4*1024;
@@ -51,6 +53,7 @@ int main() {
     node._data = new char[_page_size];
     DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize = sizeof(uint64) + sizeof(uint64);
     DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons = (_page_size - sizeof(uint64)*3) / DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize;
+    DBIndexManager<DBFields::Comparator>::BTreeNode::DataLength = sizeof(uint64);
 
     //cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::EntrySize<<endl;
     //cout<<DBIndexManager<DBFields::Comparator>::BTreeNode::MaxSons<<endl;
@@ -75,7 +78,16 @@ int main() {
     char* pkey = pointer_convert<char*>(&key);
     uint64 next;
     cout<<node.searchKey(pkey, &comp, &next)<<endl;
+    uint64 key1 = 123463;
+    char* pkey1 = pointer_convert<char*>(&pkey1);
+    cout<<node.searchKey(pkey1, &comp, &next)<<endl;
     cout<<endl;
+
+    uint64 writeTest = 10000;
+    pkey = pointer_convert<char*>(&writeTest);
+    node.writeKey(pkey, 0);
+
+    node.display();
 
     DBIndexManager<DBFields::Comparator>::BTreeNode newNode;
     newNode._data = new char[_page_size];
@@ -87,12 +99,15 @@ int main() {
 
     node.copyKey(&newNode);
     newNode.display();
+
+    cout<<newNode.getPosition(0)<<endl;
+    cout<<newNode.getPosition(newNode._size-1)<<endl;
 */
+
 
 //test of index manager
     
-
-    constexpr uint64 page_size = 4*1024;
+    constexpr uint64 page_size = 1024;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
@@ -104,13 +119,13 @@ int main() {
     }
 
     manager.displayNumPages();
-
 /*
+
     manager._root._size = 3;
     uint64 arr[] = {1234,1,2345,2,3456,3};
     char* dst = manager._root._data + sizeof(uint64)*3;
     memcpy(dst, arr, sizeof(uint64) * 8);
-*/
+
 
     manager._root.display();
 
@@ -118,6 +133,25 @@ int main() {
 
     RID rid = manager.searchRecord(pointer_convert<char*>(&key));
     cout<<rid.pageID<<" "<<rid.slotID<<endl;
+*/
 
+/*
+    for(int i=0; i<160; i++){
+        uint64 key = rand() % 123456;
+        RID pos(key, key*10);
+        manager.insertRecord(pointer_convert<char*>(&key), pos, 0);
+        //cout<<"size:"<<manager._root._size<<endl;
+    }  
+*/
+
+
+
+    for(int i=1; i<6; i++){
+        manager.getBuffer(i);
+        manager._node_tracker->display();
+    }
+
+
+    //manager.close();
     return 0;
 }
