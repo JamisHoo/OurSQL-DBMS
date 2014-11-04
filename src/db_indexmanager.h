@@ -35,12 +35,13 @@ public:
 #endif
 
     struct BTreeNode {
-        static int EntrySize;
-        static int MaxSons;
-        static uint64 DataLength;
-
-        BTreeNode() : _position(0), _size(0), _leaf(1) 
+        
+        BTreeNode() : _position(0), _size(0), _leaf(1), EntrySize(0), MaxSons(0), DataLength(0)
         { _data = nullptr; }
+
+        uint64 EntrySize;
+        uint64 MaxSons;
+        uint64 DataLength;
 
         // position in index file
         uint64 _position;
@@ -56,8 +57,8 @@ public:
 
         // copy one node to another, used when sloving the split of _root
         void copyKey(BTreeNode* newNode) {
-            char* src = _data + sizeof(uint64)*3;
-            char* dst = newNode->_data + sizeof(uint64)*3;
+            char* src = _data + sizeof(uint64) * 3;
+            char* dst = newNode->_data + sizeof(uint64) * 3;
             memcpy(dst, src, EntrySize * _size);
             newNode->_size = _size;
             newNode->_leaf = _leaf;
@@ -67,21 +68,21 @@ public:
         void splitKey(BTreeNode* newNode) {
             int pos = _size / 2;
             // split _data into two 
-            char* src = _data + sizeof(uint64)*3;
+            char* src = _data + sizeof(uint64) * 3;
             src += EntrySize * pos;
-            char* dst = newNode->_data + sizeof(uint64)*3;
+            char* dst = newNode->_data + sizeof(uint64) * 3;
             memcpy(dst, src, EntrySize * (MaxSons - pos));
             newNode->_size = _size - pos;
             newNode->_leaf = _leaf;
             _size = pos;
         }
         
-        // merge one node into another        
+        // merge newNode into this one
         void mergeKey(BTreeNode* newNode) {
-            char* dst = _data + sizeof(uint64)*3;
+            char* dst = _data + sizeof(uint64) * 3;
             dst += EntrySize * _size;
             char* src = newNode->_data;
-            src += sizeof(uint64)*3;
+            src += sizeof(uint64) * 3;
             memcpy(dst, src, EntrySize * newNode->_size);
 
             _size += newNode->_size;
@@ -89,7 +90,7 @@ public:
         }
 
         // delete Entry[pos]
-        void deleteKey(uint64 pos) {
+        void deleteKey(const uint64 pos) {
             if(pos >= _size)
                 return;
             else if(pos == _size-1){
@@ -103,7 +104,7 @@ public:
         }
         
         // insert into Entry[pos]
-        uint64 insertKey(char* newEntry, uint64 pos) {
+        uint64 insertKey(const char* newEntry, const uint64 pos) {
             if(pos > _size || _size >= MaxSons)
                 return 0;
             else if(pos == _size){
@@ -123,7 +124,7 @@ public:
         
         // search for target, return the closet position in _data
         uint64 searchKey(const char* target, DBFields::Comparator* cmp, uint64* next) {
-            char* pointer = _data + sizeof(uint64)*3;
+            char* pointer = _data + sizeof(uint64) * 3;
             uint64 i = 0;
             if(_leaf == 1)
                 while(i < _size && ((*cmp)(target, pointer, DataLength) > 0)) {
@@ -141,40 +142,40 @@ public:
         }
 
         // compare the key and Entry[off], return 0 if they are truely equal
-        int compareKey(const char* key, uint64 off) {
-            char* pointer = _data + sizeof(uint64)*3;
+        int compareKey(const char* key, const uint64 off) {
+            char* pointer = _data + sizeof(uint64) * 3;
             pointer += EntrySize * off;
             return memcmp(pointer, key, DataLength);
         }
 
         // write key to Entry[off], rewrite if there exist a key
-        void writeKey(char* key, uint64 off) {
-            char* pointer = _data + sizeof(uint64)*3;
+        void writeKey(const char* key, const uint64 off) {
+            char* pointer = _data + sizeof(uint64) * 3;
             pointer += EntrySize * off;
             memcpy(pointer, key, DataLength);
         }
 
         // get the position of Entry[off]
-        uint64 getPosition(uint64 off) {
-            char* pointer = _data + sizeof(uint64)*3;
+        uint64 getPosition(const uint64 off) {
+            char* pointer = _data + sizeof(uint64) * 3;
             pointer += EntrySize * off + DataLength;
             return *(pointer_convert<uint64*>(pointer));
         }
 
         // get the key of Entry[off] by char*
-        char* getKey(uint64 off) {
-            char* pointer = _data  + sizeof(uint64)*3;
+        char* getKey(const uint64 off) {
+            char* pointer = _data  + sizeof(uint64) * 3;
             pointer += EntrySize * off;
             return pointer;
         }
 
 #ifdef DEBUG
-        char* atData(uint64 pos) {
+        char* atData(const uint64 pos) {
             char* pointer = _data + sizeof(uint64) * 3;
             return pointer + EntrySize * pos;
         }
 
-        uint64 atPosition(uint64 pos) {
+        uint64 atPosition(const uint64 pos) {
             char* pointer = _data + sizeof(uint64) * 3;
             pointer += EntrySize * pos;
             pointer += sizeof(uint64);
@@ -244,13 +245,12 @@ public:
         _num_pages = *(pointer_convert<uint64*>(buffer));
         _write_to = _num_pages;
         _page_size = *(pointer_convert<uint64*>(buffer + sizeof(uint64)));
-        _data_length = *(pointer_convert<uint64*>(buffer + sizeof(uint64)*2));
+        _data_length = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 2));
+
+        _entry_size = _data_length + sizeof(uint64);
+        _max_sons = (_page_size - sizeof(uint64) * 3) / _entry_size;
 
         initialize();
-
-        BTreeNode::EntrySize = _data_length + sizeof(uint64);
-        BTreeNode::MaxSons = (_page_size - sizeof(uint64)*3) / BTreeNode::EntrySize;
-        BTreeNode::DataLength = _data_length;
 
         return _num_pages;
     }
@@ -273,7 +273,7 @@ public:
         memset(buffer, 0xdd, _page_size);
         memcpy(buffer, &numPages, sizeof(numPages));
         memcpy(buffer + sizeof(numPages), &_page_size, sizeof(_page_size));
-        memcpy(buffer + sizeof(numPages)*2, &_data_length, sizeof(_data_length));
+        memcpy(buffer + sizeof(numPages) * 2, &_data_length, sizeof(_data_length));
         writePage(0, buffer);
 
         // write page1(root) after create
@@ -297,7 +297,11 @@ public:
         // initialize buffer and root
         initBuffer();
         _root._data = new char[_page_size];
-        memset(_root._data, 0, sizeof(char)*_page_size);
+        _root.EntrySize = _entry_size;
+        _root.MaxSons = _max_sons;
+        _root.DataLength = _data_length;
+
+        memset(_root._data, 0, _page_size);
         readNode(1, &_root);
     }
 
@@ -311,7 +315,7 @@ public:
 
 // public interface of IndexManager operation
     // return RID(0,0) if not found
-    RID searchRecord(char* key) {
+    RID searchRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
         if(answer && !checkLast){
@@ -326,13 +330,13 @@ public:
         }
     }
 
-    std::vector<RID> searchRecords(char* key) {
+    std::vector<RID> searchRecords(const char* key) {
 
     }
 
     // insert a record into the btree, return false if error
     // ifPrimary: is this key a primary key(cannot insert twice)?
-    bool insertRecord(char* key, RID rid, bool ifPrimary) {
+    bool insertRecord(const char* key, const RID rid, const bool ifPrimary) {
         bool answer = locateRecord(key);
         if(answer && ifPrimary){
             #ifdef DEBUG
@@ -347,7 +351,7 @@ public:
             memcpy(entry + _data_length, &position, sizeof(uint64));
             _node_tracker->insertKey(entry, _level[_lev_track]._offset);
             setDirty(_node_tracker);
-            if(_node_tracker->_size >= BTreeNode::MaxSons)
+            if(_node_tracker->_size >= _max_sons)
                 solveNodeSplit();
             else
                 solveChangeGreater(key);
@@ -358,14 +362,14 @@ public:
 
     // remove an index file
     // return true if success, else return 
-    bool removeIndex(char* key) {
+    bool removeIndex(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
         if(answer && !checkLast){
             uint64 off = _level[_lev_track]._offset;
             _node_tracker->deleteKey(off);
             setDirty(_node_tracker);
-            if(_node_tracker->_size < BTreeNode::Maxsons / 2);
+            if(_node_tracker->_size < _max_sons / 2)
                 solveNodeMerge();
             else
                 sloveChangeSmaller();
@@ -388,9 +392,13 @@ public:
     void initBuffer() {
         for(int i=0; i<BUFFER_SIZE; i++) {
             _buffer[i]._node._data = new char[_page_size];
-            memset(_buffer[i]._node._data, 0 , sizeof(char)*_page_size);
+            memset(_buffer[i]._node._data, 0 , _page_size);
             _buffer[i]._node._position = 0;
             _buffer[i]._dirty = false;
+
+            _buffer[i]._node.MaxSons = _max_sons;
+            _buffer[i]._node.EntrySize = _entry_size;
+            _buffer[i]._node.DataLength = _data_length;
         }
     }
 
@@ -458,7 +466,7 @@ public:
 
 // private functions to support btree
     // slove split of root, btree height will increase
-    void solveRootSplit(char* leftChild, char* rightChild, uint64 rightPos) {
+    void solveRootSplit(const char* leftChild, const char* rightChild, const uint64 rightPos) {
         // save left child first
         int pos = clearBuffer();
         _node_tracker->copyKey(&(_buffer[pos]._node));
@@ -480,11 +488,11 @@ public:
 
     // slove split of ordinary node
     void solveNodeSplit() {
-        if(_node_tracker->_size < BTreeNode::MaxSons)
+        if(_node_tracker->_size < _max_sons)
             return;
 
-        char* leftChild = _node_tracker->getKey(BTreeNode::MaxSons/2-1);
-        char* rightChild = _node_tracker->getKey(BTreeNode::MaxSons-1);
+        char* leftChild = _node_tracker->getKey(_max_sons/2 - 1);
+        char* rightChild = _node_tracker->getKey(_max_sons - 1);
 
         int pos = clearBuffer();
         _node_tracker->splitKey(&(_buffer[pos]._node));
@@ -518,31 +526,42 @@ public:
     void solveRootMerge() {
 
     }
-
-    // check if right/left node can lend a entry 
+/*
+    // check if left brother node can lend an entry
     bool checkLeft() {
-
+        uint64 off = _level[_lev_track]._offset;
+        if(off == 0)
+            return false;
+        uint64 leftPos = _node_tracker->getPosition(off - 1);
+        getBuffer(leftPos);
+        if(_node_tracker->_size > )
     }
-
-    bool checkRight() {
-
-    }
+*/
 
     // solve merge of ordinary node
     void solveNodeMerge() {
-        if(_node_tracker->_size >= BTreeNode::Maxsons / 2)
+        /*
+        if(_node_tracker->_size >= _max_sons / 2)
+            return;
+        // when to solve the root problem?
+        if(_lev_track == 0)
             return;
 
-        checkLeft();
-        checkRight();
+        BTreeNode* current = _node_tracker;
 
+        _lev_track--;
+        uint64 blk = _buffer[_lev_track]._block;
+        getBuffer(blk);
+        bool answer = checkLeft();
 
         // recursively slove the node merge problem
         solveNodeMerge();
+        */
     }
 
+
     // solve the max son is greater than before
-    void solveChangeGreater(char* key) {
+    void solveChangeGreater(const char* key) {
         if((_level[_lev_track]._offset + 1) < _node_tracker->_size)
             return;
         if(_lev_track == 0)
@@ -565,7 +584,7 @@ public:
     
     // find the most suitable place for key and check if this key exist
     // return true if this key exist, return false if not exist
-    bool locateRecord(char* key) {
+    bool locateRecord(const char* key) {
         _lev_track = 0;
         _node_tracker = &_root; 
         _level[_lev_track]._block = 1;
@@ -604,26 +623,26 @@ public:
 
 // private basic in/out functions
     // read and write a node to index
-    void writeNode(uint64 position, BTreeNode* src) {
-        memcpy(src->_data, &(src->_position), sizeof(uint64)*3);
+    void writeNode(const uint64 position, BTreeNode* src) {
+        memcpy(src->_data, &(src->_position), sizeof(uint64) * 3);
         _fs.seekp(_page_size * position);
         _fs.write(src->_data, _page_size);
     }
 
-    void readNode(uint64 position, BTreeNode* dst) {
+    void readNode(const uint64 position, BTreeNode* dst) {
         _fs.seekg(_page_size * position);
         _fs.read(dst->_data, _page_size);
-        memcpy(&(dst->_position), dst->_data, sizeof(uint64)*3);
+        memcpy(&(dst->_position), dst->_data, sizeof(uint64) * 3);
     }
 
     // read and write page using a char buffer, use this in create
-    void writePage(uint64 position, char* buffer) {
+    void writePage(const uint64 position, char* buffer) {
         _fs.seekp(_page_size * position);
         _fs.write(buffer, _page_size);
     }
 
     // change _num_pages of index file in page0
-    void writeNumPages(uint64 position) {
+    void writeNumPages(const uint64 position) {
         if(position > _num_pages) {
             _num_pages = position;
             char buffer[sizeof(_num_pages)];
@@ -670,18 +689,13 @@ public:
     uint64 _page_size;
     uint64 _data_length;
 
+    uint64 _entry_size;
+    uint64 _max_sons;
+
     DBFields::Comparator _comparator;
 
     std::string _file;
     std::fstream _fs;
 };
-
-// initialize the static virables 
-template<class Comparator>
-int Database::DBIndexManager<Comparator>::BTreeNode::MaxSons = 0;
-template<class Comparator>
-int Database::DBIndexManager<Comparator>::BTreeNode::EntrySize = 0;
-template<class Comparator>
-Database::uint64 Database::DBIndexManager<Comparator>::BTreeNode::DataLength = 0;
 
 #endif /* DB_INDEXMANAGER_H_ */

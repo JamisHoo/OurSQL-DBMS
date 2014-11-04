@@ -15,7 +15,7 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#include <memory.h>
+#include <cstring>
 
 namespace Database {
 
