@@ -526,21 +526,90 @@ public:
     void solveRootMerge() {
 
     }
-/*
+
     // check if left brother node can lend an entry
-    bool checkLeft() {
+    int checkLeft() {
         uint64 off = _level[_lev_track]._offset;
         if(off == 0)
-            return false;
+            return 0;
         uint64 leftPos = _node_tracker->getPosition(off - 1);
         getBuffer(leftPos);
-        if(_node_tracker->_size > )
+        if(_node_tracker->_size > _max_sons / 2)
+            return 1;
+        return 0;
     }
-*/
+
+    // check if right brother node can lend an entry
+    int checkRight() {
+        uint64 off = _level[_lev_track]._offset;
+        if(off == _node_tracker->_size-1)
+            return 0;
+        uint64 rightPos = _node_tracker->getPosition(off + 1);
+        getBuffer(leftPos);
+        if(_node_tracker->_size > _max_sons / 2)
+            return 2;
+        return 0;
+    }
+
+    // TODO: Which one is dirty?
+
+    // current: node need merge, upper: the upper level node of current
+    void lendNode(uint64 upper, BTreeNode* current, int which) {
+        char buffer[_entry_size];
+        if(which == 1){         // lend from left
+            uint64 off = _node_tracker->_size - 1;
+            char* src = _node_tracker->getKey(off);
+            memcpy(buffer, src, _entry_size);
+            _node_tracker->_size--;
+
+            char update[_data_length];
+            src = _node_tracker->getKey(off - 1);
+            memcpy(update, src, _data_length);
+            getBuffer(upper);
+            uint64 offupper = _level[_lev_track]._offset - 1;
+            _node_tracker->writeKey(update, offupper);
+
+            current->insertKey(buffer, 0);
+        }
+        else{                   // lend from right
+            char* src = _node_tracker->getKey(0);
+            memcpy(buffer, src, _entry_size);
+            _node_tracker->deleteKey(0);
+
+            uint64 currIns = current->_size;
+            current->insertKey(buffer, currIns);
+
+            getBuffer(upper);
+            uint64 offupper = _level[_lev_track]._offset;
+            _node_tracker->writeKey(buffer, offupper);
+        }
+    }
+
+    // if cannot lend entry, then merge
+    void mergeNode(uint64 upper, BTreeNode* current) {
+        getBuffer(upper);
+        uint64 off = _level[_lev_track]._offset;
+        if(off != 0) {          // merge to left node
+            uitn64 posLeft = _node_tracker->getPosition(off - 1);
+            getBuffer(posLeft);
+            _node_tracker->mergeKey(current);
+
+            char buffer[_data_length];
+            uint64 lastPos = _node_tracker->_size - 1;
+            char* src = _node_tracker->getKey(lastPos);
+            memcpy(buffer, src, _data_length);
+
+            getBuffer(upper);
+            _node_tracker->writeKey(buffer, off - 1);
+            _node_tracker->deleteKey(off);
+        }
+        else {                  // merge to right node
+
+        }
+    }
 
     // solve merge of ordinary node
     void solveNodeMerge() {
-        /*
         if(_node_tracker->_size >= _max_sons / 2)
             return;
         // when to solve the root problem?
@@ -550,13 +619,22 @@ public:
         BTreeNode* current = _node_tracker;
 
         _lev_track--;
-        uint64 blk = _buffer[_lev_track]._block;
+        uint64 blk = _level[_lev_track]._block;
         getBuffer(blk);
-        bool answer = checkLeft();
+        int answer = checkLeft();
+        if(answer == 0){
+            getBuffer(blk);
+            answer = checkRight();
+        }
+        if(answer == 1 || answer == 2) {
+            lendNode(blk, current, answer);
+        }
+        else {
+            mergeNode(blk, current);
+        }
 
         // recursively slove the node merge problem
         solveNodeMerge();
-        */
     }
 
 
