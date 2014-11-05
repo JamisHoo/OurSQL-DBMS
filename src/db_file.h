@@ -35,6 +35,9 @@ public:
     // returns 0 if file not exists or open failed.
     // returns page size if open correctly.
     uint64 open() {
+#ifdef DEBUG
+        write_times = read_times = 0;
+#endif
         // fail if file not accessible
         if (!accessible()) return 0;
 
@@ -121,6 +124,9 @@ public:
 
     // write data in buffer to Page i
     void writePage(const uint64 i, const char* buffer) {
+#ifdef DEBUG
+        ++write_times;
+#endif
         _fs.seekp(_page_size * i);
         _fs.write(buffer, _page_size);
         // enlarge file
@@ -136,6 +142,9 @@ public:
 
     // read data in Page i to buffer
     void readPage(const uint64 i, char* buffer) {
+#ifdef DEBUG
+        ++read_times;
+#endif
         _fs.seekg(_page_size * i);
         _fs.read(buffer, _page_size);
         assert(_fs.gcount() == _page_size);
@@ -146,6 +155,9 @@ public:
     uint64 numPages() const { return _num_pages; }
 
 private:
+#ifdef DEBUG
+public:
+#endif
     // forbid copying
     DBFile(const DBFile&) = delete;
     DBFile(DBFile&&) = delete;
@@ -160,6 +172,11 @@ private:
     uint64 _num_pages;
     // file input and output stream
     std::fstream _fs;
+
+#ifdef DEBUG
+    uint64 write_times;
+    uint64 read_times;
+#endif
 
 };
 

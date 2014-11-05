@@ -96,7 +96,8 @@ int main() {
     
     
     
-
+    cout << table._file->write_times << endl
+         << table._file->read_times << endl;
 
 
     // close table
@@ -124,6 +125,9 @@ int main() {
     table.traverseRecords(writeTofile);
     */
 
+
+    cout << table._file->write_times << endl
+         << table._file->read_times << endl;
 
     rtv = table.close();
     assert(rtv == 0);
