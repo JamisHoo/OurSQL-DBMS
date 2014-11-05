@@ -48,7 +48,7 @@ int main() {
 
     int rtv;
     // optimal on my mac
-    rtv = table.create("student", fields, 4096 * 4);
+    rtv = table.create("student", fields, 1024 * 16);
     assert(rtv == 0);
 
 
