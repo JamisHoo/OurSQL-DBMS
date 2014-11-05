@@ -107,7 +107,7 @@ int main() {
 
 //test of index manager
     
-    constexpr uint64 page_size = 1024;
+    constexpr uint64 page_size = 128;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
@@ -118,9 +118,23 @@ int main() {
         manager.open();
     }
 
-    manager.displayNumPages();
 /*
+    for(int i=0; i<100; i++){
+        uint64 key = rand() % 123456;
+        RID pos(key, key*10);
+        manager.insertRecord(pointer_convert<char*>(&key), pos, 0);
+        cout<<key<<endl;
+    }  
+*/
 
+    for(int i=0; i<50; i++){
+        uint64 key;
+        cin>>key;
+        char* keyp = pointer_convert<char*>(&key);
+        manager.removeRecord(keyp);
+    }
+    
+/*
     manager._root._size = 3;
     uint64 arr[] = {1234,1,2345,2,3456,3};
     char* dst = manager._root._data + sizeof(uint64)*3;
@@ -134,23 +148,6 @@ int main() {
     RID rid = manager.searchRecord(pointer_convert<char*>(&key));
     cout<<rid.pageID<<" "<<rid.slotID<<endl;
 */
-
-/*
-    for(int i=0; i<160; i++){
-        uint64 key = rand() % 123456;
-        RID pos(key, key*10);
-        manager.insertRecord(pointer_convert<char*>(&key), pos, 0);
-        //cout<<"size:"<<manager._root._size<<endl;
-    }  
-*/
-
-
-
-    for(int i=1; i<6; i++){
-        manager.getBuffer(i);
-        manager._node_tracker->display();
-    }
-
 
     //manager.close();
     return 0;

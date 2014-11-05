@@ -360,9 +360,9 @@ public:
 
     }
 
-    // remove an index file
-    // return true if success, else return 
-    bool removeIndex(const char* key) {
+    // remove record from an open index
+    // return true if success, else return false
+    bool removeRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
         if(answer && !checkLast){
@@ -372,7 +372,7 @@ public:
             if(_node_tracker->_size < _max_sons / 2)
                 solveNodeMerge();
             else
-                sloveChangeSmaller();
+                solveChangeSmaller();
             return true;
         }
         else{
@@ -383,8 +383,8 @@ public:
         }
     }
 
-    // remove record from an open index...
-    bool removeRecord() { }
+    // remove an existing index file
+    bool removeIndex() { }
 
 
 // private buffer operations
@@ -524,34 +524,44 @@ public:
 
     // solve merge of root, btree height will decrease
     void solveRootMerge() {
+        _node_tracker = &_root;
+        uint64 posMain = _node_tracker->getPosition(0);
+        uint64 posSub = _node_tracker->getPosition(1);
 
+        getBuffer(posMain);
+        _node_tracker->copyKey(&_root);
+        _node_tracker->_size = 0;
+        setDirty(_node_tracker);
+
+        getBuffer(posSub);
+        _root.mergeKey(_node_tracker);
+        _node_tracker->_size = 0;
+        setDirty(_node_tracker);
     }
 
     // check if left brother node can lend an entry
     int checkLeft() {
         uint64 off = _level[_lev_track]._offset;
-        if(off == 0)
+        if(off == 0)        // no left brother
             return 0;
         uint64 leftPos = _node_tracker->getPosition(off - 1);
         getBuffer(leftPos);
         if(_node_tracker->_size > _max_sons / 2)
-            return 1;
+            return 1;       // left brother can lend
         return 0;
     }
 
     // check if right brother node can lend an entry
     int checkRight() {
         uint64 off = _level[_lev_track]._offset;
-        if(off == _node_tracker->_size-1)
+        if(off == _node_tracker->_size-1)       // no right brother
             return 0;
         uint64 rightPos = _node_tracker->getPosition(off + 1);
-        getBuffer(leftPos);
+        getBuffer(rightPos);
         if(_node_tracker->_size > _max_sons / 2)
-            return 2;
+            return 2;                           // right brother can lend
         return 0;
     }
-
-    // TODO: Which one is dirty?
 
     // current: node need merge, upper: the upper level node of current
     void lendNode(uint64 upper, BTreeNode* current, int which) {
@@ -561,27 +571,33 @@ public:
             char* src = _node_tracker->getKey(off);
             memcpy(buffer, src, _entry_size);
             _node_tracker->_size--;
-
             char update[_data_length];
             src = _node_tracker->getKey(off - 1);
             memcpy(update, src, _data_length);
+            setDirty(_node_tracker);
+            
             getBuffer(upper);
-            uint64 offupper = _level[_lev_track]._offset - 1;
-            _node_tracker->writeKey(update, offupper);
+            uint64 offUpper = _level[_lev_track]._offset - 1;
+            _node_tracker->writeKey(update, offUpper);
+            setDirty(_node_tracker);
 
             current->insertKey(buffer, 0);
+            setDirty(current);
         }
         else{                   // lend from right
             char* src = _node_tracker->getKey(0);
             memcpy(buffer, src, _entry_size);
             _node_tracker->deleteKey(0);
+            setDirty(_node_tracker);
 
             uint64 currIns = current->_size;
             current->insertKey(buffer, currIns);
+            setDirty(current);
 
             getBuffer(upper);
             uint64 offupper = _level[_lev_track]._offset;
             _node_tracker->writeKey(buffer, offupper);
+            setDirty(_node_tracker);
         }
     }
 
@@ -589,10 +605,23 @@ public:
     void mergeNode(uint64 upper, BTreeNode* current) {
         getBuffer(upper);
         uint64 off = _level[_lev_track]._offset;
-        if(off != 0) {          // merge to left node
-            uitn64 posLeft = _node_tracker->getPosition(off - 1);
+        if(off != _node_tracker->_size-1) {     // merge to right node if possible
+            uint64 posRight = _node_tracker->getPosition(off + 1);
+            getBuffer(posRight);
+            _node_tracker->mergeKey(current);
+            setDirty(_node_tracker);
+            setDirty(current);
+
+            getBuffer(upper);
+            _node_tracker->deleteKey(off);
+            setDirty(_node_tracker);
+        }
+        else{                                   // merge to left node
+            uint64 posLeft = _node_tracker->getPosition(off - 1);
             getBuffer(posLeft);
             _node_tracker->mergeKey(current);
+            setDirty(_node_tracker);
+            setDirty(current);
 
             char buffer[_data_length];
             uint64 lastPos = _node_tracker->_size - 1;
@@ -602,9 +631,7 @@ public:
             getBuffer(upper);
             _node_tracker->writeKey(buffer, off - 1);
             _node_tracker->deleteKey(off);
-        }
-        else {                  // merge to right node
-
+            setDirty(_node_tracker);
         }
     }
 
@@ -626,17 +653,25 @@ public:
             getBuffer(blk);
             answer = checkRight();
         }
-        if(answer == 1 || answer == 2) {
+        if(answer == 1 || answer == 2) {    // lend node is not recursive
             lendNode(blk, current, answer);
         }
-        else {
-            mergeNode(blk, current);
+        else {                              // merge node is recursive
+            bool way = true;
+            if(_lev_track == 0){
+                getBuffer(blk);             // get the root node, if size == 2, then height - 1
+                if(_node_tracker->_size == 2){
+                    solveRootMerge();
+                    way = false;
+                }
+            }
+            if(way){
+                mergeNode(blk, current);
+                // recursively slove the node merge problem
+                solveNodeMerge();
+            }
         }
-
-        // recursively slove the node merge problem
-        solveNodeMerge();
     }
-
 
     // solve the max son is greater than before
     void solveChangeGreater(const char* key) {
@@ -650,14 +685,29 @@ public:
         uint64 off = _level[_lev_track]._offset;
         getBuffer(blk);
         _node_tracker->writeKey(key, off);
+        setDirty(_node_tracker);
 
-        // recursively slove the max sons problem
+        // recursively solve the max sons problem
         solveChangeGreater(key);
     }
 
     // solve the max son is smaller than before
-    void sloveChangeSmaller() {
+    void solveChangeSmaller() {
+        if((_level[_lev_track]._offset + 1 < _node_tracker->_size))
+            return;
+        if(_lev_track == 0)
+            return;
 
+        char* key = _node_tracker->getKey(_level[_lev_track]._offset - 1);
+        _lev_track--;
+        uint64 blk = _level[_lev_track]._block;
+        uint64 off = _level[_lev_track]._offset;
+        getBuffer(blk);
+        _node_tracker->writeKey(key, off);
+        setDirty(_node_tracker);
+
+        // recursively solve the small sons problem
+        solveChangeSmaller();
     }
     
     // find the most suitable place for key and check if this key exist

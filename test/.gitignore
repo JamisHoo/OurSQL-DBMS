@@ -1,4 +1,6 @@
 test
+show
+show.cpp
 *.idx
 *.txt
 *.tb
