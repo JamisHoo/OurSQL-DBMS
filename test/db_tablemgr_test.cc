@@ -47,7 +47,8 @@ int main() {
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
     int rtv;
-    rtv = table.create("student", fields, 4096);
+    // optimal on my mac
+    rtv = table.create("student", fields, 4096 * 4);
     assert(rtv == 0);
 
 
@@ -96,8 +97,6 @@ int main() {
     
     
     
-    cout << table._file->write_times << endl
-         << table._file->read_times << endl;
 
 
     // close table
@@ -126,8 +125,6 @@ int main() {
     */
 
 
-    cout << table._file->write_times << endl
-         << table._file->read_times << endl;
 
     rtv = table.close();
     assert(rtv == 0);
