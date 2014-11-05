@@ -369,8 +369,14 @@ public:
             uint64 off = _level[_lev_track]._offset;
             _node_tracker->deleteKey(off);
             setDirty(_node_tracker);
-            if(_node_tracker->_size < _max_sons / 2)
+            if(_node_tracker->_size < _max_sons / 2){
+                uint64 tempLev = _lev_track;
+                uint64 tempBlk = _level[_lev_track]._block;
+                solveChangeSmaller();
+                _lev_track = tempLev;
+                getBuffer(tempBlk);
                 solveNodeMerge();
+            }
             else
                 solveChangeSmaller();
             return true;
@@ -608,12 +614,18 @@ public:
         if(off != _node_tracker->_size-1) {     // merge to right node if possible
             uint64 posRight = _node_tracker->getPosition(off + 1);
             getBuffer(posRight);
-            _node_tracker->mergeKey(current);
+            char buffer[_data_length];
+            uint64 lastPos = _node_tracker->_size - 1;
+            char* src = _node_tracker->getKey(lastPos);
+            memcpy(buffer, src, _data_length);
+
+            current->mergeKey(_node_tracker);
             setDirty(_node_tracker);
             setDirty(current);
 
             getBuffer(upper);
-            _node_tracker->deleteKey(off);
+            _node_tracker->writeKey(buffer, off);
+            _node_tracker->deleteKey(off + 1);
             setDirty(_node_tracker);
         }
         else{                                   // merge to left node
@@ -637,6 +649,7 @@ public:
 
     // solve merge of ordinary node
     void solveNodeMerge() {
+        std::cout<<"solve node merge"<<std::endl;
         if(_node_tracker->_size >= _max_sons / 2)
             return;
         // when to solve the root problem?

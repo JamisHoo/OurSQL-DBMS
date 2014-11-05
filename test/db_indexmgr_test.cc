@@ -127,13 +127,15 @@ int main() {
     }  
 */
 
-    for(int i=0; i<50; i++){
+
+    for(int i=0; i<19; i++){
         uint64 key;
         cin>>key;
         char* keyp = pointer_convert<char*>(&key);
         manager.removeRecord(keyp);
     }
-    
+
+
 /*
     manager._root._size = 3;
     uint64 arr[] = {1234,1,2345,2,3456,3};
