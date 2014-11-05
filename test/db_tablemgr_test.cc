@@ -47,7 +47,8 @@ int main() {
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
     int rtv;
-    // optimal on my mac
+    // optimal on my os X 16KB
+    // optimal on my Fedora 64KB
     rtv = table.create("student", fields, 1024 * 16);
     assert(rtv == 0);
 
