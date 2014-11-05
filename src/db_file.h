@@ -65,7 +65,7 @@ public:
         if (accessible()) return 1;
 
 
-        _fs.open(_file, std::fstream::out| std::fstream::binary);
+        _fs.open(_file, std::fstream::out | std::fstream::binary);
         // create failed
         if (!isopen()) return 1;
 

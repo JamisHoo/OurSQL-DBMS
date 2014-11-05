@@ -76,6 +76,7 @@ public:
                 const uint64 page_size = DEFAULT_PAGE_SIZE) {
         // TODO
         // must create index for primary key
+
         // there's already a table opened
         if (isopen()) return 1;
         
