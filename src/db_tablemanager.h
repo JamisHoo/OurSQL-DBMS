@@ -16,10 +16,11 @@
 #define DB_TABLEMANAGER_H_
 
 #include <cassert>
+#include <cstring>
 #include <string>
 #include <array>
-#include <initializer_list>
 #include <tuple>
+#include <initializer_list>
 #include "db_common.h"
 #include "db_fields.h"
 #ifdef BUFFER
@@ -658,7 +659,7 @@ public:
                                             oldPageHeader[0],
                                             0);
         // copy to buffer
-        memset(buffer, 0x00, _file->numPages());
+        memset(buffer, 0x00, _file->pageSize());
         memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
         // need not to write bits into this page
         // becasue 0 stands for non-empty or non-existing page

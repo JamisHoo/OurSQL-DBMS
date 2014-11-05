@@ -16,10 +16,11 @@
 #ifndef DB_BUFFER_H_
 #define DB_BUFFER_H_
 
-#include <list>
-#include <unordered_map>
-#include <map>
 #include <cassert>
+#include <cstring>
+#include <list>
+#include <map>
+#include <unordered_map>
 #include "db_common.h"
 #include "db_file.h"
 
@@ -59,16 +60,8 @@ public:
                         callback(oldPageID, bufferID);
                     
                     // remove from stack and hash map
-                    int debug = _map.erase(oldPageID);
-                    assert(debug == 1);
-                    /*
-                    if (debug != 1) {
-                        std::cout << "xxxdebug: " << debug << ' ' << pageID << ' ' 
-                                  << oldPageID << ' ' << bufferID << ' ' 
-                                  << pagemiss << ' '
-                                  << _stack.size() << ' ' << _map.size() << std::endl;
-                    }
-                    */
+                    assert(_map.erase(oldPageID) == 1);
+
                     _stack.pop_front();
                 }
                 _map[pageID] = _stack.insert(_stack.end(), 
@@ -122,7 +115,7 @@ public:
         std::list< std::tuple<uint64, uint64, bool> > _stack;
         // <page ID, _stack iterator>
         std::unordered_map<uint64, std::list< std::tuple<uint64, uint64, bool> >::iterator> _map;
-        //std::map<uint64, std::list< std::tuple<uint64, uint64, bool> >::iterator> _map;
+        // std::map<uint64, std::list< std::tuple<uint64, uint64, bool> >::iterator> _map;
         // buffer pages with ID >= _unused_buffer have not been used
         // when _unused_buffer == _max_size; all buffer pages have been used
         uint64 _unused_buffer;
@@ -182,14 +175,12 @@ public:
     
     // write to buffer rather than disk
     void writePage(const uint64 pageid, const char* data) {
-        if (pageid == 32577) std::cout << "Write page 32577" << std::endl;
         // get buffer page ID of this page
         uint64 bufferID = _lru->find(pageid, 
             [this](const uint64 oldpageid, const uint64 oldbufferid) {
                 _file.writePage(oldpageid, _buffer + oldbufferid * pageSize()); 
             });
 
-        if (pageid == 32577) std::cout << "Write page ... 32577" << std::endl;
         
         // write to buffer
         memcpy(_buffer + bufferID * pageSize(), 

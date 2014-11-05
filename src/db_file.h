@@ -15,9 +15,10 @@
 #ifndef DB_FILE_H_
 #define DB_FILE_H_
 
-#include <fstream>
 #include <cstdio>
+#include <cstring>
 #include <cassert>
+#include <fstream>
 #include "db_common.h"
 
 class Database::DBFile {

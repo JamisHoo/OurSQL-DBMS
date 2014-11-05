@@ -15,8 +15,9 @@
 #ifndef DB_FIELDS_H_
 #define DB_FIELDS_H_
 
-#include <vector>
+#include <cstring>
 #include <string>
+#include <vector>
 #include <initializer_list>
 #include "db_common.h"
 
