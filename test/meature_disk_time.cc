@@ -23,6 +23,7 @@ char buffer[page_size * num_pages];
 int main() {
     using namespace std;
     
+    // fill with random data
     for (int i = 0; i < page_size * num_pages; ++i)
         buffer[i] = rand();
 
@@ -31,6 +32,7 @@ int main() {
     
     fstream fs("output", fstream::in | fstream::out | fstream::binary);
 
+    // random write
     for (int i = 0; i < 1360000 * 2; ++i) {
         int pageID = rand() % num_pages;
         fs.seekp(page_size * pageID);
