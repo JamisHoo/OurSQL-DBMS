@@ -128,12 +128,14 @@ int main() {
 */
 
 
-    for(int i=0; i<19; i++){
+    for(int i=0; i<50; i++){
         uint64 key;
         cin>>key;
+        //cout<<key<<endl;
         char* keyp = pointer_convert<char*>(&key);
         manager.removeRecord(keyp);
     }
+
 
 
 /*

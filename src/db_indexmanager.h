@@ -369,16 +369,18 @@ public:
             uint64 off = _level[_lev_track]._offset;
             _node_tracker->deleteKey(off);
             setDirty(_node_tracker);
-            if(_node_tracker->_size < _max_sons / 2){
+
+            if(off == _node_tracker->_size){
                 uint64 tempLev = _lev_track;
                 uint64 tempBlk = _level[_lev_track]._block;
-                solveChangeSmaller();
+                char* keyUpdate = _node_tracker->getKey(off - 1);
+                solveChangeSmaller(keyUpdate);
                 _lev_track = tempLev;
                 getBuffer(tempBlk);
+            }
+            if(_node_tracker->_size < _max_sons / 2){
                 solveNodeMerge();
             }
-            else
-                solveChangeSmaller();
             return true;
         }
         else{
@@ -570,7 +572,7 @@ public:
     }
 
     // current: node need merge, upper: the upper level node of current
-    void lendNode(uint64 upper, BTreeNode* current, int which) {
+    void lendNode(uint64 upper, uint64 current, int which) {
         char buffer[_entry_size];
         if(which == 1){         // lend from left
             uint64 off = _node_tracker->_size - 1;
@@ -587,8 +589,9 @@ public:
             _node_tracker->writeKey(update, offUpper);
             setDirty(_node_tracker);
 
-            current->insertKey(buffer, 0);
-            setDirty(current);
+            getBuffer(current);
+            _node_tracker->insertKey(buffer, 0);
+            setDirty(_node_tracker);
         }
         else{                   // lend from right
             char* src = _node_tracker->getKey(0);
@@ -596,9 +599,10 @@ public:
             _node_tracker->deleteKey(0);
             setDirty(_node_tracker);
 
-            uint64 currIns = current->_size;
-            current->insertKey(buffer, currIns);
-            setDirty(current);
+            getBuffer(current);
+            uint64 currIns = _node_tracker->_size;
+            _node_tracker->insertKey(buffer, currIns);
+            setDirty(_node_tracker);
 
             getBuffer(upper);
             uint64 offupper = _level[_lev_track]._offset;
@@ -608,7 +612,7 @@ public:
     }
 
     // if cannot lend entry, then merge
-    void mergeNode(uint64 upper, BTreeNode* current) {
+    void mergeNode(uint64 upper, uint64 current) {
         getBuffer(upper);
         uint64 off = _level[_lev_track]._offset;
         if(off != _node_tracker->_size-1) {     // merge to right node if possible
@@ -619,9 +623,11 @@ public:
             char* src = _node_tracker->getKey(lastPos);
             memcpy(buffer, src, _data_length);
 
-            current->mergeKey(_node_tracker);
+            BTreeNode* temp = _node_tracker;
+            getBuffer(current);
+            _node_tracker->mergeKey(temp);
+            setDirty(temp);
             setDirty(_node_tracker);
-            setDirty(current);
 
             getBuffer(upper);
             _node_tracker->writeKey(buffer, off);
@@ -630,10 +636,12 @@ public:
         }
         else{                                   // merge to left node
             uint64 posLeft = _node_tracker->getPosition(off - 1);
+            getBuffer(current);
+            BTreeNode* temp = _node_tracker;
             getBuffer(posLeft);
-            _node_tracker->mergeKey(current);
+            _node_tracker->mergeKey(temp);
             setDirty(_node_tracker);
-            setDirty(current);
+            setDirty(temp);
 
             char buffer[_data_length];
             uint64 lastPos = _node_tracker->_size - 1;
@@ -656,7 +664,7 @@ public:
         if(_lev_track == 0)
             return;
 
-        BTreeNode* current = _node_tracker;
+        uint64 current = _node_tracker->_position;
 
         _lev_track--;
         uint64 blk = _level[_lev_track]._block;
@@ -705,13 +713,12 @@ public:
     }
 
     // solve the max son is smaller than before
-    void solveChangeSmaller() {
+    void solveChangeSmaller(const char* key) {
         if((_level[_lev_track]._offset + 1 < _node_tracker->_size))
             return;
         if(_lev_track == 0)
             return;
 
-        char* key = _node_tracker->getKey(_level[_lev_track]._offset - 1);
         _lev_track--;
         uint64 blk = _level[_lev_track]._block;
         uint64 off = _level[_lev_track]._offset;
@@ -720,7 +727,7 @@ public:
         setDirty(_node_tracker);
 
         // recursively solve the small sons problem
-        solveChangeSmaller();
+        solveChangeSmaller(key);
     }
     
     // find the most suitable place for key and check if this key exist
