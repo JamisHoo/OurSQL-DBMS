@@ -150,9 +150,14 @@ public:
         // if open failed
         if (!page_size) return page_size;
 
-        // TODO: if buffer size < page size
-        assert(_buffer_size >= page_size);
-        _lru = new LRU(_buffer_size / page_size);
+        // if buffer size < page size
+        // buffer is disabled
+        if (_buffer_size >= page_size)
+            _lru = new LRU(_buffer_size / page_size);
+        else {
+            _lru = nullptr;
+            std::cout << "Buffer is disbaled" << std::endl;
+        }
 
         _num_pages = _file.numPages();
 
@@ -161,11 +166,13 @@ public:
 
     // write back all dirty data before closing the file.
     bool close() {
+        // if buffer is enabled
         // write back all dirty data
-        _lru->traverseDirtyBuffer(
-            [this](const uint64 pageid, const uint64 bufferpageid) {
-                _file.writePage(pageid, _buffer + bufferpageid * pageSize());
-            });
+        if (_lru)
+            _lru->traverseDirtyBuffer(
+                [this](const uint64 pageid, const uint64 bufferpageid) {
+                    _file.writePage(pageid, _buffer + bufferpageid * pageSize());
+                });
 
         delete _lru;
         _lru = nullptr;
@@ -175,6 +182,9 @@ public:
     
     // write to buffer rather than disk
     void writePage(const uint64 pageid, const char* data) {
+        // if buffer is disabled
+        if (!_lru) return _file.writePage(pageid, data);
+
         // get buffer page ID of this page
         uint64 bufferID = _lru->find(pageid, 
             [this](const uint64 oldpageid, const uint64 oldbufferid) {
@@ -200,6 +210,9 @@ public:
     // if so, return data in buffer
     // else, read to buffer and return
     void readPage(const uint64 pageid, char* data) {
+        // if buffer is disabled
+        if (!_lru) return _file.readPage(pageid, data);
+
         // if this flag is set to 1, 
         // the lru only assign a buffer page ID for this page,
         // u've got to read it from file to this buffer page
@@ -230,11 +243,9 @@ public:
     // it will returns a wrong number
     // there's a delay if using buffer
     uint64 numPages() const {
+        if (!_lru) return _file.numPages();
         return _num_pages;
-        // return _file.numPages(); 
     }
-
-
 
 private:
     // forbid copying
@@ -244,10 +255,15 @@ private:
     DBBuffer& operator=(DBBuffer&&) & = delete;
 
 private:
+    // cache for _file._num_pages
     uint64 _num_pages;
+    // disk manipulator
     DBFile _file;
+    // LUR manager
     LRU* _lru;
+    // pointer to buffer
     char* _buffer;
+    // size of buffer
     uint64 _buffer_size;
     
 
