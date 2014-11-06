@@ -87,15 +87,15 @@ int main() {
     char student_name[1000] = "John Idiot";
     bool clever = 1;
     
-    /*    
+        
     // insert until the first map page is full
     for (int i = 0; i < 32573 * 37; ++i) {
         student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
-        assert(rtv == 0);
+        assert(rtv == 1);
     }
-    */
+    
 
     // close table
     rtv = table.close();
@@ -108,7 +108,7 @@ int main() {
         student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
-        assert(rtv == 0);
+        assert(rtv == 1);
     }
 
     // test remove record
@@ -116,7 +116,8 @@ int main() {
     
     // test modify record
     table.modifyRecord({ 4, 6 }, 0, new uint64(0xffff)); 
-
+    
+    /*
     // test find records
     auto condition = [](const char* record) -> bool {
         cout << hex << *pointer_convert<const uint64*>(record) << dec << endl;
@@ -129,7 +130,7 @@ int main() {
          << "Find results: " << rids.size() << endl;
     for (auto rid: rids)
         cout << rid.pageID << ' ' << rid.slotID << endl;
-
+    */
 
     /*
     // test traverse function
