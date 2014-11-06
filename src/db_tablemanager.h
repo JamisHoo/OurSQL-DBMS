@@ -242,13 +242,13 @@ public:
     // args: { void*, void*, void* ... }
     // assert number of args == number of fields
     // assert file is open
-    // returns 0 if succeed, 1 otherwise
-    bool insertRecord(const std::initializer_list<void*> args) {
+    // returns rid if succeed, rid(0, 0) otherwise
+    RID insertRecord(const std::initializer_list<void*> args) {
         // TODO
         // must insert to index if there is one.
 
-        if (!isopen()) return 1;
-        if (args.size() != _fields.size()) return 1;
+        if (!isopen()) return { 0, 0 };
+        if (args.size() != _fields.size()) return { 0, 0 };
 
         // pass args to _field to generate a record in raw data
         // char* buffer = new char[_fields.recordLength()];
@@ -288,7 +288,7 @@ public:
         }
         
         delete[] buffer;
-        return 0;
+        return std::get<0>(rtv);
     }
 
     // remove a record
