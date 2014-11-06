@@ -111,9 +111,24 @@ int main() {
         assert(rtv == 0);
     }
 
+    // test remove record
     table.removeRecord({ 4, 32 });
     
-    table.modifyRecord({ 4, 1 }, 0, new int(0xffff)); 
+    // test modify record
+    table.modifyRecord({ 4, 6 }, 0, new uint64(0xffff)); 
+
+    // test find records
+    auto condition = [](const char* record) -> bool {
+        cout << hex << *pointer_convert<const uint64*>(record) << dec << endl;
+        if (*pointer_convert<const uint64*>(record) % 16 == 0) return 1;
+        return 0;
+    };
+    auto rids = table.findRecords(0, condition);
+
+    cout << "*************" << endl
+         << "Find results: " << rids.size() << endl;
+    for (auto rid: rids)
+        cout << rid.pageID << ' ' << rid.slotID << endl;
 
 
     /*
