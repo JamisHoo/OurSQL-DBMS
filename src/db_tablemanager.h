@@ -303,7 +303,7 @@ public:
         // find the record
         _file->readPage(rid.pageID, buffer);
         // mark this slot as empty
-        buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slot % 8;
+        buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slotID % 8;
         _file->writePage(rid.pageID, buffer);
         
         // check whether this page get empty
