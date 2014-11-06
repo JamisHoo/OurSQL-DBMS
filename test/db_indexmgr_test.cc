@@ -127,15 +127,17 @@ int main() {
     }  
 */
 
-
-    for(int i=0; i<50; i++){
+/*
+    for(int i=0; i<80; i++){
         uint64 key;
         cin>>key;
         //cout<<key<<endl;
         char* keyp = pointer_convert<char*>(&key);
         manager.removeRecord(keyp);
     }
+*/
 
+    manager.traverseRecords(1);
 
 
 /*

@@ -3,7 +3,7 @@
  *  Author: Terranlee
  *  E_mail: ltrthu@163.com
  *  
- *  FileName: db_btree.h
+ *  FileName: db_indexmanager.h
  *  Date:  Oct. 27, 2014 
  *  Time:  19:27:34
  *  *************************************************** */
@@ -24,6 +24,7 @@
 #define DB_INDEXMANAGER_H_
 
 #include <vector>
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include "db_common.h"
@@ -39,6 +40,7 @@ public:
         BTreeNode() : _position(0), _size(0), _leaf(1), EntrySize(0), MaxSons(0), DataLength(0)
         { _data = nullptr; }
 
+        // these three members are set during initialization
         uint64 EntrySize;
         uint64 MaxSons;
         uint64 DataLength;
@@ -64,7 +66,7 @@ public:
             newNode->_leaf = _leaf;
         }
 
-        // split one node into two
+        // split one node into newNode
         void splitKey(BTreeNode* newNode) {
             int pos = _size / 2;
             // split _data into two 
@@ -170,11 +172,13 @@ public:
         }
 
 #ifdef DEBUG
+        // for debug, return data of a certain record
         char* atData(const uint64 pos) {
             char* pointer = _data + sizeof(uint64) * 3;
             return pointer + EntrySize * pos;
         }
 
+        // for debug, return the position of a certain record
         uint64 atPosition(const uint64 pos) {
             char* pointer = _data + sizeof(uint64) * 3;
             pointer += EntrySize * pos;
@@ -183,6 +187,7 @@ public:
             return answer;
         }
 
+        // for debug, show every record in this node
         void display() {
             if(_leaf == 1)
                 std::cout<<"leaf ";
@@ -368,9 +373,9 @@ public:
         if(answer && !checkLast){
             uint64 off = _level[_lev_track]._offset;
             _node_tracker->deleteKey(off);
-            setDirty(_node_tracker);
+            setDirty(_node_tracker);                // delete the key and set dirty
 
-            if(off == _node_tracker->_size){
+            if(off == _node_tracker->_size){        // delete the last record in this node, may lead to change of parent nodes
                 uint64 tempLev = _lev_track;
                 uint64 tempBlk = _level[_lev_track]._block;
                 char* keyUpdate = _node_tracker->getKey(off - 1);
@@ -378,7 +383,7 @@ public:
                 _lev_track = tempLev;
                 getBuffer(tempBlk);
             }
-            if(_node_tracker->_size < _max_sons / 2){
+            if(_node_tracker->_size < _max_sons / 2){       // node size break through the lower bound
                 solveNodeMerge();
             }
             return true;
@@ -391,9 +396,91 @@ public:
         }
     }
 
-    // remove an existing index file
-    bool removeIndex() { }
+    // traverse all records
+    // this function provides a call back function to manipulate records
+    template<class CALLBACKFUNC>
+    void traverseRecords(CALLBACKFUNC func) {
+        _lev_track = 0;
+        _node_tracker = &_root;
+        _level[_lev_track]._offset = 0;
+        _level[_lev_track]._block = 1;
+        findFirstNode();
+        _node_tracker->display();
+        while(true){
+            bool answer = findNextNode();
+            if(!answer)
+                break;
+            _node_tracker->display();
+        }
+    }
 
+    // remove an existing index file
+    bool removeIndex() {
+
+    }
+
+    // find the first leaf node according to current node
+    // the results are stored in _level and _node_tracker pointed to the node
+    void findFirstNode() {
+        // add these if want to find the global first node
+        /*
+            _lev_track = 0;
+            _node_tracker = &_root;
+            _level[_lev_track]._block = 1;
+            _level[_lev_track]._offset = 0;
+        */
+        if(_node_tracker->_leaf == 1)
+            return;
+
+        uint64 nextLevel = _node_tracker->getPosition(_level[_lev_track]._offset);
+        _lev_track++;
+        _level[_lev_track]._block = nextLevel;
+        getBuffer(nextLevel);
+        while(_node_tracker->_leaf == 0) {
+            _level[_lev_track++]._offset = 0;
+            uint64 next = _node_tracker->getPosition(0);
+            _level[_lev_track]._block = next;
+            getBuffer(next);
+        }
+        _level[_lev_track]._offset = 0;
+    }
+
+    // find the last record in index file according to _comparator
+    void findLastNode() {
+        _lev_track = 0;
+        _node_tracker = &_root;
+        _level[_lev_track]._block = 1;
+        while(_node_tracker->_leaf == 0) {
+            uint64 off = _node_tracker->_size - 1;
+            uint64 next = _node_tracker->getPosition(off);
+            _level[_lev_track++]._offset = off;
+            _level[_lev_track]._block = next;
+            getBuffer(next);
+        }
+        _level[_lev_track]._offset = _node_tracker->_size - 1;
+    }
+
+    // find next record according to the current one
+    // return false if there is no next node to find
+    bool findNextNode() {
+        // search up to the common parent
+        uint64 off, pos;
+        while(true) {
+            _lev_track--;
+            pos = _level[_lev_track]._block;
+            off = _level[_lev_track]._offset;
+            getBuffer(pos);
+            if(_node_tracker->_size > (off + 1))
+                break;
+            if(_lev_track == 0)
+                return false;
+        }
+        _level[_lev_track]._offset = off + 1;
+
+        // search down and find the next node
+        findFirstNode();
+        return true;
+    }
 
 // private buffer operations
     // TODO: memory need to be set to 0?
@@ -532,16 +619,16 @@ public:
 
     // solve merge of root, btree height will decrease
     void solveRootMerge() {
-        _node_tracker = &_root;
+        _node_tracker = &_root;             // in this condition, root has two children
         uint64 posMain = _node_tracker->getPosition(0);
         uint64 posSub = _node_tracker->getPosition(1);
 
-        getBuffer(posMain);
+        getBuffer(posMain);                 // copy the left one to root
         _node_tracker->copyKey(&_root);
         _node_tracker->_size = 0;
         setDirty(_node_tracker);
 
-        getBuffer(posSub);
+        getBuffer(posSub);                  // copy right one to root
         _root.mergeKey(_node_tracker);
         _node_tracker->_size = 0;
         setDirty(_node_tracker);
@@ -574,37 +661,37 @@ public:
     // current: node need merge, upper: the upper level node of current
     void lendNode(uint64 upper, uint64 current, int which) {
         char buffer[_entry_size];
-        if(which == 1){         // lend from left
+        if(which == 1){         // lend from left, _node_tracker points to the left brother
             uint64 off = _node_tracker->_size - 1;
             char* src = _node_tracker->getKey(off);
-            memcpy(buffer, src, _entry_size);
+            memcpy(buffer, src, _entry_size);       //  get the entry from left brother
             _node_tracker->_size--;
             char update[_data_length];
             src = _node_tracker->getKey(off - 1);
             memcpy(update, src, _data_length);
             setDirty(_node_tracker);
             
-            getBuffer(upper);
+            getBuffer(upper);                       // update the keys of father node
             uint64 offUpper = _level[_lev_track]._offset - 1;
             _node_tracker->writeKey(update, offUpper);
             setDirty(_node_tracker);
 
-            getBuffer(current);
+            getBuffer(current);                     // insert entry into current node
             _node_tracker->insertKey(buffer, 0);
             setDirty(_node_tracker);
         }
-        else{                   // lend from right
+        else{                   // lend from right, _node_tracker points to the right brother
             char* src = _node_tracker->getKey(0);
-            memcpy(buffer, src, _entry_size);
+            memcpy(buffer, src, _entry_size);       // get the entry from right brother
             _node_tracker->deleteKey(0);
             setDirty(_node_tracker);
 
-            getBuffer(current);
+            getBuffer(current);                     // insert entry into current node
             uint64 currIns = _node_tracker->_size;
             _node_tracker->insertKey(buffer, currIns);
             setDirty(_node_tracker);
 
-            getBuffer(upper);
+            getBuffer(upper);                       // update the keys of father node
             uint64 offupper = _level[_lev_track]._offset;
             _node_tracker->writeKey(buffer, offupper);
             setDirty(_node_tracker);
@@ -620,16 +707,16 @@ public:
             getBuffer(posRight);
             char buffer[_data_length];
             uint64 lastPos = _node_tracker->_size - 1;
-            char* src = _node_tracker->getKey(lastPos);
+            char* src = _node_tracker->getKey(lastPos);     // do preparation, reserve the max entry
             memcpy(buffer, src, _data_length);
 
-            BTreeNode* temp = _node_tracker;
+            BTreeNode* temp = _node_tracker;                // merge
             getBuffer(current);
             _node_tracker->mergeKey(temp);
             setDirty(temp);
             setDirty(_node_tracker);
 
-            getBuffer(upper);
+            getBuffer(upper);                               // use max entry to update parent node
             _node_tracker->writeKey(buffer, off);
             _node_tracker->deleteKey(off + 1);
             setDirty(_node_tracker);
@@ -637,7 +724,7 @@ public:
         else{                                   // merge to left node
             uint64 posLeft = _node_tracker->getPosition(off - 1);
             getBuffer(current);
-            BTreeNode* temp = _node_tracker;
+            BTreeNode* temp = _node_tracker;                // similar to merge from right
             getBuffer(posLeft);
             _node_tracker->mergeKey(temp);
             setDirty(_node_tracker);
@@ -655,12 +742,12 @@ public:
         }
     }
 
-    // solve merge of ordinary node
+    // main entrance when node size break through the lower bound
     void solveNodeMerge() {
         std::cout<<"solve node merge"<<std::endl;
         if(_node_tracker->_size >= _max_sons / 2)
             return;
-        // when to solve the root problem?
+        
         if(_lev_track == 0)
             return;
 
@@ -669,12 +756,12 @@ public:
         _lev_track--;
         uint64 blk = _level[_lev_track]._block;
         getBuffer(blk);
-        int answer = checkLeft();
+        int answer = checkLeft();           // check if left or right is possible to lend
         if(answer == 0){
             getBuffer(blk);
             answer = checkRight();
         }
-        if(answer == 1 || answer == 2) {    // lend node is not recursive
+        if(answer == 1 || answer == 2) {    // lend node is not recursive, just return
             lendNode(blk, current, answer);
         }
         else {                              // merge node is recursive
@@ -746,6 +833,8 @@ public:
         uint64 next;
         uint64 off = _node_tracker->searchKey(key, &_comparator, &next);
         _level[_lev_track]._offset = off;
+        // check if it is exactly the same to this entry?
+        // or it is just a proper position for insertion?
         if(_node_tracker->compareKey(key, off) == 0)
             return true;
         else
@@ -753,10 +842,12 @@ public:
     }
 
 // some useful tools
+    // change pageID and  slotID to a uint64
     inline static uint64 encode(RID rid) {
         return (rid.pageID<<32) + rid.slotID;
     }
 
+    // change uint64 to pageID and slotID
     inline static RID decode(uint64 position) {
         return RID(position >> 32, (position << 32) >> 32);
     }
@@ -771,6 +862,7 @@ public:
 
 // private basic in/out functions
     // read and write a node to index
+    // sizeof(uint64)*3 of _data will be determinated when it is write back
     void writeNode(const uint64 position, BTreeNode* src) {
         memcpy(src->_data, &(src->_position), sizeof(uint64) * 3);
         _fs.seekp(_page_size * position);
@@ -820,6 +912,8 @@ public:
         uint64 _offset;
     };
     Level _level[MAX_LEVEL];
+
+    // a tracker of the current level
     uint64 _lev_track;
 
     // each buffer node contains a header and data area
@@ -830,6 +924,8 @@ public:
     BufferNode _buffer[BUFFER_SIZE];
 
     BTreeNode _root;
+
+    // a tracker of the current BTreeNode you are operating
     BTreeNode* _node_tracker;
 
     uint64 _num_pages;
@@ -837,6 +933,8 @@ public:
     uint64 _page_size;
     uint64 _data_length;
 
+    // these are equal to EntrySize and MaxSons in BTreeNode
+    // initialize when create an index file
     uint64 _entry_size;
     uint64 _max_sons;
 
