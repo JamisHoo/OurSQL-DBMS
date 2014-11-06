@@ -15,14 +15,14 @@
 #include <iostream>
 #include <fstream>
 #include <cassert>
-#include "../src/db_file.h"
+#include "../src/db_buffer.h"
 
 int main() {
     using namespace std;
     using namespace Database;
 
 
-    DBFile file("file_test");
+    DBBuffer file("buffer_test", 4096);
     // open an non-existing file, return 0 
     assert(file.open() == 0);
     
@@ -39,6 +39,7 @@ int main() {
     cout << file.create(4096, buffer);
     cout << endl;
     assert(file.accessible() == 1);
+    
 
     // open file
     page_size = file.open();
@@ -72,5 +73,6 @@ int main() {
     // remove file
     assert(file.remove() == 0);
     assert(!file.accessible());
+
 
 }

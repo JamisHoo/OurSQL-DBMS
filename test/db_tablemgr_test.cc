@@ -47,7 +47,9 @@ int main() {
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
     int rtv;
-    rtv = table.create("student", fields, 4096);
+    // optimal on my os X 16KB
+    // optimal on my Fedora 64KB
+    rtv = table.create("student", fields, 1024 * 16);
     assert(rtv == 0);
 
 
@@ -85,7 +87,7 @@ int main() {
     char student_name[1000] = "John Idiot";
     bool clever = 1;
     
-    /*
+    
     // insert until the first map page is full
     for (int i = 0; i < 32573 * 37; ++i) {
         student_id += 1;
@@ -93,10 +95,9 @@ int main() {
         rtv = table.insertRecord({ &student_id, student_name, &clever });
         assert(rtv == 0);
     }
-    */
     
     
-
+    
 
 
     // close table
@@ -123,6 +124,7 @@ int main() {
     
     table.traverseRecords(writeTofile);
     */
+
 
 
     rtv = table.close();

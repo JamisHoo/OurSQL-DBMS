@@ -16,13 +16,18 @@
 #define DB_TABLEMANAGER_H_
 
 #include <cassert>
+#include <cstring>
 #include <string>
 #include <array>
-#include <initializer_list>
 #include <tuple>
+#include <initializer_list>
 #include "db_common.h"
-#include "db_file.h"
 #include "db_fields.h"
+#ifdef BUFFER
+#include "db_buffer.h"
+#else
+#include "db_file.h"
+#endif
 
 class Database::DBTableManager {
 private:
@@ -30,6 +35,7 @@ private:
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
+    static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
     static constexpr uint64 TABLE_NAME_LENGTH = 512;
@@ -70,11 +76,16 @@ public:
                 const uint64 page_size = DEFAULT_PAGE_SIZE) {
         // TODO
         // must create index for primary key
+
         // there's already a table opened
         if (isopen()) return 1;
         
         // create DBFile
+#ifdef BUFFER
+        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+#else
         _file = new DBFile(table_name + DB_SUFFIX);
+#endif
 
         char* buffer = new char[page_size];
 
@@ -161,7 +172,11 @@ public:
         if (isopen()) return 1;
 
         // create DBFile
+#ifdef BUFFER
+        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+#else
         _file = new DBFile(table_name + DB_SUFFIX);
+#endif
 
         // openfile
         uint64 page_size = _file->open();
@@ -225,7 +240,11 @@ public:
     bool remove(const std::string& table_name) {
         if (isopen()) return 1;
 
+#ifdef BUFFER
+        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+#else
         _file = new DBFile(table_name + DB_SUFFIX);
+#endif
         bool rtv = _file->remove();
 
         delete _file;
@@ -641,7 +660,7 @@ public:
                                             oldPageHeader[0],
                                             0);
         // copy to buffer
-        memset(buffer, 0x00, _file->numPages());
+        memset(buffer, 0x00, _file->pageSize());
         memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
         // need not to write bits into this page
         // becasue 0 stands for non-empty or non-existing page
@@ -759,8 +778,11 @@ public:
     DBTableManager& operator=(const DBTableManager&)& = delete;
     DBTableManager& operator=(DBTableManager&&)& = delete;
 
+#ifdef BUFFER
+    DBBuffer* _file;
+#else
     DBFile* _file;
-    
+#endif
     // variables below descript an open table
     // they will be reset when closing the table
     std::string _table_name;

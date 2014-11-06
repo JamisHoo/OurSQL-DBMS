@@ -15,8 +15,10 @@
 #ifndef DB_FILE_H_
 #define DB_FILE_H_
 
-#include <fstream>
 #include <cstdio>
+#include <cstring>
+#include <cassert>
+#include <fstream>
 #include "db_common.h"
 
 class Database::DBFile {
@@ -33,6 +35,9 @@ public:
     // returns 0 if file not exists or open failed.
     // returns page size if open correctly.
     uint64 open() {
+#ifdef DEBUG
+        write_times = read_times = 0;
+#endif
         // fail if file not accessible
         if (!accessible()) return 0;
 
@@ -53,7 +58,7 @@ public:
         _num_pages = *pointer_convert<uint64*>(buffer + sizeof(_page_size));
 
         return _page_size;
-    };
+    }
     
     // create file and write raw file description(0th page).
     // returns 0 if succeed, 1 otherwise.
@@ -62,18 +67,21 @@ public:
         // fail if file exists
         if (accessible()) return 1;
 
-        _fs.open(_file, std::fstream::out| std::fstream::binary);
+
+        _fs.open(_file, std::fstream::out | std::fstream::binary);
         // create failed
         if (!isopen()) return 1;
 
         // _page_size is needed by writePage()
         _page_size = page_size;
+        _num_pages = *pointer_convert<const uint64*>(buffer + sizeof(_page_size));
 
         // write first page after creating
         writePage(0, buffer);
         
         _fs.close();
         _page_size = 0;
+        _num_pages = 0;
         return 0;
     }
     
@@ -116,6 +124,9 @@ public:
 
     // write data in buffer to Page i
     void writePage(const uint64 i, const char* buffer) {
+#ifdef DEBUG
+        ++write_times;
+#endif
         _fs.seekp(_page_size * i);
         _fs.write(buffer, _page_size);
         // enlarge file
@@ -131,6 +142,9 @@ public:
 
     // read data in Page i to buffer
     void readPage(const uint64 i, char* buffer) {
+#ifdef DEBUG
+        ++read_times;
+#endif
         _fs.seekg(_page_size * i);
         _fs.read(buffer, _page_size);
         assert(_fs.gcount() == _page_size);
@@ -141,6 +155,9 @@ public:
     uint64 numPages() const { return _num_pages; }
 
 private:
+#ifdef DEBUG
+public:
+#endif
     // forbid copying
     DBFile(const DBFile&) = delete;
     DBFile(DBFile&&) = delete;
@@ -155,6 +172,11 @@ private:
     uint64 _num_pages;
     // file input and output stream
     std::fstream _fs;
+
+#ifdef DEBUG
+    uint64 write_times;
+    uint64 read_times;
+#endif
 
 };
 
