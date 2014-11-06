@@ -176,6 +176,7 @@ public:
         _lru = nullptr;
         _num_pages = 0;
         _file.close();
+        return 0;
     }
     
     // write to buffer rather than disk
