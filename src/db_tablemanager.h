@@ -31,7 +31,7 @@ private:
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
-    static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024 * 0;
+    static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
     static constexpr uint64 TABLE_NAME_LENGTH = 512;
