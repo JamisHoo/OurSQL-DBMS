@@ -131,10 +131,7 @@ public:
         _total_length = 0;
     }
 
-private:
-#ifdef DEBUG
 public:
-#endif
     const std::vector<uint64>& field_id() const {
         return _field_id;
     }
