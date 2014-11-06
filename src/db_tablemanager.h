@@ -394,6 +394,7 @@ public:
     // find record(s) that field[field_id] == key
     // return RIDs of the records
     // assert file is open
+    // assert there's already index for this field
     std::vector<RID> findRecords(const uint64 field_id, const char* key) {
 
     }
@@ -401,6 +402,7 @@ public:
     // find record(s) that lb <= field[field_id] < ub
     // return RIDs of the records
     // assert file is open
+    // assert there's already index for this field
     std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) {
 
     }
