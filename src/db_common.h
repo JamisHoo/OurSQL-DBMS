@@ -40,6 +40,11 @@ struct RID {
     inline bool operator!=(const RID& rid) {
         return !(*this == rid);
     }
+
+    // conversion to bool
+    operator bool() {
+        return pageID;
+    }
 };
 
 // Maybe there's some protable problems with reinterpret_cast<T>()?
