@@ -87,7 +87,7 @@ int main() {
     char student_name[1000] = "John Idiot";
     bool clever = 1;
     
-    
+    /*    
     // insert until the first map page is full
     for (int i = 0; i < 32573 * 37; ++i) {
         student_id += 1;
@@ -95,10 +95,7 @@ int main() {
         rtv = table.insertRecord({ &student_id, student_name, &clever });
         assert(rtv == 0);
     }
-    
-    
-    
-
+    */
 
     // close table
     rtv = table.close();
@@ -107,12 +104,15 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 38; ++i) {
+    for (int i = 0; i < 149 + 3; ++i) {
         student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
         assert(rtv == 0);
     }
+
+    table.removeRecord({ 4, 32 });
+    
 
 
     /*
