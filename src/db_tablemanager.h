@@ -370,11 +370,38 @@ public:
     }
 
     // find records meet the conditions in field_id
+    // CONDITION is conditon(const char*)
+    // rid of record will be added to vector if condition returns 1
     // return RIDs of the records
     // assert file is open
     template <class CONDITION>
     std::vector<RID> findRecords(const uint64 field_id, CONDITION condition) {
-        // TODO
+        // traverse all records, this cannot use index
+        std::vector<RID> rids;
+
+        if (!isopen()) return rids;
+
+        auto traverseCallback = [&rids, this, &field_id, &condition](const char* record, const RID rid) {
+            if (condition(record + _fields.offset()[field_id])) 
+                rids.push_back(rid);
+        };
+
+        traverseRecords(traverseCallback);
+        
+        return rids;
+    }
+    
+    // find record(s) that field[field_id] == key
+    // return RIDs of the records
+    // assert file is open
+    std::vector<RID> findRecords(const uint64 field_id, const char* key) {
+
+    }
+
+    // find record(s) that lb <= field[field_id] < ub
+    // return RIDs of the records
+    // assert file is open
+    std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) {
 
     }
 
@@ -772,7 +799,7 @@ public:
     }
     
     // traverse all records
-    // callback function is: func(const char* record buffer, pageID)
+    // callback function is: func(const char* record buffer, RID)
     // record buffer get invalid after func returns
     template<class CALLBACKFUNC>
     void traverseRecords(CALLBACKFUNC func) {
