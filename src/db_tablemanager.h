@@ -302,6 +302,8 @@ public:
 
         // find the record
         _file->readPage(rid.pageID, buffer);
+        // assert slot is originally full
+        assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
         // mark this slot as empty
         buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slotID % 8;
         _file->writePage(rid.pageID, buffer);
