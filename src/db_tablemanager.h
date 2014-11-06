@@ -298,6 +298,9 @@ public:
     bool removeRecord(const RID rid) {
         if (!isopen()) return 1;
 
+        // TODO
+        // remove from index if there's one
+
         char* buffer = new char[_file->pageSize()];
 
         // find the record
