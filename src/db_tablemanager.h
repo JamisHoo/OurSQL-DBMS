@@ -23,11 +23,7 @@
 #include <initializer_list>
 #include "db_common.h"
 #include "db_fields.h"
-#ifdef BUFFER
 #include "db_buffer.h"
-#else
-#include "db_file.h"
-#endif
 
 class Database::DBTableManager {
 private:
@@ -35,7 +31,7 @@ private:
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
-    static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
+    static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024 * 0;
 
     // header pages format constants
     static constexpr uint64 TABLE_NAME_LENGTH = 512;
@@ -81,11 +77,7 @@ public:
         if (isopen()) return 1;
         
         // create DBFile
-#ifdef BUFFER
         _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
-#else
-        _file = new DBFile(table_name + DB_SUFFIX);
-#endif
 
         char* buffer = new char[page_size];
 
@@ -172,11 +164,7 @@ public:
         if (isopen()) return 1;
 
         // create DBFile
-#ifdef BUFFER
         _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
-#else
-        _file = new DBFile(table_name + DB_SUFFIX);
-#endif
 
         // openfile
         uint64 page_size = _file->open();
@@ -240,11 +228,8 @@ public:
     bool remove(const std::string& table_name) {
         if (isopen()) return 1;
 
-#ifdef BUFFER
         _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
-#else
-        _file = new DBFile(table_name + DB_SUFFIX);
-#endif
+
         bool rtv = _file->remove();
 
         delete _file;
@@ -778,11 +763,8 @@ public:
     DBTableManager& operator=(const DBTableManager&)& = delete;
     DBTableManager& operator=(DBTableManager&&)& = delete;
 
-#ifdef BUFFER
     DBBuffer* _file;
-#else
-    DBFile* _file;
-#endif
+
     // variables below descript an open table
     // they will be reset when closing the table
     std::string _table_name;
