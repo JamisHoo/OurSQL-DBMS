@@ -154,10 +154,8 @@ public:
         // buffer is disabled
         if (_buffer_size >= page_size)
             _lru = new LRU(_buffer_size / page_size);
-        else {
+        else 
             _lru = nullptr;
-            std::cout << "Buffer is disbaled" << std::endl;
-        }
 
         _num_pages = _file.numPages();
 
