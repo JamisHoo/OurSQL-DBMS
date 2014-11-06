@@ -298,13 +298,31 @@ public:
     bool removeRecord(const RID rid) {
         if (!isopen()) return 1;
 
-        // TODO
-        // find the record
+        char* buffer = new char[_file->pageSize()];
 
-        // remove it
-        // mark the slot empty
+        // find the record
+        _file->readPage(rid.pageID, buffer);
+        // mark this slot as empty
+        buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slot % 8;
+        _file->writePage(rid.pageID, buffer);
         
-        // check whether the page gets empty
+        // check whether this page get empty
+        if (_empty_slots_map[rid.pageID] != 1) {
+            // mark this page as empty
+            _empty_slots_map[rid.pageID] = 1;
+            
+            // write back to map page
+            uint64 pageID = rid.pageID;
+            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+            while (pageID >= _pages_each_map_page) {
+                pageID -= _pages_each_map_page;
+                _file->readPage(*pointer_convert<uint64*>(buffer + 2 * sizeof(uint64)), buffer);
+            }
+            buffer[PAGE_HEADER_LENGTH + pageID / 8] |= '\x01' << pageID % 8;
+            _file->writePage(*pointer_convert<uint64*>(buffer), buffer);
+        }
+        
+        delete[] buffer;
         return 0;
     }
 
