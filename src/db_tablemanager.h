@@ -335,9 +335,38 @@ public:
     // assert file is open
     // returns 0 if succeed, 1 otherwise
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
+        if (!isopen()) return 1;
+    
         // TODO
-        return 0;
+        // modify in index
+        
+        char* buffer = new char[_file->pageSize()];
 
+        // read in this page
+        _file->readPage(rid.pageID, buffer);
+        
+        // assert this slot is used
+        assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
+
+        // modify record
+        memcpy(buffer +
+                   /* page header offset */
+                   PAGE_HEADER_LENGTH + 
+                   /* bitmap offset */
+                   (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                   /* record offset */
+                   _record_length * rid.slotID +
+                   /* field offset */
+                   _fields.offset()[field_id],
+               arg,
+               _fields.field_length()[field_id]);
+        
+        // write back
+        _file->writePage(rid.pageID, buffer);
+
+
+        delete[] buffer;
+        return 0;
     }
 
     // find records meet the conditions in field_id
