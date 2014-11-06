@@ -32,7 +32,6 @@ public:
     static constexpr uint64 TYPE_INT64   = 6;
     static constexpr uint64 TYPE_UINT64  = 7;
     static constexpr uint64 TYPE_BOOL    = 8;
-    // TODO: portable?
     static constexpr uint64 TYPE_CHAR    = 9;
     static constexpr uint64 TYPE_UCHAR   = 10;
     static constexpr uint64 TYPE_FLOAT   = 11;
