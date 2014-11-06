@@ -113,6 +113,7 @@ int main() {
 
     table.removeRecord({ 4, 32 });
     
+    table.modifyRecord({ 4, 1 }, 0, new int(0xffff)); 
 
 
     /*
