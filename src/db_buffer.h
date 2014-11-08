@@ -226,8 +226,12 @@ public:
         // if page miss, read in
         if (page_miss) {
             // first time read a page which is in the buffer but not yet written to disk
-            if (pageid >= _file.numPages() && pageid < _num_pages)
+            // read action will fail if read in this case
+            if (pageid >= _file.numPages() && pageid < _num_pages) {
                 memset(data, 0x00, _file.pageSize());
+                memset(_buffer + bufferID * pageSize(), 0x00, _file.pageSize());
+                return;
+            }
 
             _file.readPage(pageid, _buffer + bufferID * pageSize());
         }
