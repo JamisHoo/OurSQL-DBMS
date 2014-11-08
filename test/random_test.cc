@@ -152,9 +152,9 @@ int main() {
 
     int rtv;
     // create table
-    // optimal on my os X 16KB
-    // optimal on my Fedora 64KB
-    rtv = table.create("student", fields, 1024 * 16);
+    // It's a litter faster with a large page size if there's lots of data
+    // If there's little data, small page size will be extremely faster
+    rtv = table.create("student", fields, 1024 * 4);
     assert(rtv == 0);
 
     // open table
