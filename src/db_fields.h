@@ -18,6 +18,7 @@
 #include <cstring>
 #include <string>
 #include <vector>
+#include <cassert>
 #include <initializer_list>
 #include "db_common.h"
 
@@ -36,6 +37,72 @@ public:
     static constexpr uint64 TYPE_UCHAR   = 10;
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
+
+    struct Comparator {
+        uint64 type;
+        int operator()(const void* a, const void* b, const uint64 length) {
+            switch (type) {
+                case 0:
+                    return *pointer_convert<const int8_t*>(a) - 
+                           *pointer_convert<const int8_t*>(b);
+                case 1:
+                    return *pointer_convert<const uint8_t*>(a) -
+                           *pointer_convert<const uint8_t*>(b);
+                case 2:
+                    return *pointer_convert<const int16_t*>(a) - 
+                           *pointer_convert<const int16_t*>(b);
+                case 3:
+                    return *pointer_convert<const uint16_t*>(a) - 
+                           *pointer_convert<const uint16_t*>(b);
+                case 4:
+                    return *pointer_convert<const int32_t*>(a) -
+                           *pointer_convert<const int32_t*>(b);
+                case 5: {
+                    uint32_t aa = *pointer_convert<const uint32_t*>(a);
+                    uint32_t bb = *pointer_convert<const uint32_t*>(a);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                }
+                case 6: {
+                    int64_t aa = *pointer_convert<const int64_t*>(a);
+                    int64_t bb = *pointer_convert<const int64_t*>(b);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                }
+                case 7: {
+                    uint64_t aa = *pointer_convert<const uint64_t*>(a);
+                    uint64_t bb = *pointer_convert<const uint64_t*>(b);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                }
+                case 8:
+                    return *pointer_convert<const bool*>(a) -
+                           *pointer_convert<const bool*>(b);
+                case 9:
+                case 10:
+                    return memcmp(a, b, length);
+                case 11: {
+                    float aa = *pointer_convert<const float*>(a);
+                    float bb = *pointer_convert<const float*>(b);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                }
+                case 12: {
+                    double aa = *pointer_convert<const double*>(a);
+                    double bb = *pointer_convert<const double*>(b);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                }
+                default:
+                    assert(0);
+            }
+        }
+    };
 
 public:
     DBFields(): _total_length(0) { }
