@@ -107,28 +107,32 @@ int main() {
 
 //test of index manager
     
-    constexpr uint64 page_size = 128;
+    constexpr uint64 page_size = 256;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
-    manager.setComparatorType(TYPE_INT64);
 
     if(manager.open() == 0) {
-        manager.create(page_size, data_length);
+        manager.create(page_size, data_length, TYPE_INT64);
         manager.open();
     }
 
 /*
-    for(int i=0; i<100; i++){
-        uint64 key = rand() % 123456;
-        RID pos(key, key*10);
+    for(int i=0; i<1000; i++){
+        uint64 key = rand() % 123;
+        RID pos(rand()%123, rand()%123);
         manager.insertRecord(pointer_convert<char*>(&key), pos, 0);
         cout<<key<<endl;
     }  
 */
 
 /*
-    for(int i=0; i<80; i++){
+    for(int i=0; i<5000; i++){
+        uint64 key;
+        cin>>key;
+    }
+
+    for(int i=0; i<4900; i++){
         uint64 key;
         cin>>key;
         //cout<<key<<endl;
@@ -137,8 +141,37 @@ int main() {
     }
 */
 
+/*
+    uint64 del = 5;
+    char* dpointer = pointer_convert<char*>(&del);
+    manager.removeRecords(dpointer);
+*/
     manager.traverseRecords(1);
 
+/*
+    uint64 lower = 0;
+    uint64 upper = 3;
+    uint64 notfound = 143564;
+    char* lpointer = pointer_convert<char*>(&lower);
+    char* upointer = pointer_convert<char*>(&upper);
+    char* npointer = pointer_convert<char*>(&notfound);
+
+    vector<RID> ridVector = manager.searchRecords(lpointer);
+    for(int i=0; i<ridVector.size(); i++)
+        cout<<ridVector[i].pageID<<" "<<ridVector[i].slotID<<endl;
+
+    cout<<endl;
+    vector<RID> range = manager.rangeQuery(lpointer, upointer);
+    for(int i=0; i<range.size(); i++)
+        cout<<range[i].pageID<<" "<<range[i].slotID<<endl;
+
+    cout<<endl;
+    std::vector<RID> noOne = manager.rangeQuery(upointer, lpointer);
+    cout<<noOne.size()<<endl;
+
+    noOne = manager.searchRecords(npointer);
+    cout<<noOne.size()<<endl;
+*/
 
 /*
     manager._root._size = 3;

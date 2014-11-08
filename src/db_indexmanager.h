@@ -10,7 +10,7 @@
 
 /****************************************
  *  Structure of index file:
- *      Page0:  _num_pages,  _page_size,  _data_length
+ *      Page0:  _num_pages,  _page_size,  _data_length, ComparatorType
  *      Page1:  root node
  *      Page2:  BTreeNode
  *      ...
@@ -245,12 +245,14 @@ public:
 
         // open successfully, load data from the first page
         _fs.seekg(0);
-        char buffer[sizeof(uint64) * 3];
-        _fs.read(buffer, sizeof(uint64) * 3);
+        char buffer[sizeof(uint64) * 4];
+        _fs.read(buffer, sizeof(uint64) * 4);
         _num_pages = *(pointer_convert<uint64*>(buffer));
         _write_to = _num_pages;
         _page_size = *(pointer_convert<uint64*>(buffer + sizeof(uint64)));
         _data_length = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 2));
+        uint64 comp_type = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 3));
+        setComparatorType(comp_type);
 
         _entry_size = _data_length + sizeof(uint64);
         _max_sons = (_page_size - sizeof(uint64) * 3) / _entry_size;
@@ -262,7 +264,7 @@ public:
 
     // create index file and init Page0
     // return 0 if create successfully, return 1 when error
-    bool create(const uint64 page_size, const uint64 data_length) {
+    bool create(const uint64 page_size, const uint64 data_length, const uint64 comp_type) {
         // fail if file exists
         if(accessible()) return 1;
         _fs.open(_file, std::fstream::out| std::fstream::binary);
@@ -270,6 +272,7 @@ public:
 
         _page_size = page_size;
         _data_length = data_length;
+        uint64 _comp_type = comp_type;
 
         // write page0 after creating
         _write_to = 2;
@@ -279,6 +282,7 @@ public:
         memcpy(buffer, &numPages, sizeof(numPages));
         memcpy(buffer + sizeof(numPages), &_page_size, sizeof(_page_size));
         memcpy(buffer + sizeof(numPages) * 2, &_data_length, sizeof(_data_length));
+        memcpy(buffer + sizeof(numPages) * 3, &_comp_type, sizeof(_comp_type));
         writePage(0, buffer);
 
         // write page1(root) after create
@@ -323,7 +327,7 @@ public:
     RID searchRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
-        if(answer && !checkLast){
+        if(answer && !checkLast){               // key exists in this index file
             uint64 which = _level[_lev_track]._block;
             uint64 off = _level[_lev_track]._offset;
             getBuffer(which);
@@ -336,7 +340,77 @@ public:
     }
 
     std::vector<RID> searchRecords(const char* key) {
+        std::vector<RID> ridVector;
+        RID first = searchRecord(key);
+        if(first.pageID == 0 && first.slotID == 0 )     // return an empty vector
+            return ridVector;
 
+        else{
+            ridVector.push_back(first);
+            // continue push RID with the same key
+            uint64 off = _level[_lev_track]._offset;
+            while(true){
+                if(off >= _node_tracker->_size - 1){    // find the proper node
+                    bool answer = findNextNode();
+                    if(answer){
+                        off = _level[_lev_track]._offset;
+                        continue;
+                    }
+                    else
+                        break;
+                }
+
+                off++;                                  // 
+                int answer = _node_tracker->compareKey(key, off);
+                if(answer == 0){
+                    uint64 pos = _node_tracker->getPosition(off);
+                    ridVector.push_back(decode(pos));
+                }
+                else
+                    break;
+            }
+        }
+        return ridVector;
+    }
+
+    // search for lower <= key <= upper
+    std::vector<RID> rangeQuery(const char* lower, const char* upper) {
+        std::vector<RID> ridVector;
+        int answer = _comparator(lower, upper, _data_length);
+        if(answer > 0)
+            return ridVector;
+        
+        RID first = searchRecord(lower);
+        if(first.pageID == 0 && first.slotID == 0)
+            return ridVector;
+
+        else{
+            ridVector.push_back(first);
+            // continue push RID with key within range
+            uint64 off = _level[_lev_track]._offset;
+            while(true){
+                if(off == _node_tracker->_size - 1){
+                    bool answer = findNextNode();
+                    if(answer){
+                        off = _level[_lev_track]._offset;
+                        continue;
+                    }
+                    else
+                        break;
+                }
+
+                off++;
+                char* currentKey = _node_tracker->getKey(off);
+                int answer = _comparator(currentKey, upper, _data_length);
+                if(answer <= 0){
+                    uint64 pos = _node_tracker->getPosition(off);
+                    ridVector.push_back(decode(pos));
+                }
+                else
+                    break;
+            }
+        }
+        return ridVector;
     }
 
     // insert a record into the btree, return false if error
@@ -345,7 +419,7 @@ public:
         bool answer = locateRecord(key);
         if(answer && ifPrimary){
             #ifdef DEBUG
-                std::cout<<"primary key already exist"<<std::endl;
+                // std::cout<<"primary key already exist"<<std::endl;
             #endif
             return false;
         }
@@ -367,6 +441,17 @@ public:
 
     // remove record from an open index
     // return true if success, else return false
+    bool removeRecords(const char* key) {
+        bool answer = false;
+        while(true){
+            bool temp = removeRecord(key);
+            if(temp == false)
+                return answer;
+            else
+                answer = true;
+        }
+    }
+
     bool removeRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
@@ -390,7 +475,7 @@ public:
         }
         else{
             #ifdef DEBUG
-                std::cout<<"key doesn't exist"<<std::endl;
+                // std::cout<<"key doesn't exist"<<std::endl;
             #endif
             return false;
         }
@@ -414,11 +499,7 @@ public:
         }
     }
 
-    // remove an existing index file
-    bool removeIndex() {
-
-    }
-
+// private functions 
     // find the first leaf node according to current node
     // the results are stored in _level and _node_tracker pointed to the node
     void findFirstNode() {
@@ -463,6 +544,9 @@ public:
     // find next record according to the current one
     // return false if there is no next node to find
     bool findNextNode() {
+        if(_lev_track == 0)
+            return false;
+
         // search up to the common parent
         uint64 off, pos;
         while(true) {
@@ -744,7 +828,6 @@ public:
 
     // main entrance when node size break through the lower bound
     void solveNodeMerge() {
-        std::cout<<"solve node merge"<<std::endl;
         if(_node_tracker->_size >= _max_sons / 2)
             return;
         
@@ -840,6 +923,17 @@ public:
         else
             return false;
     }
+
+#ifdef DEBUG
+    // show every node in this btree
+    void show() {
+        for(int i=1; i<_num_pages; i++) {
+            getBuffer(i);
+            _node_tracker->display();
+        }
+    }
+
+#endif
 
 // some useful tools
     // change pageID and  slotID to a uint64

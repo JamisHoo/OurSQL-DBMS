@@ -1,6 +1,8 @@
 test
 show
+cmp
 show.cpp
+cmp.cpp
 *.idx
 *.txt
 *.tb
