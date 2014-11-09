@@ -41,7 +41,6 @@ int main() {
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
 
-    srand(21514);
 // test of BTreeNode
 /*
     uint64 constexpr _page_size = 4*1024;
@@ -107,7 +106,7 @@ int main() {
 
 //test of index manager
     
-    constexpr uint64 page_size = 256;
+    constexpr uint64 page_size = 4 * 1024;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
@@ -118,12 +117,56 @@ int main() {
     }
 
 /*
+    char buffer[100];
     for(int i=0; i<1000; i++){
-        uint64 key = rand() % 123;
-        RID pos(rand()%123, rand()%123);
+        memset(buffer, 0, 100);
+        for(int j=0; j<50; j++)
+            buffer[j] = 'a' + rand() % 26;
+        manager.insertRecord(buffer, RID(rand(), rand()), 0);
+    }
+*/
+
+    srand(1234);
+    for(int i=0; i<100000; i++){
+        uint64 key = rand();
+        RID pos(rand(), rand());
         manager.insertRecord(pointer_convert<char*>(&key), pos, 0);
-        cout<<key<<endl;
-    }  
+    }
+
+    /*
+    srand(1234);
+    for(int i=0; i<50000; i++){
+        uint64 key = rand();
+        RID pos(rand(), rand());
+        char* pointer = pointer_convert<char*>(&key);
+        manager.removeRecords(pointer);
+    }
+    */
+//    manager.traverseRecords(1);
+    
+
+    /*
+    int k;
+    for(int i=0; i<10000; i++)
+        cin>>k;
+
+    for(int i=0; i<89500; i++){
+        uint64 key;
+        cin>>key;
+        char* pointer = pointer_convert<char*>(&key);
+        manager.removeRecord(pointer);
+    }
+    */
+
+    
+/*    
+    char del[] = "bgfpjicbpakbddmfytnquauxkdtskyulfzbqhdtyfebljnsjgh";
+    char buffer[100];
+    memset(buffer, 0, 100);
+    sprintf(buffer, del, 50);
+    cout<<buffer<<endl;
+    bool answer = manager.removeRecords(buffer);
+    cout<<answer<<endl;
 */
 
 /*
@@ -146,7 +189,6 @@ int main() {
     char* dpointer = pointer_convert<char*>(&del);
     manager.removeRecords(dpointer);
 */
-    manager.traverseRecords(1);
 
 /*
     uint64 lower = 0;

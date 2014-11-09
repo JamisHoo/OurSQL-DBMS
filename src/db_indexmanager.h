@@ -188,7 +188,7 @@ public:
         }
 
         // for debug, show every record in this node
-        void display() {
+        void display(uint64 type) {
             if(_leaf == 1)
                 std::cout<<"leaf ";
             else
@@ -196,12 +196,61 @@ public:
             std::cout<<"node at:"<<_position<<std::endl;
             for(int i=0; i<_size; i++) {
                 char* entry = atData(i);
-                std::cout<<*(pointer_convert<uint64*>(entry))<<" ";
+
+                switch(type) {
+                    case 0:
+                        std::cout<<*(pointer_convert<int8_t*>(entry));
+                        break;
+                    case 1:
+                        std::cout<<*(pointer_convert<uint8_t*>(entry));
+                        break;
+                    case 2:
+                        std::cout<<*(pointer_convert<int16_t*>(entry));
+                        break;
+                    case 3:
+                        std::cout<<*(pointer_convert<uint16_t*>(entry));
+                        break;
+                    case 4:
+                        std::cout<<*(pointer_convert<int32_t*>(entry));
+                        break;
+                    case 5:
+                        std::cout<<*(pointer_convert<uint32_t*>(entry));
+                        break;
+                    case 6:
+                        std::cout<<*(pointer_convert<int64_t*>(entry));
+                        break;
+                    case 7:
+                        std::cout<<*(pointer_convert<uint64_t*>(entry));
+                        break;
+                    case 8:
+                        std::cout<<*(pointer_convert<bool*>(entry));
+                        break;
+                    case 9:
+                    case 10:
+                        std::cout<<entry<<std::endl;
+                        break;
+                    case 11:
+                        std::cout<<*(pointer_convert<float*>(entry));
+                        break;
+                    case 12:
+                        std::cout<<*(pointer_convert<double*>(entry));
+                        break;
+                    default:
+                        assert(0);
+                }
+                std::cout<<" ";
                 uint64 pos = atPosition(i);
                 RID rid = DBIndexManager::decode(pos);
                 std::cout<<rid.pageID<<" "<<rid.slotID<<std::endl;
             }
             std::cout<<std::endl;
+        }
+
+        void testShow(){
+            for(int i=0; i<_size; i++) {
+                char* entry = atData(i);
+                std::cout<<*(pointer_convert<uint64*>(entry))<<std::endl;
+            }
         }
 #endif
 
@@ -252,6 +301,7 @@ public:
         _page_size = *(pointer_convert<uint64*>(buffer + sizeof(uint64)));
         _data_length = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 2));
         uint64 comp_type = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 3));
+
         setComparatorType(comp_type);
 
         _entry_size = _data_length + sizeof(uint64);
@@ -379,7 +429,7 @@ public:
         int answer = _comparator(lower, upper, _data_length);
         if(answer > 0)
             return ridVector;
-        
+
         RID first = searchRecord(lower);
         if(first.pageID == 0 && first.slotID == 0)
             return ridVector;
@@ -419,7 +469,7 @@ public:
         bool answer = locateRecord(key);
         if(answer && ifPrimary){
             #ifdef DEBUG
-                // std::cout<<"primary key already exist"<<std::endl;
+                //std::cout<<"primary key already exist"<<std::endl;
             #endif
             return false;
         }
@@ -475,7 +525,7 @@ public:
         }
         else{
             #ifdef DEBUG
-                // std::cout<<"key doesn't exist"<<std::endl;
+                //std::cout<<"key doesn't exist"<<std::endl;
             #endif
             return false;
         }
@@ -490,12 +540,14 @@ public:
         _level[_lev_track]._offset = 0;
         _level[_lev_track]._block = 1;
         findFirstNode();
-        _node_tracker->display();
+        _node_tracker->testShow();
+        //_node_tracker->display(_comparator.type);
         while(true){
             bool answer = findNextNode();
             if(!answer)
                 break;
-            _node_tracker->display();
+            _node_tracker->testShow();
+            //_node_tracker->display(_comparator.type);
         }
     }
 
@@ -929,7 +981,7 @@ public:
     void show() {
         for(int i=1; i<_num_pages; i++) {
             getBuffer(i);
-            _node_tracker->display();
+            _node_tracker->display(_comparator.type);
         }
     }
 
