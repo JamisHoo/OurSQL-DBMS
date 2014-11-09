@@ -106,7 +106,7 @@ int main() {
 
 //test of index manager
     
-    constexpr uint64 page_size = 4 * 1024;
+    constexpr uint64 page_size = 256;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
@@ -126,12 +126,14 @@ int main() {
     }
 */
 
+/*
     srand(1234);
-    for(int i=0; i<100000; i++){
-        uint64 key = rand();
+    for(int i=0; i<10000; i++){
+        uint64 key = rand() % 1000;
         RID pos(rand(), rand());
         manager.insertRecord(pointer_convert<char*>(&key), pos, 0);
     }
+*/
 
     /*
     srand(1234);
@@ -142,7 +144,17 @@ int main() {
         manager.removeRecords(pointer);
     }
     */
-//    manager.traverseRecords(1);
+
+    uint64 upper = 123;
+    uint64 lower = 119;
+    char* pointeru = pointer_convert<char*>(&upper);
+    char* pointerl = pointer_convert<char*>(&lower);
+    std::vector<RID> rid = manager.rangeQuery(pointerl, pointeru);
+    for (std::vector<RID>::iterator i = rid.begin(); i != rid.end(); ++i)
+    {
+        cout<<i->pageID<<" "<<i->slotID<<endl;
+    }
+    //manager.traverseRecords(1);
     
 
     /*

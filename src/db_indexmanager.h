@@ -31,9 +31,6 @@
 
 template<class Comparator>
 class Database::DBIndexManager {
-#ifdef DEBUG
-public:
-#endif
 
     struct BTreeNode {
         
@@ -171,7 +168,7 @@ public:
             return pointer;
         }
 
-#ifdef DEBUG
+    #ifdef DEBUG
         // for debug, return data of a certain record
         char* atData(const uint64 pos) {
             char* pointer = _data + sizeof(uint64) * 3;
@@ -252,12 +249,12 @@ public:
                 std::cout<<*(pointer_convert<uint64*>(entry))<<std::endl;
             }
         }
-#endif
+    #endif
 
     };
 
-public:
 
+public:
     DBIndexManager(const std::string& file): _file(file), _page_size(0), _num_pages(0), _data_length(0)
     { _node_tracker = nullptr; }
 
@@ -345,33 +342,6 @@ public:
         _fs.close();
     }
 
-    void setComparatorType(const uint64 type) {
-        _comparator.type = type;
-    }
-
-// private support of create/open/close the index file
-    // initialize during open index
-    // TODO: memory need to be set to 0?
-    void initialize() {
-        // initialize buffer and root
-        initBuffer();
-        _root._data = new char[_page_size];
-        _root.EntrySize = _entry_size;
-        _root.MaxSons = _max_sons;
-        _root.DataLength = _data_length;
-
-        memset(_root._data, 0, _page_size);
-        readNode(1, &_root);
-    }
-
-    // finalize during close index
-    void finalize() {
-        closeBuffer();
-        writeNode(1, &_root);
-        delete[] _root._data;
-    }
-
-
 // public interface of IndexManager operation
     // return RID(0,0) if not found
     RID searchRecord(const char* key) {
@@ -389,6 +359,7 @@ public:
         }
     }
 
+    // return an empty vector if not found
     std::vector<RID> searchRecords(const char* key) {
         std::vector<RID> ridVector;
         RID first = searchRecord(key);
@@ -424,6 +395,7 @@ public:
     }
 
     // search for lower <= key <= upper
+    // return an empty vector if not found
     std::vector<RID> rangeQuery(const char* lower, const char* upper) {
         std::vector<RID> ridVector;
         int answer = _comparator(lower, upper, _data_length);
@@ -443,6 +415,12 @@ public:
                     bool answer = findNextNode();
                     if(answer){
                         off = _level[_lev_track]._offset;
+                        char* currentKey = _node_tracker->getKey(off);
+                        int answer = _comparator(currentKey, upper, _data_length);
+                        if(answer <= 0){
+                            uint64 pos = _node_tracker->getPosition(off);
+                            ridVector.push_back(decode(pos));
+                        }
                         continue;
                     }
                     else
@@ -463,7 +441,8 @@ public:
         return ridVector;
     }
 
-    // insert a record into the btree, return false if error
+    // insert a record into the btree
+    // return false if error
     // ifPrimary: is this key a primary key(cannot insert twice)?
     bool insertRecord(const char* key, const RID rid, const bool ifPrimary) {
         bool answer = locateRecord(key);
@@ -502,6 +481,7 @@ public:
         }
     }
 
+    // remove only one record
     bool removeRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
@@ -540,18 +520,51 @@ public:
         _level[_lev_track]._offset = 0;
         _level[_lev_track]._block = 1;
         findFirstNode();
-        _node_tracker->testShow();
-        //_node_tracker->display(_comparator.type);
+        //_node_tracker->testShow();
+        _node_tracker->display(_comparator.type);
         while(true){
             bool answer = findNextNode();
             if(!answer)
                 break;
-            _node_tracker->testShow();
-            //_node_tracker->display(_comparator.type);
+            //_node_tracker->testShow();
+            _node_tracker->display(_comparator.type);
         }
     }
 
-// private functions 
+    #ifdef DEBUG
+    // show every node in this btree
+    void show() {
+        for(int i=1; i<_num_pages; i++) {
+            getBuffer(i);
+            _node_tracker->display(_comparator.type);
+        }
+    }
+
+    #endif
+
+private:
+    // private support of create/open/close the index file
+    // initialize during open index
+    // TODO: memory need to be set to 0?
+    void initialize() {
+        // initialize buffer and root
+        initBuffer();
+        _root._data = new char[_page_size];
+        _root.EntrySize = _entry_size;
+        _root.MaxSons = _max_sons;
+        _root.DataLength = _data_length;
+
+        memset(_root._data, 0, _page_size);
+        readNode(1, &_root);
+    }
+
+    // finalize during close index
+    void finalize() {
+        closeBuffer();
+        writeNode(1, &_root);
+        delete[] _root._data;
+    }
+
     // find the first leaf node according to current node
     // the results are stored in _level and _node_tracker pointed to the node
     void findFirstNode() {
@@ -976,17 +989,6 @@ public:
             return false;
     }
 
-#ifdef DEBUG
-    // show every node in this btree
-    void show() {
-        for(int i=1; i<_num_pages; i++) {
-            getBuffer(i);
-            _node_tracker->display(_comparator.type);
-        }
-    }
-
-#endif
-
 // some useful tools
     // change pageID and  slotID to a uint64
     inline static uint64 encode(RID rid) {
@@ -1038,6 +1040,10 @@ public:
         }
     }
     
+    void setComparatorType(const uint64 type) {
+        _comparator.type = type;
+    }
+
     // check whether the file is accessible
     bool accessible() const {
         std::ifstream fin(_file);
