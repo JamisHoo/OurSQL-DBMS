@@ -341,6 +341,7 @@ public:
         delete[] root._data;
 
         _fs.close();
+        return 0;
     }
 
 // public interface of IndexManager operation
