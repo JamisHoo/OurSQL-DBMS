@@ -24,6 +24,7 @@
 #include "db_common.h"
 #include "db_fields.h"
 #include "db_buffer.h"
+#include "db_indexmanager.h"
 
 class Database::DBTableManager {
 private:
@@ -44,6 +45,7 @@ private:
 
 public:
     DBTableManager(): _file(nullptr), 
+                      _index(nullptr),
                       _num_fields(0), 
                       _pages_each_map_page(0),
                       _record_length(0),
@@ -59,6 +61,10 @@ public:
             _file->close();
             delete _file;
             _file = nullptr;
+            // INDEX MANIPULATION
+            _index->close();
+            delete _index;
+            _index = nullptr;
         }
     }
 
@@ -71,12 +77,10 @@ public:
     bool create(const std::string& table_name,
                 const DBFields& fields, 
                 const uint64 page_size = DEFAULT_PAGE_SIZE) {
-        // TODO
-        // must create index for primary key
-
+        
         // there's already a table opened
         if (isopen()) return 1;
-        
+
         // create DBFile
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
@@ -147,13 +151,30 @@ public:
 
         _file->writePage(FIRST_RECORD_PAGE, buffer);
 
+
+        // INDEX MANIPULATION
+        // create index for primary key
+        _index = new DBIndexManager<DBFields::Comparator>(
+            table_name + "_" + 
+            _fields.field_name()[_fields.primary_key_field_id()] + 
+            INDEX_SUFFIX);
+        
+        rtv = _index->create(page_size, 
+                             _fields.field_length()[_fields.primary_key_field_id()],
+                             _fields.field_type()[_fields.primary_key_field_id()]);
+        assert(rtv == 1);
+
         // close table
         _file->close();
+        // close index
+        _index->close();
 
         // delete DBFile
         delete[] buffer;
         delete _file;
         _file = nullptr;
+        delete _index;
+        _index = nullptr;
 
         return 0;
     }
@@ -186,12 +207,18 @@ public:
         // parse 3rd page
         parseEmptyMapPages(buffer);
 
+        // INDEX MANIPULATION
+        // open index
+        _index = new DBIndexManager<DBFields::Comparator>(
+            table_name + "_" + 
+            _fields.field_name()[_fields.primary_key_field_id()] + 
+            INDEX_SUFFIX);
+        uint64 rtv = _index->open();
+        assert(rtv == page_size);
 
         delete[] buffer;
         return !page_size;
     }
-    
-    
 
     // close an open table
     // assert there's an open table
@@ -203,6 +230,10 @@ public:
 
         // close successful
         if (rtv == 0) {
+            // INDEX MANIPULATION
+            _index->close();
+            delete _index;
+            _index = nullptr;
             delete _file;
             _file = nullptr;
             _table_name = "";
@@ -227,6 +258,8 @@ public:
     // returns 0 if succeed, 1 otherwise
     // the table will be closed if succeed
     bool remove(const std::string& table_name) {
+        // TODO:
+        // remove related index files
         if (isopen()) return 1;
 
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
@@ -846,6 +879,11 @@ public:
     DBTableManager& operator=(DBTableManager&&)& = delete;
 
     DBBuffer* _file;
+
+    // TODO
+    // add support for multi-index
+    // primary key index
+    DBIndexManager<DBFields::Comparator>* _index;
 
     // variables below descript an open table
     // they will be reset when closing the table
