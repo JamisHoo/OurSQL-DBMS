@@ -58,13 +58,14 @@ public:
         // but we will close it if not
         if (isopen()) {
         // ignore close fail
+            // INDEX MANIPULATION
+            assert(_index->close() == 0);
+            delete _index;
+            _index = nullptr;
             _file->close();
             delete _file;
             _file = nullptr;
-            // INDEX MANIPULATION
-            _index->close();
-            delete _index;
-            _index = nullptr;
+            
         }
     }
 
@@ -156,25 +157,25 @@ public:
         // create index for primary key
         _index = new DBIndexManager<DBFields::Comparator>(
             table_name + "_" + 
-            _fields.field_name()[_fields.primary_key_field_id()] + 
+            fields.field_name().at(fields.primary_key_field_id()) + 
             INDEX_SUFFIX);
         
         rtv = _index->create(page_size, 
-                             _fields.field_length()[_fields.primary_key_field_id()],
-                             _fields.field_type()[_fields.primary_key_field_id()]);
-        assert(rtv == 1);
+                             fields.field_length()[fields.primary_key_field_id()],
+                             fields.field_type()[fields.primary_key_field_id()]);
+        assert(rtv == 0);
 
-        // close table
-        _file->close();
         // close index
         _index->close();
+        // close table
+        _file->close();
 
         // delete DBFile
         delete[] buffer;
-        delete _file;
-        _file = nullptr;
         delete _index;
         _index = nullptr;
+        delete _file;
+        _file = nullptr;
 
         return 0;
     }
@@ -211,10 +212,10 @@ public:
         // open index
         _index = new DBIndexManager<DBFields::Comparator>(
             table_name + "_" + 
-            _fields.field_name()[_fields.primary_key_field_id()] + 
+            _fields.field_name().at(_fields.primary_key_field_id()) + 
             INDEX_SUFFIX);
         uint64 rtv = _index->open();
-        assert(rtv == page_size);
+        assert(rtv);
 
         delete[] buffer;
         return !page_size;
@@ -231,7 +232,7 @@ public:
         // close successful
         if (rtv == 0) {
             // INDEX MANIPULATION
-            _index->close();
+            assert(_index->close() == 0);
             delete _index;
             _index = nullptr;
             delete _file;
