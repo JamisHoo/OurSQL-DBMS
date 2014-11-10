@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <map>
 #include <cassert>
+#include <cstdlib>
 #include "../src/db_tablemanager.h"
 #include "../src/db_fields.h"
 
@@ -51,13 +52,15 @@ struct Comp {
 // insert a random record
 void insert(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
     Record record;
-    record.id = randuint64();
+    record.id = randuint64() % 5;
     memcpy(record.name, randstring(100).data(), 100);
     record.clever = randbool();
+    cout << "Insert " << record.id << endl;
     auto rid = table.insertRecord({ &record.id, record.name, &record.clever });
-    assert(rid);
+    if (!rid) return;
     assert(reference.find(rid) == reference.end());
     reference[rid] = record;
+    cout << "Insert " << record.id << endl;
 }
 
 // modify a random record
@@ -70,21 +73,22 @@ void modify(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
         ite = reference.lower_bound(RID(rand() % (prev(reference.end())->first.pageID + 1),
                                         rand() % (prev(reference.end())->first.slotID + 1)));
     
-    int rtv = 1;
     switch (rand() % 3) {
         case 0:
-            ite->second.id = randuint64();
-            rtv = table.modifyRecord(ite->first, 0, &(ite->second.id));
+            uint64_t rnd = randuint64() % 5;
+            int rtv = table.modifyRecord(ite->first, 0, &rnd);
+            if (rtv == 0) ite->second.id = rnd;
             break;
         case 1:
             memcpy(ite->second.name, randstring(100).data(), 100);
             rtv = table.modifyRecord(ite->first, 1, ite->second.name);
+            assert(rtv == 0);
             break;
         case 2:
             ite->second.clever = randbool();
             rtv = table.modifyRecord(ite->first, 2, &(ite->second.clever));
+            assert(rtv == 0);
     }
-    assert(!rtv);
 }
 
 void remove(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
@@ -96,6 +100,7 @@ void remove(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
 
     int rtv = table.removeRecord(ite->first);
     assert(!rtv);
+    cout << "Remove " << ite->second.id << endl;
     reference.erase(ite);
 }
     
@@ -121,6 +126,9 @@ void compare(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
 }
 
 int main() {
+    int seed = time(0);
+    srand(1415624016);
+    cout << "Seed: " << seed << endl;
 
     DBTableManager table;
     map<RID, Record, Comp> reference;
@@ -161,17 +169,18 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 400000; ++i)
+    for (int i = 0; i < 10000; ++i)
         insert(table, reference);
 
-    std::cout << "Fuck the shit!!!" << endl;
-
+    std::cout << "Insert Finished" << endl;
+       
     for (int i = 0; i < 40000; ++i) {
         switch (rand() % 3) {
             case 0:
                 insert(table, reference);
                 break;
             case 1: 
+                break;
                 modify(table, reference);
                 break;
             case 2:
@@ -179,6 +188,7 @@ int main() {
         }
     }
 
+    table.checkIndex();    
     compare(table, reference);
 
     // close table
