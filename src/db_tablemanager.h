@@ -16,20 +16,22 @@
 #define DB_TABLEMANAGER_H_
 
 #include <cassert>
+#include <cstring>
 #include <string>
 #include <array>
-#include <initializer_list>
 #include <tuple>
+#include <initializer_list>
 #include "db_common.h"
-#include "db_file.h"
 #include "db_fields.h"
+#include "db_buffer.h"
 
 class Database::DBTableManager {
 private:
-    static constexpr char DB_SUFFIX[] = ".tb";
+    static constexpr char* DB_SUFFIX = (char*)".tb";
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
+    static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
     static constexpr uint64 TABLE_NAME_LENGTH = 512;
@@ -70,11 +72,12 @@ public:
                 const uint64 page_size = DEFAULT_PAGE_SIZE) {
         // TODO
         // must create index for primary key
+
         // there's already a table opened
         if (isopen()) return 1;
         
         // create DBFile
-        _file = new DBFile(table_name + DB_SUFFIX);
+        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
 
         char* buffer = new char[page_size];
 
@@ -161,7 +164,7 @@ public:
         if (isopen()) return 1;
 
         // create DBFile
-        _file = new DBFile(table_name + DB_SUFFIX);
+        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
 
         // openfile
         uint64 page_size = _file->open();
@@ -225,7 +228,8 @@ public:
     bool remove(const std::string& table_name) {
         if (isopen()) return 1;
 
-        _file = new DBFile(table_name + DB_SUFFIX);
+        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+
         bool rtv = _file->remove();
 
         delete _file;
@@ -238,13 +242,13 @@ public:
     // args: { void*, void*, void* ... }
     // assert number of args == number of fields
     // assert file is open
-    // returns 0 if succeed, 1 otherwise
-    bool insertRecord(const std::initializer_list<void*> args) {
+    // returns rid if succeed, rid(0, 0) otherwise
+    RID insertRecord(const std::initializer_list<void*> args) {
         // TODO
         // must insert to index if there is one.
 
-        if (!isopen()) return 1;
-        if (args.size() != _fields.size()) return 1;
+        if (!isopen()) return { 0, 0 };
+        if (args.size() != _fields.size()) return { 0, 0 };
 
         // pass args to _field to generate a record in raw data
         // char* buffer = new char[_fields.recordLength()];
@@ -284,7 +288,7 @@ public:
         }
         
         delete[] buffer;
-        return 0;
+        return std::get<0>(rtv);
     }
 
     // remove a record
@@ -295,12 +299,35 @@ public:
         if (!isopen()) return 1;
 
         // TODO
-        // find the record
+        // remove from index if there's one
 
-        // remove it
-        // mark the slot empty
+        char* buffer = new char[_file->pageSize()];
+
+        // find the record
+        _file->readPage(rid.pageID, buffer);
+        // assert slot is originally full
+        assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
+        // mark this slot as empty
+        buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slotID % 8;
+        _file->writePage(rid.pageID, buffer);
         
-        // check whether the page gets empty
+        // check whether this page get empty
+        if (_empty_slots_map[rid.pageID] != 1) {
+            // mark this page as empty
+            _empty_slots_map[rid.pageID] = 1;
+            
+            // write back to map page
+            uint64 pageID = rid.pageID;
+            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+            while (pageID >= _pages_each_map_page) {
+                pageID -= _pages_each_map_page;
+                _file->readPage(*pointer_convert<uint64*>(buffer + 2 * sizeof(uint64)), buffer);
+            }
+            buffer[PAGE_HEADER_LENGTH + pageID / 8] |= '\x01' << pageID % 8;
+            _file->writePage(*pointer_convert<uint64*>(buffer), buffer);
+        }
+        
+        delete[] buffer;
         return 0;
     }
 
@@ -308,17 +335,75 @@ public:
     // assert file is open
     // returns 0 if succeed, 1 otherwise
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
+        if (!isopen()) return 1;
+    
         // TODO
-        return 0;
+        // modify in index
+        
+        char* buffer = new char[_file->pageSize()];
 
+        // read in this page
+        _file->readPage(rid.pageID, buffer);
+        
+        // assert this slot is used
+        assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
+
+        // modify record
+        memcpy(buffer +
+                   /* page header offset */
+                   PAGE_HEADER_LENGTH + 
+                   /* bitmap offset */
+                   (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                   /* record offset */
+                   _record_length * rid.slotID +
+                   /* field offset */
+                   _fields.offset()[field_id],
+               arg,
+               _fields.field_length()[field_id]);
+        
+        // write back
+        _file->writePage(rid.pageID, buffer);
+
+
+        delete[] buffer;
+        return 0;
     }
 
     // find records meet the conditions in field_id
+    // CONDITION is conditon(const char*)
+    // rid of record will be added to vector if condition returns 1
     // return RIDs of the records
     // assert file is open
     template <class CONDITION>
     std::vector<RID> findRecords(const uint64 field_id, CONDITION condition) {
-        // TODO
+        // traverse all records, this cannot use index
+        std::vector<RID> rids;
+
+        if (!isopen()) return rids;
+
+        auto traverseCallback = [&rids, this, &field_id, &condition](const char* record, const RID rid) {
+            if (condition(record + _fields.offset()[field_id])) 
+                rids.push_back(rid);
+        };
+
+        traverseRecords(traverseCallback);
+        
+        return rids;
+    }
+    
+    // find record(s) that field[field_id] == key
+    // return RIDs of the records
+    // assert file is open
+    // assert there's already index for this field
+    std::vector<RID> findRecords(const uint64 field_id, const char* key) {
+
+    }
+
+    // find record(s) that lb <= field[field_id] < ub
+    // return RIDs of the records
+    // assert file is open
+    // assert there's already index for this field
+    std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) {
 
     }
 
@@ -641,7 +726,7 @@ public:
                                             oldPageHeader[0],
                                             0);
         // copy to buffer
-        memset(buffer, 0x00, _file->numPages());
+        memset(buffer, 0x00, _file->pageSize());
         memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
         // need not to write bits into this page
         // becasue 0 stands for non-empty or non-existing page
@@ -716,7 +801,7 @@ public:
     }
     
     // traverse all records
-    // callback function is: func(const char* record buffer, pageID)
+    // callback function is: func(const char* record buffer, RID)
     // record buffer get invalid after func returns
     template<class CALLBACKFUNC>
     void traverseRecords(CALLBACKFUNC func) {
@@ -757,10 +842,10 @@ public:
     DBTableManager (const DBTableManager&) = delete;
     DBTableManager (DBTableManager&&) = delete;
     DBTableManager& operator=(const DBTableManager&)& = delete;
-    DBTableManager& operator=(const DBTableManager&&)& = delete;
+    DBTableManager& operator=(DBTableManager&&)& = delete;
 
-    DBFile* _file;
-    
+    DBBuffer* _file;
+
     // variables below descript an open table
     // they will be reset when closing the table
     std::string _table_name;

@@ -15,10 +15,11 @@
 #ifndef DB_FIELDS_H_
 #define DB_FIELDS_H_
 
-#include <vector>
+#include <cstring>
 #include <string>
+#include <vector>
+#include <cassert>
 #include <initializer_list>
-#include <cstdint>
 #include "db_common.h"
 
 class Database::DBFields {
@@ -32,12 +33,11 @@ public:
     static constexpr uint64 TYPE_INT64   = 6;
     static constexpr uint64 TYPE_UINT64  = 7;
     static constexpr uint64 TYPE_BOOL    = 8;
-    // TODO: portable?
     static constexpr uint64 TYPE_CHAR    = 9;
     static constexpr uint64 TYPE_UCHAR   = 10;
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
-    
+
     struct Comparator {
         uint64 type;
         int operator()(const void* a, const void* b, const uint64 length) {
@@ -104,7 +104,6 @@ public:
         }
     };
 
-
 public:
     DBFields(): _total_length(0) { }
     ~DBFields() { }
@@ -170,7 +169,7 @@ public:
     // generate a record with fields info
     void generateRecord(const std::initializer_list<void*> args, char* buffer) const {
         uint64 i = 0;
-        for (auto arg: args) {
+        for (const auto arg: args) {
             memcpy(buffer, arg, _field_length[i]);
             buffer += _field_length[i];
             ++i;
@@ -198,10 +197,7 @@ public:
         _total_length = 0;
     }
 
-private:
-#ifdef DEBUG
 public:
-#endif
     const std::vector<uint64>& field_id() const {
         return _field_id;
     }

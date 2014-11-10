@@ -15,8 +15,6 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#include <cstring>
-
 namespace Database {
 
 using int64 = long long;
@@ -26,8 +24,8 @@ using uint64 = unsigned long long;
 class DBFile;
 class DBTableManager;
 class DBFields;
-struct BTreeNode;
-template <class /* Comparator */> class DBIndexManager;
+class DBBuffer;
+template<class /* Comparator */> class DBIndexManager;
 
 struct RID {
     uint64 pageID;
@@ -42,6 +40,11 @@ struct RID {
 
     inline bool operator!=(const RID& rid) {
         return !(*this == rid);
+    }
+
+    // conversion to bool
+    operator bool() {
+        return pageID;
     }
 };
 

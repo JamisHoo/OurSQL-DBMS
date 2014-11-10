@@ -28,6 +28,7 @@
 #include <iostream>
 #include <fstream>
 #include "db_common.h"
+#include "db_fields.h"
 
 template<class Comparator>
 class Database::DBIndexManager {
