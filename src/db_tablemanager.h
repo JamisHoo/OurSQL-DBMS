@@ -27,7 +27,8 @@
 
 class Database::DBTableManager {
 private:
-    static constexpr char* DB_SUFFIX = (char*)".tb";
+    static constexpr char* TABLE_SUFFIX = (char*)".tb";
+    static constexpr char* INDEX_SUFFIX = (char*)".idx";
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
     static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
@@ -77,7 +78,7 @@ public:
         if (isopen()) return 1;
         
         // create DBFile
-        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+        _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
         char* buffer = new char[page_size];
 
@@ -164,7 +165,7 @@ public:
         if (isopen()) return 1;
 
         // create DBFile
-        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+        _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
         // openfile
         uint64 page_size = _file->open();
@@ -228,7 +229,7 @@ public:
     bool remove(const std::string& table_name) {
         if (isopen()) return 1;
 
-        _file = new DBBuffer(table_name + DB_SUFFIX, DEFAULT_BUFFER_SIZE);
+        _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
         bool rtv = _file->remove();
 
