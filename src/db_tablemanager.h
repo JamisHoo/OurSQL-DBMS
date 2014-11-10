@@ -279,17 +279,18 @@ public:
     // assert file is open
     // returns rid if succeed, rid(0, 0) otherwise
     RID insertRecord(const std::initializer_list<void*> args) {
-        // TODO
-        // must insert to index if there is one.
-
         if (!isopen()) return { 0, 0 };
         if (args.size() != _fields.size()) return { 0, 0 };
 
-        // pass args to _field to generate a record in raw data
-        // char* buffer = new char[_fields.recordLength()];
-        // allocate more space, reserve for later
-        char* buffer = new char[_file->pageSize()];
-        _fields.generateRecord(args, buffer);
+        // INDEX MANIPULATE
+        // find in index
+        auto rid = _index->searchRecord(
+            pointer_convert<char*>(*std::next(args.begin(), 
+                                              _fields.primary_key_field_id())));
+        // if exist already
+        if (rid) return  { 0, 0 };
+        // else not exist, continue inserting
+
 
         // find an empty record slot
         uint64 empty_slot_pageID = findEmptySlot();
@@ -300,6 +301,12 @@ public:
         // add this page to empty map(this may lead to new map pages)
         if (!empty_slot_pageID)
             empty_slot_pageID = createNewRecordPage();
+
+        // pass args to _field to generate a record in raw data
+        // char* buffer = new char[_fields.recordLength()];
+        // allocate more space, reserve for later
+        char* buffer = new char[_file->pageSize()];
+        _fields.generateRecord(args, buffer);
 
         // insert the record to the slot
         auto rtv = insertRecordtoPage(empty_slot_pageID, buffer);
@@ -322,6 +329,16 @@ public:
             _file->writePage(*pointer_convert<uint64*>(buffer), buffer);
         }
         
+        // INDEX MANIPULATE
+        // insert to index
+        bool successful = _index->insertRecord(
+            pointer_convert<char*>(*std::next(args.begin(), 
+                                              _fields.primary_key_field_id())),
+            std::get<0>(rtv), 
+            1);
+
+        assert(successful);
+
         delete[] buffer;
         return std::get<0>(rtv);
     }
