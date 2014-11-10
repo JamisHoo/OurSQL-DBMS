@@ -47,7 +47,9 @@ int main() {
     fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
 
     int rtv;
-    rtv = table.create("student", fields, 4096);
+    // optimal on my os X 16KB
+    // optimal on my Fedora 64KB
+    rtv = table.create("student", fields, 1024 * 16);
     assert(rtv == 0);
 
 
@@ -85,19 +87,15 @@ int main() {
     char student_name[1000] = "John Idiot";
     bool clever = 1;
     
-    /*
+        
     // insert until the first map page is full
     for (int i = 0; i < 32573 * 37; ++i) {
         student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
-        assert(rtv == 0);
+        assert(rtv == 1);
     }
-    */
     
-    
-
-
 
     // close table
     rtv = table.close();
@@ -106,13 +104,33 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 38; ++i) {
+    for (int i = 0; i < 149 + 3; ++i) {
         student_id += 1;
         clever ^= 1;
         rtv = table.insertRecord({ &student_id, student_name, &clever });
-        assert(rtv == 0);
+        assert(rtv == 1);
     }
 
+    // test remove record
+    table.removeRecord({ 4, 32 });
+    
+    // test modify record
+    table.modifyRecord({ 4, 6 }, 0, new uint64(0xffff)); 
+    
+    /*
+    // test find records
+    auto condition = [](const char* record) -> bool {
+        cout << hex << *pointer_convert<const uint64*>(record) << dec << endl;
+        if (*pointer_convert<const uint64*>(record) % 16 == 0) return 1;
+        return 0;
+    };
+    auto rids = table.findRecords(0, condition);
+
+    cout << "*************" << endl
+         << "Find results: " << rids.size() << endl;
+    for (auto rid: rids)
+        cout << rid.pageID << ' ' << rid.slotID << endl;
+    */
 
     /*
     // test traverse function
@@ -123,6 +141,7 @@ int main() {
     
     table.traverseRecords(writeTofile);
     */
+
 
 
     rtv = table.close();
