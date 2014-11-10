@@ -44,9 +44,10 @@ int main() {
     for (int i = 0; i < 100000000; ++i) {
         cout << i << endl;
         uint64 rnd = rand() % 5;
-        auto rid = manager.searchRecord(pointer_convert<char*>(&rnd));
+        // auto rid = manager.searchRecord(pointer_convert<char*>(&rnd));
         bool rtv;
-        switch (rid == RID(0, 0)) {
+        // switch (rid == RID(0, 0)) {
+        switch (flags[rnd] == 0)  {
             case true:
                 assert(flags[rnd] == 0);
                 flags[rnd] = 1;
