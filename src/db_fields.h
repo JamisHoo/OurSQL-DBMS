@@ -163,7 +163,7 @@ public:
         memcpy(buffer + pos, &tmp, sizeof(uint64));
         pos += sizeof(uint64);
         // primary key
-        *(buffer + pos) = i == primary_key_field_id;
+        *(buffer + pos) = i == _primary_key_field_id;
         // *(buffer + pos) = _is_primary_key[i];
         pos += sizeof(bool);
         // field name
