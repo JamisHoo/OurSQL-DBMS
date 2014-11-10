@@ -350,9 +350,6 @@ public:
     bool removeRecord(const RID rid) {
         if (!isopen()) return 1;
 
-        // TODO
-        // remove from index if there's one
-
         char* buffer = new char[_file->pageSize()];
 
         // find the record
@@ -362,6 +359,19 @@ public:
         // mark this slot as empty
         buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slotID % 8;
         _file->writePage(rid.pageID, buffer);
+
+        // remove from index
+        char* oldRecord = /* base */
+                          buffer + 
+                          /* page header offset */
+                          PAGE_HEADER_LENGTH + 
+                          /* bitmap offset */
+                          (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                          /* record offset */
+                          _record_length * rid.slotID +
+                          /* field offset */
+                          _fields.offset()[_fields.primary_key_field_id()];
+        assert(_index->removeRecord(oldRecord));
         
         // check whether this page get empty
         if (_empty_slots_map[rid.pageID] != 1) {
@@ -388,10 +398,15 @@ public:
     // returns 0 if succeed, 1 otherwise
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
         if (!isopen()) return 1;
+
+        // INDEX MANIPULATE
+        // find in index
+        auto rtv = _index->searchRecord(pointer_convert<const char*>(arg));
+        // if exist already
+        if (rtv) return 1;
+        // else not exist, continue modifying
     
-        // TODO
-        // modify in index
-        
+
         char* buffer = new char[_file->pageSize()];
 
         // read in this page
@@ -401,17 +416,26 @@ public:
         assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
 
         // modify record
-        memcpy(buffer +
-                   /* page header offset */
-                   PAGE_HEADER_LENGTH + 
-                   /* bitmap offset */
-                   (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
-                   /* record offset */
-                   _record_length * rid.slotID +
-                   /* field offset */
-                   _fields.offset()[field_id],
-               arg,
-               _fields.field_length()[field_id]);
+        char* oldRecord = /* base */
+                          buffer + 
+                          /* page header offset */
+                          PAGE_HEADER_LENGTH + 
+                          /* bitmap offset */
+                          (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                          /* record offset */
+                          _record_length * rid.slotID +
+                          /* field offset */
+                          _fields.offset()[field_id];
+
+        // INDEX MANIPULATE
+        // remove old in index
+        if (field_id == _fields.primary_key_field_id()) {
+            assert(_index->removeRecord(oldRecord));
+            assert(_index->insertRecord(pointer_convert<const char*>(arg), rid, 1));
+        }
+
+        // modify record
+        memcpy(oldRecord, arg, _fields.field_length()[field_id]);
         
         // write back
         _file->writePage(rid.pageID, buffer);
@@ -851,6 +875,18 @@ public:
         delete[] pageBuffer;
         return std::make_tuple(RID(pageID, empty_slot_num), empty_slot_remained);
     }
+#ifdef DEBUG
+public:
+    void checkIndex() {
+        auto verifyIndex = [this](const char* record, const RID rid) {
+            auto rids = _index->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
+            assert(rids.size() == 1);
+            assert(rids[0] == rid);
+        };
+
+        traverseRecords(verifyIndex);
+    }
+#endif
     
     // traverse all records
     // callback function is: func(const char* record buffer, RID)
