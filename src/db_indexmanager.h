@@ -448,7 +448,8 @@ public:
     // ifPrimary: is this key a primary key(cannot insert twice)?
     bool insertRecord(const char* key, const RID rid, const bool ifPrimary) {
         bool answer = locateRecord(key);
-        if(answer && ifPrimary){
+        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        if(answer && !checkLast && ifPrimary){
             #ifdef DEBUG
                 //std::cout<<"primary key already exist"<<std::endl;
             #endif
