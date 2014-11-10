@@ -142,7 +142,7 @@ public:
         // _is_primary_key.push_back(*pointer_convert<const bool*>(field_description + pos));
         pos += sizeof(bool);
 
-        _field_name.push_back(std::string(field_description + pos, length - pos));
+        _field_name.push_back(std::string(field_description + pos));
         _total_length += _field_length.back();
     }
 
