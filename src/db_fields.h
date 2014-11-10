@@ -169,7 +169,7 @@ public:
     // generate a record with fields info
     void generateRecord(const std::initializer_list<void*> args, char* buffer) const {
         uint64 i = 0;
-        for (auto arg: args) {
+        for (const auto arg: args) {
             memcpy(buffer, arg, _field_length[i]);
             buffer += _field_length[i];
             ++i;

@@ -90,7 +90,7 @@ public:
         // callback(pageID, bufferID)
         template <class CALLBACK>
         void traverseDirtyBuffer(CALLBACK callback) {
-            for (auto& node: _map)
+            for (const auto& node: _map)
                 if (std::get<2>(*node.second) == 1) {
                     callback(std::get<0>(*node.second), std::get<1>(*node.second));
                     std::get<2>(*node.second) = 0;
@@ -100,7 +100,7 @@ public:
 #ifdef DEBUG
     public:
         void display(std::ostream& out) {
-            for (auto& i: _stack)
+            for (const auto& i: _stack)
                 out << std::get<0>(i) << ' ' 
                     << std::get<1>(i) << ' ' 
                     << std::get<2>(i) << std::endl;
