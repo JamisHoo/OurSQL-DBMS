@@ -48,6 +48,13 @@ struct RID {
     }
 };
 
+#ifdef DEBUG
+std::ostream& operator<<(std::ostream& os, const RID& rid) {
+    os << "(" << rid.pageID << ", " << rid.slotID << ")";
+    return os;
+}
+#endif
+
 // Maybe there's some protable problems with reinterpret_cast<T>()?
 // Use the functions below to replace it.
 template <class T, class T2>
