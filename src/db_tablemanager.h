@@ -371,7 +371,8 @@ public:
                           _record_length * rid.slotID +
                           /* field offset */
                           _fields.offset()[_fields.primary_key_field_id()];
-        assert(_index->removeRecord(oldRecord));
+        // INDEX MANIPULATE
+        assert(_index->removeRecord(oldRecord, rid));
         
         // check whether this page get empty
         if (_empty_slots_map[rid.pageID] != 1) {
@@ -430,7 +431,7 @@ public:
         // INDEX MANIPULATE
         // remove old in index
         if (field_id == _fields.primary_key_field_id()) {
-            assert(_index->removeRecord(oldRecord));
+            assert(_index->removeRecord(oldRecord, rid));
             assert(_index->insertRecord(pointer_convert<const char*>(arg), rid, 1));
         }
 
@@ -878,13 +879,17 @@ public:
 #ifdef DEBUG
 public:
     void checkIndex() {
-        auto verifyIndex = [this](const char* record, const RID rid) {
+        uint64 num_records = 0;
+        auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
             auto rids = _index->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
             assert(rids.size() == 1);
             assert(rids[0] == rid);
+            ++num_records;
         };
 
         traverseRecords(verifyIndex);
+
+        assert(num_records == _index->getNumRecords());
     }
 #endif
     
