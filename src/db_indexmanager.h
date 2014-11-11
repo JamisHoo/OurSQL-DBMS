@@ -10,7 +10,7 @@
 
 /****************************************
  *  Structure of index file:
- *      Page0:  _num_pages,  _page_size,  _data_length, ComparatorType
+ *      Page0:  _num_pages,  _num_records, _page_size,  _data_length, ComparatorType
  *      Page1:  root node
  *      Page2:  BTreeNode
  *      ...
@@ -25,6 +25,7 @@
 
 #include <vector>
 #include <cassert>
+#include <cstdlib>
 #include <iostream>
 #include <fstream>
 #include "db_common.h"
@@ -256,7 +257,7 @@ class Database::DBIndexManager {
 
 
 public:
-    DBIndexManager(const std::string& file): _file(file), _page_size(0), _num_pages(0), _data_length(0)
+    DBIndexManager(const std::string& file): _file(file), _page_size(0), _num_pages(0), _num_records(0), _data_length(0)
     { _node_tracker = nullptr; }
 
     ~DBIndexManager() {
@@ -271,7 +272,7 @@ public:
     bool close() {
         if(!isopen()) return 1;
 
-        writeNumPages(_write_to);
+        writeNumbers();
         finalize();
 
         _fs.close();
@@ -292,13 +293,14 @@ public:
 
         // open successfully, load data from the first page
         _fs.seekg(0);
-        char buffer[sizeof(uint64) * 4];
-        _fs.read(buffer, sizeof(uint64) * 4);
+        char buffer[sizeof(uint64) * 5];
+        _fs.read(buffer, sizeof(uint64) * 5);
         _num_pages = *(pointer_convert<uint64*>(buffer));
         _write_to = _num_pages;
-        _page_size = *(pointer_convert<uint64*>(buffer + sizeof(uint64)));
-        _data_length = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 2));
-        uint64 comp_type = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 3));
+        _num_records = *(pointer_convert<uint64*>(buffer + sizeof(uint64)));
+        _page_size = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 2));
+        _data_length = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 3));
+        uint64 comp_type = *(pointer_convert<uint64*>(buffer + sizeof(uint64) * 4));
 
         setComparatorType(comp_type);
 
@@ -326,11 +328,13 @@ public:
         _write_to = 2;
         char buffer[_page_size];
         uint64 numPages = 2;
+        uint64 numReocrds = 0;
         memset(buffer, 0xdd, _page_size);
         memcpy(buffer, &numPages, sizeof(numPages));
-        memcpy(buffer + sizeof(numPages), &_page_size, sizeof(_page_size));
-        memcpy(buffer + sizeof(numPages) * 2, &_data_length, sizeof(_data_length));
-        memcpy(buffer + sizeof(numPages) * 3, &_comp_type, sizeof(_comp_type));
+        memcpy(buffer + sizeof(numPages), &numReocrds, sizeof(_num_records));
+        memcpy(buffer + sizeof(numPages) * 2, &_page_size, sizeof(_page_size));
+        memcpy(buffer + sizeof(numPages) * 3, &_data_length, sizeof(_data_length));
+        memcpy(buffer + sizeof(numPages) * 4, &_comp_type, sizeof(_comp_type));
         writePage(0, buffer);
 
         // write page1(root) after create
@@ -345,6 +349,10 @@ public:
     }
 
 // public interface of IndexManager operation
+
+// Warning: search/remove/insert are non-entrant
+//          use these carefully if you implement a multiple thread database
+
     // return RID(0,0) if not found
     RID searchRecord(const char* key) {
         bool answer = locateRecord(key);
@@ -462,6 +470,7 @@ public:
             memcpy(entry + _data_length, &position, sizeof(uint64));
             _node_tracker->insertKey(entry, _level[_lev_track]._offset);
             setDirty(_node_tracker);
+            _num_records++;
             if(_node_tracker->_size >= _max_sons)
                 solveNodeSplit();
             else
@@ -471,8 +480,9 @@ public:
 
     }
 
-    // remove record from an open index
+    // remove all records where index.key == key
     // return true if success, else return false
+    // use this function if you want to implement a multimap
     bool removeRecords(const char* key) {
         bool answer = false;
         while(true){
@@ -484,7 +494,8 @@ public:
         }
     }
 
-    // remove only one record
+    // remove the first record if index.key == key 
+    // don't check the RID
     bool removeRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
@@ -492,6 +503,7 @@ public:
             uint64 off = _level[_lev_track]._offset;
             _node_tracker->deleteKey(off);
             setDirty(_node_tracker);                // delete the key and set dirty
+            _num_records--;
 
             if(off == _node_tracker->_size){        // delete the last record in this node, may lead to change of parent nodes
                 uint64 tempLev = _lev_track;
@@ -508,14 +520,79 @@ public:
         }
         else{
             #ifdef DEBUG
-                //std::cout<<"key doesn't exist"<<std::endl;
+                std::cout<<"key doesn't exist"<<std::endl;
             #endif
             return false;
         }
     }
 
+    // remove only one record if index.key == key && index.rid == rid
+    bool removeRecord(const char* key, const RID rid) {
+        bool answer = locateRecord(key);
+        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        if(answer && !checkLast){
+            bool findRID = false;
+            // find the record if index.key == key && index.rid == rid
+            while(true){
+                uint64 off = _level[_lev_track]._offset;
+                if(_node_tracker->compareKey(key, off) != 0)    // if index.key != key, failed
+                    break;
+
+                uint64 pos = _node_tracker->getPosition(off);
+                RID indexRID = decode(pos);
+                if(indexRID == rid){                            // if index.rid == rid, success
+                    findRID = true;
+                    break;
+                }
+                else{                                           // if index.rid != rid, find next record
+                    if(_level[_lev_track]._offset < _node_tracker->_size - 1)
+                        _level[_lev_track]._offset++;
+                    else{
+                        bool way = findNextNode();
+                        if(way == false)                        // continue to search next node, failed if it comes to the last node
+                            break;
+                    }
+                }
+            }       // end of while(true)
+
+            if(findRID){                                // if find succeed, delete it
+                uint64 off = _level[_lev_track]._offset;
+                _node_tracker->deleteKey(off);
+                setDirty(_node_tracker);                // delete the key and set dirty
+                _num_records--;
+
+                if(off == _node_tracker->_size){        // delete the last record in this node, may lead to change of parent nodes
+                    uint64 tempLev = _lev_track;
+                    uint64 tempBlk = _level[_lev_track]._block;
+                    char* keyUpdate = _node_tracker->getKey(off - 1);
+                    solveChangeSmaller(keyUpdate);
+                    _lev_track = tempLev;
+                    getBuffer(tempBlk);
+                }
+                if(_node_tracker->_size < _max_sons / 2){       // node size break through the lower bound
+                    solveNodeMerge();
+                }
+                return true;
+            }           // end of if(findRID)
+            return false;
+        }               // end of if(answer && !checkLast)
+        else{           
+            #ifdef DEBUG
+                std::cout<<"key doesn't exist"<<std::endl;
+            #endif
+            return false;
+        }
+    }
+
+    // remove this index file
+    void removeIndex() {
+        // close before remove
+        this->close();
+        std::remove(_file.data());
+    }
+
     // traverse all records
-    // this function provides a call back function to manipulate records
+    // callback function is like: void func(const char* key, const RID rid)
     template<class CALLBACKFUNC>
     void traverseRecords(CALLBACKFUNC func) {
         _lev_track = 0;
@@ -523,15 +600,20 @@ public:
         _level[_lev_track]._offset = 0;
         _level[_lev_track]._block = 1;
         findFirstNode();
-        //_node_tracker->testShow();
-        _node_tracker->display(_comparator.type);
         while(true){
+            for(int i=0; i<_node_tracker->_size; i++){
+                char* key = _node_tracker->getKey(i);
+                uint64 pos = _node_tracker->getPosition(i);
+                func(key, decode(pos));
+            }
             bool answer = findNextNode();
             if(!answer)
                 break;
-            //_node_tracker->testShow();
-            _node_tracker->display(_comparator.type);
         }
+    }
+
+    uint64 getNumRecords() {
+        return _num_records;
     }
 
     #ifdef DEBUG
@@ -1033,14 +1115,18 @@ private:
     }
 
     // change _num_pages of index file in page0
-    void writeNumPages(const uint64 position) {
-        if(position > _num_pages) {
-            _num_pages = position;
+    void writeNumbers() {
+        if(_write_to > _num_pages) {
+            _num_pages = _write_to;
             char buffer[sizeof(_num_pages)];
             memcpy(buffer, &_num_pages, sizeof(_num_pages));
             _fs.seekp(0);
             _fs.write(buffer, sizeof(_num_pages));
         }
+        char buffer[sizeof(uint64)];
+        memcpy(buffer, &_num_records, sizeof(_num_records));
+        _fs.seekp(sizeof(_num_records));
+        _fs.write(buffer, sizeof(_num_records));
     }
     
     void setComparatorType(const uint64 type) {
@@ -1087,6 +1173,7 @@ private:
     uint64 _write_to;
     uint64 _page_size;
     uint64 _data_length;
+    uint64 _num_records;
 
     // these are equal to EntrySize and MaxSons in BTreeNode
     // initialize when create an index file

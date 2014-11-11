@@ -19,9 +19,15 @@
 #include "../src/db_fields.h"
 #include "../src/db_indexmanager.h"
 
+using namespace std;
+using namespace Database;
+
+void show(const char* key, const RID rid){
+    uint64 pos = *(pointer_convert<const uint64*>(key));
+    cout<<pos<<" "<<rid.pageID<<" "<<rid.slotID<<endl;
+}
+
 int main() {
-    using namespace std;
-    using namespace Database;
 
     DBTableManager table;
 
@@ -29,8 +35,8 @@ int main() {
     
     static constexpr uint64 TYPE_INT64   = 6;
 
-    
-    constexpr uint64 page_size = 4096;
+
+    constexpr uint64 page_size = 128;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
@@ -39,7 +45,112 @@ int main() {
         manager.create(page_size, data_length, TYPE_INT64);
         manager.open();
     }
-    
+
+/*
+    for(int i=0; i<20; i++){
+        uint64 key = 10;
+        RID rid(i*10,i*10);
+        manager.insertRecord(pointer_convert<char*>(&key), rid, 0);
+    }
+
+    for(int i=0; i<20; i++){
+        uint64 key = 20;
+        RID rid(i*10,i*10);
+        manager.insertRecord(pointer_convert<char*>(&key), rid, 0);
+    }
+*/
+
+    for(int i=1; i<=20; i++){
+        uint64 key = i;
+        RID rid1(i * 10, i * 10);
+        RID rid2(i * 100, i * 100);
+        manager.insertRecord(pointer_convert<char*>(&key), rid1, 0);
+        manager.insertRecord(pointer_convert<char*>(&key), rid2, 0);
+    }
+/*
+    for(int i=0; i<3; i++){
+        uint64 key = i;
+        manager.removeRecords(pointer_convert<char*>(&key));
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+
+    for(int i=5; i<10; i++){
+        uint64 key = i;
+        manager.removeRecord(pointer_convert<char*>(&key));
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+
+    for(int i=1234; i<1236; i++){
+        uint64 key = i;
+        manager.removeRecord(pointer_convert<char*>(&key));
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+
+    for(int i=10; i<12; i++){
+        uint64 key = i;
+        RID rid(10 * i, 10 * i);
+        manager.removeRecord(pointer_convert<char*>(&key), rid);
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+
+    for(int i=12; i<15; i++){
+        uint64 key = i;
+        RID rid(100 * i, 100 * i);
+        manager.removeRecord(pointer_convert<char*>(&key), rid);
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+
+    for(int i=15; i<17; i++){
+        uint64 key = i;
+        RID rid(1000 * i, 1000 * i);
+        manager.removeRecord(pointer_convert<char*>(&key), rid);
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+
+    for(int i=18; i<20; i++){
+        uint64 key = i * 100;
+        RID rid(100 * i, 100 * i);
+        manager.removeRecord(pointer_convert<char*>(&key), rid);
+        cout<<manager.getNumRecords()<<endl;
+        cout<<endl;
+    }
+*/
+
+    /*
+    for(int i=0; i<10; i++){
+        uint64 key = 10;
+        RID rid(i*10, i*10);
+        manager.removeRecord(pointer_convert<char*>(&key), rid);
+        cout<<manager.getNumRecords()<<endl;
+    }
+    cout<<endl;
+    for(int i=30; i<40; i++){
+        uint64 key = 10;
+        RID rid(i*10, i*10);
+        manager.removeRecord(pointer_convert<char*>(&key), rid);
+        cout<<manager.getNumRecords()<<endl;
+    }
+    cout<<endl;
+    */
+    /*
+    uint64 key = 10;
+    manager.removeRecord(pointer_convert<char*>(&key));
+    cout<<manager.getNumRecords()<<endl;
+
+    key = 20;
+    manager.removeRecords(pointer_convert<char*>(&key));
+    cout<<manager.getNumRecords()<<endl;
+*/
+    cout<<manager.getNumRecords()<<endl;
+    manager.traverseRecords(show);
+
+    /*
     bool flags[5] = { 0, 0, 0, 0, 0 };
     for (int i = 0; i < 100000000; ++i) {
         cout << i << endl;
@@ -61,9 +172,7 @@ int main() {
                 assert(rtv);
         }
     }
-        
-
-
+    */
 
     manager.close();
 
