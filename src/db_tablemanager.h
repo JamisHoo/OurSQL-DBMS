@@ -473,7 +473,7 @@ public:
     // return RIDs of the records
     // assert file is open
     template <class CONDITION>
-    std::vector<RID> findRecords(const uint64 field_id, CONDITION condition) {
+    std::vector<RID> findRecords(const uint64 field_id, CONDITION condition) const {
         // traverse all records, this cannot use index
         std::vector<RID> rids;
 
@@ -493,16 +493,22 @@ public:
     // return RIDs of the records
     // assert file is open
     // assert there's already index for this field
-    std::vector<RID> findRecords(const uint64 field_id, const char* key) {
-
+    std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
+        // only primary key index supported for now
+        assert(field_id == _fields.primary_key_field_id());
+        auto rids = _index->searchRecords(key);
+        assert(rids.size() <= 1);
+        return rids;
     }
 
     // find record(s) that lb <= field[field_id] < ub
     // return RIDs of the records
     // assert file is open
     // assert there's already index for this field
-    std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) {
-
+    std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) const {
+        // only primary key index supported for now
+        assert(field_id == _fields.primary_key_field_id());
+        return _index->rangeQuery(lb, ub);
     }
 
     // check if there's already table opened
@@ -903,7 +909,7 @@ public:
     }
 #ifdef DEBUG
 public:
-    void checkIndex() {
+    void checkIndex() const {
         // traverse each record in data file, verify in index
         uint64 num_records = 0;
         auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
@@ -948,7 +954,7 @@ public:
     // callback function is: func(const char* record buffer, RID)
     // record buffer get invalid after func returns
     template<class CALLBACKFUNC>
-    void traverseRecords(CALLBACKFUNC func) {
+    void traverseRecords(CALLBACKFUNC func) const {
         assert(isopen());
         
         char* buffer = new char[_file->pageSize()];
