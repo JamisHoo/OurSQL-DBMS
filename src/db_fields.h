@@ -147,7 +147,7 @@ public:
     }
 
     // generate description of field[i]
-    // the buffer is supposed to clear by caller
+    // the buffer is supposed to be cleared by caller
     void generateFieldDescription(const uint64 i, char* buffer) const {
         uint64 pos = 0;
         // field id

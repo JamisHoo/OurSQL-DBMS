@@ -36,7 +36,7 @@ private:
     static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
-    static constexpr uint64 TABLE_NAME_LENGTH = 512;
+    static constexpr uint64 TABLE_NAME_LENGTH = 511;
     static constexpr uint64 FIELD_INFO_LENGTH = 256;
     static constexpr uint64 PAGE_HEADER_LENGTH = 24;
     static constexpr uint64 FIRST_FIELDS_INFO_PAGE = 2;
@@ -545,6 +545,7 @@ public:
         memset(buffer + pos, ALIGN, TABLE_NAME_LENGTH);
         memcpy(buffer + pos, table_name.c_str(), table_name.length()); 
         pos += TABLE_NAME_LENGTH;
+        buffer[pos++] = '\x00';
 
         // fields num
         uint64 fields_num = fields.size();
@@ -599,6 +600,7 @@ public:
         // TODO: should add a limit of table name length
         _table_name = std::string(buffer + pos); 
         pos += TABLE_NAME_LENGTH;
+        ++pos;
 
         // fields num
         _num_fields = *pointer_convert<const uint64*>(buffer + pos);
@@ -644,6 +646,7 @@ public:
         for (uint64 i = 0; i < fields.size(); ++i) {
             memset(field_info_buffer, ALIGN, FIELD_INFO_LENGTH);
             fields.generateFieldDescription(i, field_info_buffer);
+            field_info_buffer[FIELD_INFO_LENGTH - 1] = '\x00';
             memcpy(buffer + pos, field_info_buffer, FIELD_INFO_LENGTH);
             pos += FIELD_INFO_LENGTH;
         }
