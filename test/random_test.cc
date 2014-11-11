@@ -15,7 +15,9 @@
 #include <iostream>
 #include <algorithm>
 #include <map>
+#include <vector>
 #include <cassert>
+#include <cstdlib>
 #include "../src/db_tablemanager.h"
 #include "../src/db_fields.h"
 
@@ -23,7 +25,8 @@ using namespace std;
 using namespace Database;
 
 uint64_t randuint64() {
-    return (uint64_t(rand()) << 62) | (uint64_t(rand()) << 31) | uint64_t(rand());
+    uint64_t rnd = (uint64_t(rand()) << 62) | (uint64_t(rand()) << 31) | uint64_t(rand());
+    return rnd;
 }
 
 std::string randstring(const int len) {
@@ -55,7 +58,7 @@ void insert(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
     memcpy(record.name, randstring(100).data(), 100);
     record.clever = randbool();
     auto rid = table.insertRecord({ &record.id, record.name, &record.clever });
-    assert(rid);
+    if (!rid) return;
     assert(reference.find(rid) == reference.end());
     reference[rid] = record;
 }
@@ -70,21 +73,22 @@ void modify(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
         ite = reference.lower_bound(RID(rand() % (prev(reference.end())->first.pageID + 1),
                                         rand() % (prev(reference.end())->first.slotID + 1)));
     
-    int rtv = 1;
     switch (rand() % 3) {
         case 0:
-            ite->second.id = randuint64();
-            rtv = table.modifyRecord(ite->first, 0, &(ite->second.id));
+            uint64_t rnd = randuint64();
+            int rtv = table.modifyRecord(ite->first, 0, &rnd);
+            if (rtv == 0) ite->second.id = rnd;
             break;
         case 1:
             memcpy(ite->second.name, randstring(100).data(), 100);
             rtv = table.modifyRecord(ite->first, 1, ite->second.name);
+            assert(rtv == 0);
             break;
         case 2:
             ite->second.clever = randbool();
             rtv = table.modifyRecord(ite->first, 2, &(ite->second.clever));
+            assert(rtv == 0);
     }
-    assert(!rtv);
 }
 
 void remove(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
@@ -121,12 +125,16 @@ void compare(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
 }
 
 int main() {
+    int seed = time(0);
+    srand(seed);
+    cout << "Seed: " << seed << endl;
 
     DBTableManager table;
     map<RID, Record, Comp> reference;
 
     // remove file if exists
-    table.remove("student");
+    std::remove("student.tb");
+    std::remove("student_Student_ID.idx");
 
     /*
     static constexpr uint64 TYPE_INT8    = 0;
@@ -146,9 +154,9 @@ int main() {
 
     DBFields fields;
     // test create
-    fields.insert(DBFields::TYPE_UINT64, 8, 1, "Student ID");
-    fields.insert(DBFields::TYPE_CHAR, 100, 0, "Student name");
-    fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever or Foolish");
+    fields.insert(DBFields::TYPE_UINT64, 8, 1, "Student_ID");
+    fields.insert(DBFields::TYPE_CHAR, 100, 0, "Student_name");
+    fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever_or_Foolish");
 
     int rtv;
     // create table
@@ -161,17 +169,18 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 4000000; ++i)
+    for (int i = 0; i < 50000; ++i)
         insert(table, reference);
 
-    std::cout << "Fuck the shit!!!" << endl;
-
-    for (int i = 0; i < 4000000; ++i) {
+    std::cout << "Insert Finished" << endl;
+       
+    for (int i = 0; i < 40000; ++i) {
         switch (rand() % 3) {
             case 0:
                 insert(table, reference);
                 break;
             case 1: 
+                break;
                 modify(table, reference);
                 break;
             case 2:
@@ -179,9 +188,52 @@ int main() {
         }
     }
 
+    table.checkIndex();
     compare(table, reference);
 
     // close table
     rtv = table.close();
+    assert(rtv == 0);
+
+    rtv = table.open("student");
+    assert(rtv == 0);
+
+    std::vector<uint64_t> vec;
+    for (const auto& r: reference) 
+        vec.push_back(r.second.id);
+    sort(vec.begin(), vec.end());
+
+    // test findRecords()
+    for (int i = 0; i < 4000; ++i) 
+        switch (rand() % 3) {
+            case 0: {
+                uint64_t pos = randuint64() % vec.size();
+                auto rids = table.findRecords(0, pointer_convert<const char*>(vec.data() + pos));
+                assert(rids.size() == 1);
+                assert(reference[rids[0]].id == vec[pos]);
+                break;
+            }
+            case 1: {
+                uint64_t pos = randuint64();
+                if (binary_search(vec.begin(), vec.end(), pos)) continue;
+                auto rids = table.findRecords(0, pointer_convert<const char*>(&pos));
+                assert(rids.size() == 0);
+                break;
+            }
+            case 2: {
+                uint64_t pos1 = randuint64() % vec.size();
+                uint64_t pos2 = randuint64() % vec.size();
+                auto rids = table.findRecords(0, pointer_convert<const char*>(vec.data() + pos1), pointer_convert<const char*>(vec.data() + pos2));
+                assert(rids.size() == (pos1 > pos2? 0ull: pos2 - pos1));
+
+                for (auto rid: rids)
+                    assert(reference[rid].id >= vec[pos1] && 
+                           reference[rid].id < vec[pos2]);
+            }
+        }
+
+
+    // remove table
+    rtv = table.remove();
     assert(rtv == 0);
 }

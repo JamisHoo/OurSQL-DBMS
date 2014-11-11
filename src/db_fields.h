@@ -116,7 +116,8 @@ public:
         _offset.push_back(_total_length);
         _field_type.push_back(field_type);
         _field_length.push_back(field_length);
-        _is_primary_key.push_back(is_primary_key);
+        // _is_primary_key.push_back(is_primary_key);
+        if (is_primary_key) _primary_key_field_id = _field_id.back();
         _field_name.push_back(field_name);
         _total_length += field_length;
     }
@@ -135,16 +136,18 @@ public:
 
         _field_length.push_back(*pointer_convert<const uint64*>(field_description + pos));
         pos += sizeof(uint64);
-
-        _is_primary_key.push_back(*pointer_convert<const bool*>(field_description + pos));
+  
+        if (*pointer_convert<const bool*>(field_description + pos)) 
+            _primary_key_field_id = _field_id.back();
+        // _is_primary_key.push_back(*pointer_convert<const bool*>(field_description + pos));
         pos += sizeof(bool);
 
-        _field_name.push_back(std::string(field_description + pos, length - pos));
+        _field_name.push_back(std::string(field_description + pos));
         _total_length += _field_length.back();
     }
 
     // generate description of field[i]
-    // the buffer is supposed to clear by caller
+    // the buffer is supposed to be cleared by caller
     void generateFieldDescription(const uint64 i, char* buffer) const {
         uint64 pos = 0;
         // field id
@@ -160,7 +163,8 @@ public:
         memcpy(buffer + pos, &tmp, sizeof(uint64));
         pos += sizeof(uint64);
         // primary key
-        *(buffer + pos) = _is_primary_key[i];
+        *(buffer + pos) = i == _primary_key_field_id;
+        // *(buffer + pos) = _is_primary_key[i];
         pos += sizeof(bool);
         // field name
         memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
@@ -192,7 +196,7 @@ public:
         _offset.clear();
         _field_type.clear();
         _field_length.clear();
-        _is_primary_key.clear();
+        // _is_primary_key.clear();
         _field_name.clear();
         _total_length = 0;
     }
@@ -214,12 +218,18 @@ public:
         return _field_length;
     }
 
+    /*
     const std::vector<bool>& primary_key() const {
         return _is_primary_key;
     }
+    */
 
     const std::vector<std::string>& field_name() const {
         return _field_name;
+    }
+
+    uint64 primary_key_field_id() const {
+        return _primary_key_field_id;
     }
 
     
@@ -228,9 +238,10 @@ private:
     std::vector<uint64> _offset;
     std::vector<uint64> _field_type;
     std::vector<uint64> _field_length;
-    std::vector<bool> _is_primary_key;
+    // std::vector<bool> _is_primary_key;
     std::vector<std::string> _field_name;
     uint64 _total_length;
+    uint64 _primary_key_field_id;
 };
 
 #endif /* DB_FIELDS_H_ */
