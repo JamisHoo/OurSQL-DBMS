@@ -167,7 +167,7 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 40000; ++i)
+    for (int i = 0; i < 50000; ++i)
         insert(table, reference);
 
     std::cout << "Insert Finished" << endl;
