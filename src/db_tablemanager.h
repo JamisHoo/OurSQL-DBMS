@@ -901,6 +901,7 @@ public:
 #ifdef DEBUG
 public:
     void checkIndex() {
+        // traverse each record in data file, verify in index
         uint64 num_records = 0;
         auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
             auto rids = _index->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
@@ -912,6 +913,31 @@ public:
         traverseRecords(verifyIndex);
 
         assert(num_records == _index->getNumRecords());
+
+        uint64 num_records2 = 0;
+        char* buffer = new char[_file->pageSize()];
+        // traverse each record in index, verify in data file
+        auto verifyRecord = [this, &buffer, &num_records2](const char* record, const RID rid) {
+            _file->readPage(rid.pageID, buffer);
+            
+            char* rightRecord = /* base */
+                                buffer + 
+                                /* page header offset */
+                                PAGE_HEADER_LENGTH + 
+                                /* bitmap offset */
+                                (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                                /* record offset */
+                                _record_length * rid.slotID +
+                                /* field offset */
+                                _fields.offset()[_fields.primary_key_field_id()];
+            assert(!memcmp(rightRecord, record, _fields.field_length()[_fields.primary_key_field_id()]));
+            ++num_records2;
+        };
+
+        _index->traverseRecords(verifyRecord);
+        assert(num_records2 == num_records);
+        
+        delete[] buffer;
     }
 #endif
     
