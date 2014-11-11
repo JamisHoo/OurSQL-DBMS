@@ -25,7 +25,8 @@ using namespace std;
 using namespace Database;
 
 uint64_t randuint64() {
-    return (uint64_t(rand()) << 62) | (uint64_t(rand()) << 31) | uint64_t(rand());
+    uint64_t rnd = (uint64_t(rand()) << 62) | (uint64_t(rand()) << 31) | uint64_t(rand());
+    return rnd;
 }
 
 std::string randstring(const int len) {
@@ -223,11 +224,11 @@ int main() {
                 uint64_t pos1 = randuint64() % vec.size();
                 uint64_t pos2 = randuint64() % vec.size();
                 auto rids = table.findRecords(0, pointer_convert<const char*>(vec.data() + pos1), pointer_convert<const char*>(vec.data() + pos2));
-                assert(rids.size() == (pos1 > pos2? 0ull: pos2 - pos1 + 1));
+                assert(rids.size() == (pos1 > pos2? 0ull: pos2 - pos1));
 
                 for (auto rid: rids)
                     assert(reference[rid].id >= vec[pos1] && 
-                           reference[rid].id <= vec[pos2]);
+                           reference[rid].id < vec[pos2]);
             }
         }
 
