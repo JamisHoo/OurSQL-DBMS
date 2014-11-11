@@ -46,7 +46,7 @@ int main() {
         manager.open();
     }
 
-/*
+
     for(int i=100; i<200; i++){
         uint64 key = i;
         RID rid(i*10,i*10);
@@ -58,7 +58,7 @@ int main() {
         RID rid(i*10,i*10);
         manager.insertRecord(pointer_convert<char*>(&key), rid, 0);
     }
-*/
+
     uint64 lower = 178;
     uint64 upper = 199;
 
