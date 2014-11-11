@@ -36,7 +36,7 @@ private:
     static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
-    static constexpr uint64 TABLE_NAME_LENGTH = 512;
+    static constexpr uint64 TABLE_NAME_LENGTH = 511;
     static constexpr uint64 FIELD_INFO_LENGTH = 256;
     static constexpr uint64 PAGE_HEADER_LENGTH = 24;
     static constexpr uint64 FIRST_FIELDS_INFO_PAGE = 2;
@@ -254,23 +254,44 @@ public:
 
     }
 
-    // remove a table
-    // assert no table is opened
+    // remove an open table
     // returns 0 if succeed, 1 otherwise
     // the table will be closed if succeed
-    bool remove(const std::string& table_name) {
-        // TODO:
-        // remove related index files
-        if (isopen()) return 1;
+    bool remove() {
+        if (!isopen()) return 1;
 
+        // store all index name
+        std::string primary_index_name = 
+            _fields.field_name().at(_fields.primary_key_field_id());
+
+        // store table name
+        std::string table_name = _table_name;
+
+        // close this table
+        assert(close() == 0);
+
+        // construct a file operator
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
+        // remove data file
         bool rtv = _file->remove();
+        // if remove succeeded, remove all related index files
+        if (rtv == 0) {
+            // open index
+            _index = new DBIndexManager<DBFields::Comparator>(
+                table_name + "_" + primary_index_name + INDEX_SUFFIX);
+            
+            // remove this index
+            assert(_index->remove() == 0);
+            delete _index;
+            _index = nullptr;
+        }
 
         delete _file;
         _file = nullptr;
 
         return rtv;
+        
     }
 
     // insert a record
@@ -371,7 +392,8 @@ public:
                           _record_length * rid.slotID +
                           /* field offset */
                           _fields.offset()[_fields.primary_key_field_id()];
-        assert(_index->removeRecord(oldRecord));
+        // INDEX MANIPULATE
+        assert(_index->removeRecord(oldRecord, rid));
         
         // check whether this page get empty
         if (_empty_slots_map[rid.pageID] != 1) {
@@ -430,7 +452,7 @@ public:
         // INDEX MANIPULATE
         // remove old in index
         if (field_id == _fields.primary_key_field_id()) {
-            assert(_index->removeRecord(oldRecord));
+            assert(_index->removeRecord(oldRecord, rid));
             assert(_index->insertRecord(pointer_convert<const char*>(arg), rid, 1));
         }
 
@@ -523,6 +545,7 @@ public:
         memset(buffer + pos, ALIGN, TABLE_NAME_LENGTH);
         memcpy(buffer + pos, table_name.c_str(), table_name.length()); 
         pos += TABLE_NAME_LENGTH;
+        buffer[pos++] = '\x00';
 
         // fields num
         uint64 fields_num = fields.size();
@@ -574,8 +597,10 @@ public:
         uint64 page_size = _file->pageSize();
         uint64 pos = 0;
         // table name
-        _table_name = std::string(buffer + pos, TABLE_NAME_LENGTH);
+        // TODO: should add a limit of table name length
+        _table_name = std::string(buffer + pos); 
         pos += TABLE_NAME_LENGTH;
+        ++pos;
 
         // fields num
         _num_fields = *pointer_convert<const uint64*>(buffer + pos);
@@ -621,6 +646,7 @@ public:
         for (uint64 i = 0; i < fields.size(); ++i) {
             memset(field_info_buffer, ALIGN, FIELD_INFO_LENGTH);
             fields.generateFieldDescription(i, field_info_buffer);
+            field_info_buffer[FIELD_INFO_LENGTH - 1] = '\x00';
             memcpy(buffer + pos, field_info_buffer, FIELD_INFO_LENGTH);
             pos += FIELD_INFO_LENGTH;
         }
@@ -878,13 +904,43 @@ public:
 #ifdef DEBUG
 public:
     void checkIndex() {
-        auto verifyIndex = [this](const char* record, const RID rid) {
+        // traverse each record in data file, verify in index
+        uint64 num_records = 0;
+        auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
             auto rids = _index->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
             assert(rids.size() == 1);
             assert(rids[0] == rid);
+            ++num_records;
         };
 
         traverseRecords(verifyIndex);
+
+        assert(num_records == _index->getNumRecords());
+
+        uint64 num_records2 = 0;
+        char* buffer = new char[_file->pageSize()];
+        // traverse each record in index, verify in data file
+        auto verifyRecord = [this, &buffer, &num_records2](const char* record, const RID rid) {
+            _file->readPage(rid.pageID, buffer);
+            
+            char* rightRecord = /* base */
+                                buffer + 
+                                /* page header offset */
+                                PAGE_HEADER_LENGTH + 
+                                /* bitmap offset */
+                                (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                                /* record offset */
+                                _record_length * rid.slotID +
+                                /* field offset */
+                                _fields.offset()[_fields.primary_key_field_id()];
+            assert(!memcmp(rightRecord, record, _fields.field_length()[_fields.primary_key_field_id()]));
+            ++num_records2;
+        };
+
+        _index->traverseRecords(verifyRecord);
+        assert(num_records2 == num_records);
+        
+        delete[] buffer;
     }
 #endif
     

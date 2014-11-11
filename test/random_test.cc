@@ -52,15 +52,13 @@ struct Comp {
 // insert a random record
 void insert(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
     Record record;
-    record.id = randuint64() % 5;
+    record.id = randuint64();
     memcpy(record.name, randstring(100).data(), 100);
     record.clever = randbool();
-    cout << "Insert " << record.id << endl;
     auto rid = table.insertRecord({ &record.id, record.name, &record.clever });
     if (!rid) return;
     assert(reference.find(rid) == reference.end());
     reference[rid] = record;
-    cout << "Insert " << record.id << endl;
 }
 
 // modify a random record
@@ -75,7 +73,7 @@ void modify(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
     
     switch (rand() % 3) {
         case 0:
-            uint64_t rnd = randuint64() % 5;
+            uint64_t rnd = randuint64();
             int rtv = table.modifyRecord(ite->first, 0, &rnd);
             if (rtv == 0) ite->second.id = rnd;
             break;
@@ -100,7 +98,6 @@ void remove(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
 
     int rtv = table.removeRecord(ite->first);
     assert(!rtv);
-    cout << "Remove " << ite->second.id << endl;
     reference.erase(ite);
 }
     
@@ -127,14 +124,15 @@ void compare(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
 
 int main() {
     int seed = time(0);
-    srand(1415624016);
+    srand(seed);
     cout << "Seed: " << seed << endl;
 
     DBTableManager table;
     map<RID, Record, Comp> reference;
 
     // remove file if exists
-    table.remove("student");
+    std::remove("student.tb");
+    std::remove("student_Student.idx");
 
     /*
     static constexpr uint64 TYPE_INT8    = 0;
@@ -169,7 +167,7 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 10000; ++i)
+    for (int i = 0; i < 50000; ++i)
         insert(table, reference);
 
     std::cout << "Insert Finished" << endl;
@@ -193,5 +191,12 @@ int main() {
 
     // close table
     rtv = table.close();
+    assert(rtv == 0);
+
+    rtv = table.open("student");
+    assert(rtv == 0);
+
+    // remove table
+    rtv = table.remove();
     assert(rtv == 0);
 }

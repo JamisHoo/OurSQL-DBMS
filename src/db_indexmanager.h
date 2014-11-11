@@ -585,10 +585,11 @@ public:
     }
 
     // remove this index file
-    void removeIndex() {
+    // returns 0 if succeed, 1 otherwise
+    bool remove() {
         // close before remove
         this->close();
-        std::remove(_file.data());
+        return std::remove(_file.data());
     }
 
     // traverse all records
