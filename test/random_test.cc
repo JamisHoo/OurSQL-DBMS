@@ -15,6 +15,7 @@
 #include <iostream>
 #include <algorithm>
 #include <map>
+#include <vector>
 #include <cassert>
 #include <cstdlib>
 #include "../src/db_tablemanager.h"
@@ -132,7 +133,7 @@ int main() {
 
     // remove file if exists
     std::remove("student.tb");
-    std::remove("student_Student.idx");
+    std::remove("student_Student_ID.idx");
 
     /*
     static constexpr uint64 TYPE_INT8    = 0;
@@ -186,7 +187,7 @@ int main() {
         }
     }
 
-    table.checkIndex();    
+    table.checkIndex();
     compare(table, reference);
 
     // close table
@@ -195,6 +196,41 @@ int main() {
 
     rtv = table.open("student");
     assert(rtv == 0);
+
+    std::vector<uint64_t> vec;
+    for (const auto& r: reference) 
+        vec.push_back(r.second.id);
+    sort(vec.begin(), vec.end());
+
+    // test findRecords()
+    for (int i = 0; i < 4000; ++i) 
+        switch (rand() % 3) {
+            case 0: {
+                uint64_t pos = randuint64() % vec.size();
+                auto rids = table.findRecords(0, pointer_convert<const char*>(vec.data() + pos));
+                assert(rids.size() == 1);
+                assert(reference[rids[0]].id == vec[pos]);
+                break;
+            }
+            case 1: {
+                uint64_t pos = randuint64();
+                if (binary_search(vec.begin(), vec.end(), pos)) continue;
+                auto rids = table.findRecords(0, pointer_convert<const char*>(&pos));
+                assert(rids.size() == 0);
+                break;
+            }
+            case 2: {
+                uint64_t pos1 = randuint64() % vec.size();
+                uint64_t pos2 = randuint64() % vec.size();
+                auto rids = table.findRecords(0, pointer_convert<const char*>(vec.data() + pos1), pointer_convert<const char*>(vec.data() + pos2));
+                assert(rids.size() == (pos1 > pos2? 0ull: pos2 - pos1 + 1));
+
+                for (auto rid: rids)
+                    assert(reference[rid].id >= vec[pos1] && 
+                           reference[rid].id <= vec[pos2]);
+            }
+        }
+
 
     // remove table
     rtv = table.remove();
