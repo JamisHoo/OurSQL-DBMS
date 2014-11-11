@@ -404,7 +404,7 @@ public:
         return ridVector;
     }
 
-    // search for lower <= key <= upper
+    // search for lower <= key < upper
     // return an empty vector if not found
     std::vector<RID> rangeQuery(const char* lower, const char* upper) {
         std::vector<RID> ridVector;
@@ -427,7 +427,7 @@ public:
                         off = _level[_lev_track]._offset;
                         char* currentKey = _node_tracker->getKey(off);
                         int answer = _comparator(currentKey, upper, _data_length);
-                        if(answer <= 0){
+                        if(answer < 0){
                             uint64 pos = _node_tracker->getPosition(off);
                             ridVector.push_back(decode(pos));
                         }
@@ -440,7 +440,7 @@ public:
                 off++;
                 char* currentKey = _node_tracker->getKey(off);
                 int answer = _comparator(currentKey, upper, _data_length);
-                if(answer <= 0){
+                if(answer < 0){
                     uint64 pos = _node_tracker->getPosition(off);
                     ridVector.push_back(decode(pos));
                 }

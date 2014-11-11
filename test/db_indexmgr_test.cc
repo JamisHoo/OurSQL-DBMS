@@ -46,20 +46,37 @@ int main() {
         manager.open();
     }
 
-/*
-    for(int i=0; i<20; i++){
-        uint64 key = 10;
+
+    for(int i=100; i<200; i++){
+        uint64 key = i;
+        RID rid(i*10,i*10);
+        manager.insertRecord(pointer_convert<char*>(&key), rid, 0);
+    }
+    
+    for(int i=180; i<220; i++){
+        uint64 key = i;
         RID rid(i*10,i*10);
         manager.insertRecord(pointer_convert<char*>(&key), rid, 0);
     }
 
+    uint64 lower = 178;
+    uint64 upper = 199;
+
+    vector<RID> ridVector = manager.rangeQuery(pointer_convert<char*>(&lower), pointer_convert<char*>(&upper));
+    for (std::vector<RID>::iterator i = ridVector.begin(); i != ridVector.end(); ++i)
+    {
+        cout<<i->pageID<<" "<<i->slotID<<endl;
+    }
+
+    
+/*
     for(int i=0; i<20; i++){
         uint64 key = 20;
         RID rid(i*10,i*10);
         manager.insertRecord(pointer_convert<char*>(&key), rid, 0);
     }
 */
-
+/*
     for(int i=1; i<=20; i++){
         uint64 key = i;
         RID rid1(i * 10, i * 10);
@@ -67,6 +84,8 @@ int main() {
         manager.insertRecord(pointer_convert<char*>(&key), rid1, 0);
         manager.insertRecord(pointer_convert<char*>(&key), rid2, 0);
     }
+    */
+
 /*
     for(int i=0; i<3; i++){
         uint64 key = i;
@@ -147,8 +166,6 @@ int main() {
     manager.removeRecords(pointer_convert<char*>(&key));
     cout<<manager.getNumRecords()<<endl;
 */
-    cout<<manager.getNumRecords()<<endl;
-    manager.traverseRecords(show);
 
     /*
     bool flags[5] = { 0, 0, 0, 0, 0 };
