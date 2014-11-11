@@ -254,23 +254,44 @@ public:
 
     }
 
-    // remove a table
-    // assert no table is opened
+    // remove an open table
     // returns 0 if succeed, 1 otherwise
     // the table will be closed if succeed
-    bool remove(const std::string& table_name) {
-        // TODO:
-        // remove related index files
-        if (isopen()) return 1;
+    bool remove() {
+        if (!isopen()) return 1;
 
+        // store all index name
+        std::string primary_index_name = 
+            _fields.field_name().at(_fields.primary_key_field_id());
+
+        // store table name
+        std::string table_name = _table_name;
+
+        // close this table
+        assert(close() == 0);
+
+        // construct a file operator
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
+        // remove data file
         bool rtv = _file->remove();
+        // if remove succeeded, remove all related index files
+        if (rtv == 0) {
+            // open index
+            _index = new DBIndexManager<DBFields::Comparator>(
+                table_name + "_" + primary_index_name + INDEX_SUFFIX);
+            
+            // remove this index
+            assert(_index->remove() == 0);
+            delete _index;
+            _index = nullptr;
+        }
 
         delete _file;
         _file = nullptr;
 
         return rtv;
+        
     }
 
     // insert a record
@@ -575,7 +596,8 @@ public:
         uint64 page_size = _file->pageSize();
         uint64 pos = 0;
         // table name
-        _table_name = std::string(buffer + pos, TABLE_NAME_LENGTH);
+        // TODO: should add a limit of table name length
+        _table_name = std::string(buffer + pos); 
         pos += TABLE_NAME_LENGTH;
 
         // fields num
