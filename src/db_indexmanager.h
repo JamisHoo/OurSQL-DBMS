@@ -585,7 +585,7 @@ public:
     }
 
     // remove this index file
-    void removeIndex() {
+    void remove() {
         // close before remove
         this->close();
         std::remove(_file.data());
