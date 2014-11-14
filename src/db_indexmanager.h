@@ -226,7 +226,8 @@ class Database::DBIndexManager {
                         break;
                     case 9:
                     case 10:
-                        std::cout<<entry<<std::endl;
+                        for(int j=0; j<DataLength; j++)
+                            std::cout<<entry[i];
                         break;
                     case 11:
                         std::cout<<*(pointer_convert<float*>(entry));
@@ -238,7 +239,7 @@ class Database::DBIndexManager {
                         assert(0);
                 }
                 std::cout<<" ";
-                uint64 pos = atPosition(i);
+                uint64 pos = getPosition(i);
                 RID rid = DBIndexManager::decode(pos);
                 std::cout<<rid.pageID<<" "<<rid.slotID<<std::endl;
             }
@@ -357,6 +358,7 @@ public:
     RID searchRecord(const char* key) {
         bool answer = locateRecord(key);
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        //std::cout<<answer<<" "<<checkLast<<std::endl;
         if(answer && !checkLast){               // key exists in this index file
             uint64 which = _level[_lev_track]._block;
             uint64 off = _level[_lev_track]._offset;
@@ -418,8 +420,9 @@ public:
             return ridVector;
 
         RID first = searchRecord(lower);
-        if(first.pageID == 0 && first.slotID == 0)
+        if(first.pageID == 0 && first.slotID == 0){
             return ridVector;
+        }
 
         else{
             ridVector.push_back(first);

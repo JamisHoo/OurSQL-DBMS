@@ -58,10 +58,10 @@ int main() {
     char c[5] = "cbcd";
     char d[5] = "ddcd";
 
-    manager.insertRecord(a, { 0, 0 }, 0);
-    manager.insertRecord(b, { 0, 1 }, 0);
-    manager.insertRecord(c, { 0, 2 }, 0);
-    manager.insertRecord(d, { 0, 3 }, 0);
+    manager.insertRecord(a, { 1, 0 }, 0);
+    manager.insertRecord(b, { 1, 1 }, 0);
+    manager.insertRecord(c, { 1, 2 }, 0);
+    manager.insertRecord(d, { 1, 3 }, 0);
 
     auto rids = manager.rangeQuery(a, c);
     cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
@@ -77,6 +77,8 @@ int main() {
 
     rids = manager.rangeQuery(d, a);
     cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
+
+    manager.show();
 
     remove("index.idx");
 }
