@@ -154,9 +154,9 @@ int main() {
 
     DBFields fields;
     // test create
-    fields.insert(DBFields::TYPE_UINT64, 8, 1, "Student_ID");
-    fields.insert(DBFields::TYPE_CHAR, 100, 0, "Student_name");
-    fields.insert(DBFields::TYPE_BOOL, 1, 0, "Clever_or_Foolish");
+    fields.insert(DBFields::TYPE_UINT64, 8, 1, 1, "Student_ID");
+    fields.insert(DBFields::TYPE_CHAR, 100, 0, 0, "Student_name");
+    fields.insert(DBFields::TYPE_BOOL, 1, 0, 0, "Clever_or_Foolish");
 
     int rtv;
     // create table
@@ -169,7 +169,7 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 50000; ++i)
+    for (int i = 0; i < 400000; ++i)
         insert(table, reference);
 
     std::cout << "Insert Finished" << endl;

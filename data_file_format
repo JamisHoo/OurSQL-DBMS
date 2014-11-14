@@ -54,7 +54,8 @@ FIELD_INFO: 256 Byte
     Field Type: 8 Byte
     Field Length(in Byte): 8 Byte
     Primary key: 1 Byte
-    Field Name: 230 Byte
+    INDEXED : 1 Byte
+    Field Name: 229 Byte
     0x00: 1 Byte // means field name must end with 0x00
 
 PAGE HEADER: 24 Byte

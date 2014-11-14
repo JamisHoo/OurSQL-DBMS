@@ -44,7 +44,8 @@ private:
 
 public:
     DBTableManager(): _file(nullptr), 
-                      _index(nullptr),
+                      // INDEX MANIPULATE
+                      // _index(nullptr),
                       _num_fields(0), 
                       _pages_each_map_page(0),
                       _record_length(0),
@@ -53,19 +54,25 @@ public:
                       _last_record_page(0) { }
 
     ~DBTableManager() {
+
         // open table should be closed explicitly
         // but we will close it if not
+        if (isopen())
+            close();
+        /*
         if (isopen()) {
-        // ignore close fail
-            // INDEX MANIPULATION
+            // INDEX MANIPULATE
+            // ignore close fail
             assert(_index->close() == 0);
             delete _index;
             _index = nullptr;
+            
             _file->close();
             delete _file;
             _file = nullptr;
             
         }
+        */
     }
 
     // create a table 
@@ -150,9 +157,21 @@ public:
 
         _file->writePage(FIRST_RECORD_PAGE, buffer);
 
-
-        // INDEX MANIPULATION
+        
+        // INDEX MANIPULATE
         // create index for primary key
+        assert(_index.size() == 0);
+        _index.assign(fields.size(), nullptr);
+        _index[fields.primary_key_field_id()] = new DBIndexManager<DBFields::Comparator>(
+            table_name + "_" + 
+            fields.field_name().at(fields.primary_key_field_id()) + 
+            INDEX_SUFFIX);
+        rtv = _index[fields.primary_key_field_id()]->create(page_size, 
+                             fields.field_length()[fields.primary_key_field_id()],
+                             fields.field_type()[fields.primary_key_field_id()]);
+        assert(rtv == 0);
+        _index[fields.primary_key_field_id()]->close();
+        /*
         _index = new DBIndexManager<DBFields::Comparator>(
             table_name + "_" + 
             fields.field_name().at(fields.primary_key_field_id()) + 
@@ -165,13 +184,20 @@ public:
 
         // close index
         _index->close();
+        */
         // close table
         _file->close();
 
         // delete DBFile
         delete[] buffer;
+        // INDEX MANIPULATE
+        delete _index[fields.primary_key_field_id()];
+        _index[fields.primary_key_field_id()] = nullptr;
+        _index.clear();
+        /*
         delete _index;
         _index = nullptr;
+        */
         delete _file;
         _file = nullptr;
 
@@ -208,15 +234,28 @@ public:
         // parse 3rd page
         parseEmptyMapPages(buffer);
 
-        // INDEX MANIPULATION
+        // INDEX MANIPULATE
         // open index
+        assert(_index.size() == 0);
+        _index.assign(_fields.size(), nullptr);
+        for (const auto id: _fields.field_id())
+            // if this field has index
+            if (_fields.indexed()[id]) {
+                _index[id] = new DBIndexManager<DBFields::Comparator>(
+                    table_name + "_" + 
+                    _fields.field_name()[id] + 
+                    INDEX_SUFFIX);
+                uint64 rtv = _index[id]->open();
+                assert(rtv);
+            }
+        /*
         _index = new DBIndexManager<DBFields::Comparator>(
             table_name + "_" + 
             _fields.field_name().at(_fields.primary_key_field_id()) + 
             INDEX_SUFFIX);
         uint64 rtv = _index->open();
         assert(rtv);
-
+        */
         delete[] buffer;
         return !page_size;
     }
@@ -231,10 +270,19 @@ public:
 
         // close successful
         if (rtv == 0) {
-            // INDEX MANIPULATION
+            // INDEX MANIPULATE
+            for(auto& index_pointer: _index) {
+                if (index_pointer == nullptr) continue;
+                assert(index_pointer->close() == 0);
+                delete index_pointer;
+                index_pointer = nullptr;
+            }
+            _index.clear();
+            /*
             assert(_index->close() == 0);
             delete _index;
             _index = nullptr;
+            */
             delete _file;
             _file = nullptr;
             _table_name = "";
@@ -261,8 +309,14 @@ public:
         if (!isopen()) return 1;
 
         // store all index name
+        std::vector<std::string> index_names;
+        for (auto id: _fields.field_id())
+            if (_fields.indexed()[id])
+                index_names.push_back(_fields.field_name()[id]);
+        /*
         std::string primary_index_name = 
             _fields.field_name().at(_fields.primary_key_field_id());
+        */
 
         // store table name
         std::string table_name = _table_name;
@@ -276,7 +330,15 @@ public:
         // remove data file
         bool rtv = _file->remove();
         // if remove succeeded, remove all related index files
+        // INDEX MANIPULATE
         if (rtv == 0) {
+            for (const auto& index_name: index_names) {
+                auto index = new DBIndexManager<DBFields::Comparator>(
+                    table_name + "_" + index_name + INDEX_SUFFIX);
+                assert(index->remove() == 0);
+                delete index;
+            }
+            /*
             // open index
             _index = new DBIndexManager<DBFields::Comparator>(
                 table_name + "_" + primary_index_name + INDEX_SUFFIX);
@@ -285,6 +347,7 @@ public:
             assert(_index->remove() == 0);
             delete _index;
             _index = nullptr;
+            */
         }
 
         delete _file;
@@ -305,7 +368,7 @@ public:
 
         // INDEX MANIPULATE
         // find in index
-        auto rid = _index->searchRecord(
+        auto rid = _index[_fields.primary_key_field_id()]->searchRecord(
             pointer_convert<char*>(*std::next(args.begin(), 
                                               _fields.primary_key_field_id())));
         // if exist already
@@ -352,6 +415,15 @@ public:
         
         // INDEX MANIPULATE
         // insert to index
+        bool successful = 1;
+        for (auto id: _fields.field_id()) 
+            if (_index[id])
+                successful &= _index[id]->insertRecord(
+                    pointer_convert<char*>(*std::next(args.begin(), id)),
+                    std::get<0>(rtv),
+                    id == _fields.primary_key_field_id());
+        assert(successful == 1);
+        /*
         bool successful = _index->insertRecord(
             pointer_convert<char*>(*std::next(args.begin(), 
                                               _fields.primary_key_field_id())),
@@ -359,6 +431,7 @@ public:
             1);
 
         assert(successful);
+        */
 
         delete[] buffer;
         return std::get<0>(rtv);
@@ -382,6 +455,22 @@ public:
         _file->writePage(rid.pageID, buffer);
 
 
+        // INDEX MANIPULATE
+        for (const auto id: _fields.field_id()) 
+            if (_index[id]) {
+                char* oldRecord = /* base */
+                                  buffer + 
+                                  /* page header offset */
+                                  PAGE_HEADER_LENGTH + 
+                                  /* bitmap offset */
+                                  (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                                  /* record offset */
+                                  _record_length * rid.slotID +
+                                  /* field offset */
+                                  _fields.offset()[id];
+                assert(_index[id]->removeRecord(oldRecord, rid));
+            }
+        #if 0
         // remove from index
         char* oldRecord = /* base */
                           buffer + 
@@ -393,9 +482,8 @@ public:
                           _record_length * rid.slotID +
                           /* field offset */
                           _fields.offset()[_fields.primary_key_field_id()];
-        // INDEX MANIPULATE
         assert(_index->removeRecord(oldRecord, rid));
-        
+        #endif
         // check whether this page get empty
         if (_empty_slots_map[rid.pageID] != 1) {
             // mark this page as empty
@@ -423,11 +511,13 @@ public:
         if (!isopen()) return 1;
 
         // INDEX MANIPULATE
-        // find in index
-        auto rtv = _index->searchRecord(pointer_convert<const char*>(arg));
-        // if exist already
-        if (rtv) return 1;
-        // else not exist, continue modifying
+        // if this is primary key field, find in index
+        if (field_id == _fields.primary_key_field_id()) {
+            auto rtv = _index[_fields.primary_key_field_id()]->
+                searchRecord(pointer_convert<const char*>(arg));
+            // if exist already
+            if (rtv) return 1;
+        } // else not exist, continue modifying
     
 
         char* buffer = new char[_file->pageSize()];
@@ -452,10 +542,17 @@ public:
 
         // INDEX MANIPULATE
         // remove old in index
+        bool rtv;
+        rtv = _index[field_id]->removeRecord(oldRecord, rid);
+        assert(rtv);
+        rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(arg), rid, field_id == _fields.primary_key_field_id());
+        assert(rtv);
+        /*
         if (field_id == _fields.primary_key_field_id()) {
             assert(_index->removeRecord(oldRecord, rid));
             assert(_index->insertRecord(pointer_convert<const char*>(arg), rid, 1));
         }
+        */
 
         // modify record
         memcpy(oldRecord, arg, _fields.field_length()[field_id]);
@@ -495,10 +592,14 @@ public:
     // assert file is open
     // assert there's already index for this field
     std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
+        // INDEX MANIPULATE
+        auto rids = _index[field_id]->searchRecords(key);
+        /*
         // only primary key index supported for now
         assert(field_id == _fields.primary_key_field_id());
         auto rids = _index->searchRecords(key);
         assert(rids.size() <= 1);
+        */
         return rids;
     }
 
@@ -507,9 +608,13 @@ public:
     // assert file is open
     // assert there's already index for this field
     std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) const {
+        // INDEX MANIPULATE
+        return _index[field_id]->rangeQuery(lb, ub);
+        /*
         // only primary key index supported for now
         assert(field_id == _fields.primary_key_field_id());
         return _index->rangeQuery(lb, ub);
+        */
     }
 
     // check if there's already table opened
@@ -903,7 +1008,7 @@ public:
         // traverse each record in data file, verify in index
         uint64 num_records = 0;
         auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
-            auto rids = _index->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
+            auto rids = _index[_fields.primary_key_field_id()]->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
             assert(rids.size() == 1);
             assert(rids[0] == rid);
             ++num_records;
@@ -911,7 +1016,7 @@ public:
 
         traverseRecords(verifyIndex);
 
-        assert(num_records == _index->getNumRecords());
+        assert(num_records == _index[_fields.primary_key_field_id()]->getNumRecords());
 
         uint64 num_records2 = 0;
         char* buffer = new char[_file->pageSize()];
@@ -933,7 +1038,7 @@ public:
             ++num_records2;
         };
 
-        _index->traverseRecords(verifyRecord);
+        _index[_fields.primary_key_field_id()]->traverseRecords(verifyRecord);
         assert(num_records2 == num_records);
         
         delete[] buffer;
@@ -989,7 +1094,8 @@ public:
     // TODO
     // add support for multi-index
     // primary key index
-    DBIndexManager<DBFields::Comparator>* _index;
+    // DBIndexManager<DBFields::Comparator>* _index;
+    std::vector< DBIndexManager<DBFields::Comparator>* > _index;
 
     // variables below descript an open table
     // they will be reset when closing the table
