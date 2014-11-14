@@ -625,6 +625,14 @@ public:
         return 1;
     }
 
+    bool createIndex(const uint64 field_id, const std::string& name) {
+
+    }
+
+    bool removeIndex(const uint64 field_id) {
+    
+    }
+
 private:   
 #ifdef DEBUG
 public:
