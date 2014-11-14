@@ -36,7 +36,7 @@ private:
     static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
-    static constexpr uint64 FIELD_INFO_LENGTH = 256;
+    static constexpr uint64 FIELD_INFO_LENGTH = DBFields::FIELD_INFO_LENGTH;
     static constexpr uint64 PAGE_HEADER_LENGTH = 24;
     static constexpr uint64 FIRST_FIELDS_INFO_PAGE = 2;
     static constexpr uint64 FIRST_RECORD_PAGE = 4;
@@ -101,7 +101,7 @@ public:
         _file->open();
 
         // create 1st page
-        createDataDescriptionPage(table_name, fields, page_size, buffer);
+        createDataDescriptionPage(fields, page_size, buffer);
 
         // write 1st page
         _file->writePage(1, buffer);
@@ -542,8 +542,7 @@ public:
     }
 
     // create data description page, 1st page
-    void createDataDescriptionPage(const std::string& table_name, 
-                                   const DBFields& fields,
+    void createDataDescriptionPage(const DBFields& fields,
                                    const uint64 page_size,
                                    char* buffer) const {
         // create data related description, 1st page

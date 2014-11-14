@@ -38,6 +38,9 @@ public:
     static constexpr uint64 TYPE_FLOAT   = 11;
     static constexpr uint64 TYPE_DOUBLE  = 12;
 
+    static constexpr uint64 FIELD_INFO_LENGTH = 256;
+    static constexpr uint64 FIELD_NAME_LENGTH = 230;
+
     struct Comparator {
         uint64 type;
         int operator()(const void* a, const void* b, const uint64 length) {
@@ -117,7 +120,10 @@ public:
         _field_type.push_back(field_type);
         _field_length.push_back(field_length);
         if (is_primary_key) _primary_key_field_id = _field_id.back();
-        _field_name.push_back(field_name);
+        if (field_name.length() > FIELD_NAME_LENGTH)
+            _field_name.push_back(field_name.substr(0, FIELD_NAME_LENGTH));
+        else
+            _field_name.push_back(field_name);
         _total_length += field_length;
     }
     
@@ -141,6 +147,8 @@ public:
         pos += sizeof(bool);
 
         _field_name.push_back(std::string(field_description + pos));
+        if (_field_name.back().length() > FIELD_NAME_LENGTH)
+            _field_name.back().substr(0, FIELD_NAME_LENGTH);
         _total_length += _field_length.back();
     }
 
