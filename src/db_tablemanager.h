@@ -664,10 +664,14 @@ public:
         _file->writePage(2, buffer);
         delete[] buffer;
 
+        _index[field_id]->open();
+
         // insert existing data
         auto insertExistingRecords = [this, &field_id](const char* record, const RID rid) {
+            int rtv =
             _index[field_id]->insertRecord(record + _fields.offset()[field_id],
                                            rid, 0);
+            assert(rtv == 1);
         };
 
         traverseRecords(insertExistingRecords);
@@ -1097,20 +1101,34 @@ public:
         // traverse each record in data file, verify in index
         uint64 num_records = 0;
         auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
-            auto rids = _index[_fields.primary_key_field_id()]->searchRecords(record + _fields.offset()[_fields.primary_key_field_id()]);
-            assert(rids.size() == 1);
-            assert(rids[0] == rid);
+            for (const auto id: _fields.field_id()) 
+                if (_index[id]) {
+                    auto rids = _index[id]->searchRecords(record + _fields.offset()[id]);
+                    auto ite = find(rids.begin(), rids.end(), rid);
+                    if (ite == rids.end()) {
+                        std::cout << "num_records: " << num_records << std::endl;
+                        std::cout << "ID: " << id << std::endl;
+                        std::cout << "RID size: " << rids.size() << std::endl;
+                        std::cout << "RID: " << rid << std::endl;
+                        std::cout << "Record: " << std::hex << int(record[_fields.offset()[id]]) << std::dec << std::endl;
+                    }
+                    assert(ite != rids.end());
+                }
             ++num_records;
         };
 
         traverseRecords(verifyIndex);
 
-        assert(num_records == _index[_fields.primary_key_field_id()]->getNumRecords());
+        for (const auto id: _fields.field_id())
+            if (_index[id]) 
+                assert(num_records == _index[id]->getNumRecords());
 
         uint64 num_records2 = 0;
         char* buffer = new char[_file->pageSize()];
+
+        uint64 verifyRecord_field_id = 0;
         // traverse each record in index, verify in data file
-        auto verifyRecord = [this, &buffer, &num_records2](const char* record, const RID rid) {
+        auto verifyRecord = [this, &buffer, &num_records2, &verifyRecord_field_id](const char* record, const RID rid) {
             _file->readPage(rid.pageID, buffer);
             
             char* rightRecord = /* base */
@@ -1122,13 +1140,18 @@ public:
                                 /* record offset */
                                 _record_length * rid.slotID +
                                 /* field offset */
-                                _fields.offset()[_fields.primary_key_field_id()];
-            assert(!memcmp(rightRecord, record, _fields.field_length()[_fields.primary_key_field_id()]));
+                                _fields.offset()[verifyRecord_field_id];
+            assert(!memcmp(rightRecord, record, _fields.field_length()[verifyRecord_field_id]));
             ++num_records2;
         };
+        
+        for (auto const id: _fields.field_id())
+            if (_index[id]) {
+                verifyRecord_field_id = id;
+                _index[id]->traverseRecords(verifyRecord);
+            }
 
-        _index[_fields.primary_key_field_id()]->traverseRecords(verifyRecord);
-        assert(num_records2 == num_records);
+        assert(num_records2 % num_records == 0);
         
         delete[] buffer;
     }
