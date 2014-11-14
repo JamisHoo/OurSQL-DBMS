@@ -248,7 +248,7 @@ class Database::DBIndexManager {
         void testShow(){
             for(int i=0; i<_size; i++) {
                 char* entry = atData(i);
-                std::cout<<*(pointer_convert<uint64*>(entry))<<std::endl;
+                std::cout<<*(pointer_convert<bool*>(entry))<<std::endl;
             }
         }
     #endif
@@ -385,6 +385,11 @@ public:
                     bool answer = findNextNode();
                     if(answer){
                         off = _level[_lev_track]._offset;
+                        int answer = _node_tracker->compareKey(key, off);
+                        if(answer == 0){
+                            uint64 pos = _node_tracker->getPosition(off);
+                            ridVector.push_back(decode(pos));
+                        }
                         continue;
                     }
                     else
@@ -620,15 +625,16 @@ public:
     #ifdef DEBUG
     // show every node in this btree
     void show() {
-        for(int i=1; i<_num_pages; i++) {
+        for(int i=1; i<_write_to; i++) {
             getBuffer(i);
             _node_tracker->display(_comparator.type);
         }
     }
 
     #endif
-
+#ifndef DEBUG
 private:
+#endif
     // private support of create/open/close the index file
     // initialize during open index
     // TODO: memory need to be set to 0?

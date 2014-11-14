@@ -39,39 +39,40 @@ int main() {
     
     static constexpr uint64 TYPE_INT64   = 6;
     static constexpr uint64 TYPE_BOOL    = 8;
-
+    static constexpr uint64 TYPE_INT32   = 4;
 
     constexpr uint64 page_size = 128;
-    constexpr uint64 data_length = 1;
+    constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
 
     if(manager.open() == 0) {
-        manager.create(page_size, data_length, TYPE_BOOL);
+        manager.create(page_size, data_length, TYPE_INT64);
         manager.open();
     }
-    
-    bool t = 0, f = 1;
+
+
+    uint64 t = 0, f = 1;
     
     std::vector<RID> t_vec;
     std::vector<RID> f_vec;
 
-    int pageid = 0;
-    int slotid = 0;
+    uint64 pageid = 1;
+    uint64 slotid = 1;
     
     // randomly insert 0 and 1
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 20; ++i) {
         if (rand() & 1) {
-            manager.insertRecord(pointer_convert<char*>(&t), { pageid, slotid }, 0);
+            manager.insertRecord(pointer_convert<char*>(&t), RID( pageid, slotid) , 0);
             t_vec.push_back({ pageid, slotid });
         } else {
-            manager.insertRecord(pointer_convert<char*>(&f), { pageid, slotid }, 0);
+            manager.insertRecord(pointer_convert<char*>(&f), RID( pageid, slotid ), 0);
             f_vec.push_back({ pageid, slotid });
         }
 
         ++slotid;
         if (slotid == 38) 
-            slotid = 0, ++pageid;
+            slotid = 1, ++pageid;
     }
 
     sort(t_vec.begin(), t_vec.end(), RID_Comp());
@@ -82,7 +83,10 @@ int main() {
     cout << endl << "False vector: " << endl;
     copy(f_vec.begin(), f_vec.end(), ostream_iterator<RID>(cout, ", "));
     cout << endl;
-    
+  
+
+//    manager.show();
+
 
     // search 0 or 1
     for (int i = 0; i < 200000; ++i) {
@@ -99,5 +103,7 @@ int main() {
             assert(0);
         }
     }
+
+
 
 }
