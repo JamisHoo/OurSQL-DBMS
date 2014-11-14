@@ -1105,13 +1105,6 @@ public:
                 if (_index[id]) {
                     auto rids = _index[id]->searchRecords(record + _fields.offset()[id]);
                     auto ite = find(rids.begin(), rids.end(), rid);
-                    if (ite == rids.end()) {
-                        std::cout << "num_records: " << num_records << std::endl;
-                        std::cout << "ID: " << id << std::endl;
-                        std::cout << "RID size: " << rids.size() << std::endl;
-                        std::cout << "RID: " << rid << std::endl;
-                        std::cout << "Record: " << std::hex << int(record[_fields.offset()[id]]) << std::dec << std::endl;
-                    }
                     assert(ite != rids.end());
                 }
             ++num_records;
