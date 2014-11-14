@@ -311,7 +311,7 @@ public:
         // store all index name
         std::vector<std::string> index_names;
         for (auto id: _fields.field_id())
-            if (_fields.indexed()[id])
+            if (_index[id])
                 index_names.push_back(_fields.field_name()[id]);
         /*
         std::string primary_index_name = 
@@ -541,12 +541,16 @@ public:
                           _fields.offset()[field_id];
 
         // INDEX MANIPULATE
-        // remove old in index
-        bool rtv;
-        rtv = _index[field_id]->removeRecord(oldRecord, rid);
-        assert(rtv);
-        rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(arg), rid, field_id == _fields.primary_key_field_id());
-        assert(rtv);
+        // remove old, insert new in index
+        if (_index[field_id]) {
+            bool rtv;
+            rtv = _index[field_id]->removeRecord(oldRecord, rid);
+            assert(rtv);
+            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(arg), 
+                                                 rid, 
+                                                 field_id == _fields.primary_key_field_id());
+            assert(rtv);
+        }
         /*
         if (field_id == _fields.primary_key_field_id()) {
             assert(_index->removeRecord(oldRecord, rid));
@@ -593,6 +597,7 @@ public:
     // assert there's already index for this field
     std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
         // INDEX MANIPULATE
+        assert(_index[field_id]);
         auto rids = _index[field_id]->searchRecords(key);
         /*
         // only primary key index supported for now
@@ -608,6 +613,7 @@ public:
     // assert file is open
     // assert there's already index for this field
     std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) const {
+        assert(_index[field_id]);
         // INDEX MANIPULATE
         return _index[field_id]->rangeQuery(lb, ub);
         /*
@@ -625,12 +631,87 @@ public:
         return 1;
     }
 
+    // create index for field field_id.
+    // returns 0 if succeed, 1 otherwise
     bool createIndex(const uint64 field_id, const std::string& name) {
+        // table not open
+        if (!isopen()) return 1;
+        // invalid field_id
+        if (field_id >= _fields.size()) return 1;
+        // attemp to create a already existing index
+        if (_index[field_id] != nullptr) return 1;
 
+        // create index
+        _index[field_id] = new DBIndexManager<DBFields::Comparator>(
+            _table_name + "_" + 
+            _fields.field_name()[field_id] + 
+            INDEX_SUFFIX);
+        bool rtv = _index[field_id]->create(_file->pageSize(),
+                                            _fields.field_length()[field_id],
+                                            _fields.field_type()[field_id]);
+        assert(rtv == 0);
+
+        // modify fields description page
+        char* buffer = new char[_file->pageSize()];
+        _file->readPage(2, buffer);
+        char* offset = buffer +
+                       PAGE_HEADER_LENGTH + 
+                       FIELD_INFO_LENGTH * field_id + 
+                       sizeof(uint64) + sizeof(uint64) + sizeof(uint64) + 
+                       sizeof(bool);
+        assert(offset[0] == '\x00');
+        offset[0] = '\x01';
+        _file->writePage(2, buffer);
+        delete[] buffer;
+
+        // insert existing data
+        auto insertExistingRecords = [this, &field_id](const char* record, const RID rid) {
+            _index[field_id]->insertRecord(record + _fields.offset()[field_id],
+                                           rid, 0);
+        };
+
+        traverseRecords(insertExistingRecords);
+
+        assert(_index[field_id]->getNumRecords() == _index[_fields.primary_key_field_id()]->getNumRecords());
+        
+        return 0;
     }
-
-    bool removeIndex(const uint64 field_id) {
     
+    // remove index of field field_id
+    // returns 0 if succeed, 1 otherwise
+    bool removeIndex(const uint64 field_id) {
+        // table not open
+        if (!isopen()) return 1;
+        // invalid field_id
+        if (field_id >= _fields.size()) return 1;
+        // attemp to remove primary key field index
+        if (field_id == _fields.primary_key_field_id()) return 1;
+        // remove non-existing index
+        if (_index[field_id] == nullptr) return 1;
+        // if close failed
+        if (_index[field_id]->close()) return 1;
+
+        // if remove failed
+        if (_index[field_id]->remove()) return 1;
+        // else remove successful
+        delete _index[field_id];
+        _index[field_id] = nullptr;
+
+        // modify fields description page
+        char* buffer = new char[_file->pageSize()];
+        _file->readPage(2, buffer);
+        char* offset = buffer +
+                       PAGE_HEADER_LENGTH + 
+                       FIELD_INFO_LENGTH * field_id + 
+                       sizeof(uint64) + sizeof(uint64) + sizeof(uint64) + 
+                       sizeof(bool);
+        assert(offset[0] != '\x00');
+        offset[0] = '\x00';
+        _file->writePage(2, buffer);
+
+        delete[] buffer;
+        
+        return 0;
     }
 
 private:   
