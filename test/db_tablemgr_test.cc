@@ -49,7 +49,7 @@ int main() {
     int rtv;
     // optimal on my os X 16KB
     // optimal on my Fedora 64KB
-    rtv = table.create("student", fields, 1024 * 16);
+    rtv = table.create("student", fields, 1024 * 4);
     assert(rtv == 0);
 
 
@@ -78,7 +78,7 @@ int main() {
     
     for (int i = 0; i < fields2.size(); ++i)
         cout << fields2.field_id()[i] << ' ' << fields2.field_type()[i] << ' ' 
-             << fields2.field_length()[i] << ' ' << fields2.primary_key()[i] << ' '
+             << fields2.field_length()[i] << ' ' 
              << fields2.field_name()[i] << endl;
 
 

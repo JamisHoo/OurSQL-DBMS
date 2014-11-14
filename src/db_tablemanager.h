@@ -36,7 +36,6 @@ private:
     static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
     // header pages format constants
-    static constexpr uint64 TABLE_NAME_LENGTH = 511;
     static constexpr uint64 FIELD_INFO_LENGTH = 256;
     static constexpr uint64 PAGE_HEADER_LENGTH = 24;
     static constexpr uint64 FIRST_FIELDS_INFO_PAGE = 2;
@@ -184,6 +183,8 @@ public:
     // returns 0 if succeed, 1 otherwise
     bool open(const std::string& table_name) {
         if (isopen()) return 1;
+
+        _table_name = table_name;
 
         // create DBFile
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
@@ -547,11 +548,6 @@ public:
                                    char* buffer) const {
         // create data related description, 1st page
         uint64 pos = 0;
-        // table name
-        memset(buffer + pos, ALIGN, TABLE_NAME_LENGTH);
-        memcpy(buffer + pos, table_name.c_str(), table_name.length()); 
-        pos += TABLE_NAME_LENGTH;
-        buffer[pos++] = '\x00';
 
         // fields num
         uint64 fields_num = fields.size();
@@ -602,11 +598,6 @@ public:
     void parseDataDescriptionPage(const char* buffer) {
         uint64 page_size = _file->pageSize();
         uint64 pos = 0;
-        // table name
-        // TODO: should add a limit of table name length
-        _table_name = std::string(buffer + pos); 
-        pos += TABLE_NAME_LENGTH;
-        ++pos;
 
         // fields num
         _num_fields = *pointer_convert<const uint64*>(buffer + pos);
@@ -782,7 +773,7 @@ public:
 
         // write back last record page
         _file->readPage(1, buffer);
-        memcpy(buffer + TABLE_NAME_LENGTH + 5 * sizeof(uint64), 
+        memcpy(buffer + 5 * sizeof(uint64), 
                &_last_record_page, 
                sizeof(_last_record_page));
         _file->writePage(1, buffer);
@@ -847,7 +838,7 @@ public:
 
         // write back _last_map_page
         _file->readPage(1, buffer);
-        memcpy(buffer + TABLE_NAME_LENGTH + 4 * sizeof(uint64), 
+        memcpy(buffer + 4 * sizeof(uint64), 
                &_last_empty_slots_map_page, 
                sizeof(_last_empty_slots_map_page));
         _file->writePage(1, buffer);

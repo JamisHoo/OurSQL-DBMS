@@ -9,9 +9,6 @@ Data File Format(Not finished)
 
 1st Page(Data related description, only one page):
     // This page doesn't have a page header, its page id is 1
-    Table Name: 511 Byte
-    0x00: 1 Byte
-    // This means table name must end with 0x00
 
     Fields number: 8 Byte
 
