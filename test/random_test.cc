@@ -175,6 +175,10 @@ int main() {
 
     std::cout << "Insert Finished" << endl;
        
+
+    table.createIndex(1, "fuck");
+    table.createIndex(2, "fucktheshit");
+
     // random insert/modify/remove record
     for (int i = 0; i < 4000; ++i) {
         switch (rand() % 3) {
@@ -190,8 +194,7 @@ int main() {
         }
     }
 
-    table.createIndex(1, "fuck");
-    table.createIndex(2, "fucktheshit");
+    table.removeIndex(2);
 
     table.checkIndex();
     compare(table, reference);

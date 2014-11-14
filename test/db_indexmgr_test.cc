@@ -47,12 +47,12 @@ int main() {
     DBIndexManager<DBFields::Comparator> manager("index.idx");
 
     if(manager.open() == 0) {
-        manager.create(page_size, data_length, TYPE_INT64);
+        manager.create(page_size, data_length, TYPE_BOOL);
         manager.open();
     }
 
 
-    uint64 t = 0, f = 1;
+    bool t = 0, f = 1;
     
     std::vector<RID> t_vec;
     std::vector<RID> f_vec;
@@ -61,7 +61,7 @@ int main() {
     uint64 slotid = 1;
     
     // randomly insert 0 and 1
-    for (int i = 0; i < 20; ++i) {
+    for (int i = 0; i < 2000; ++i) {
         if (rand() & 1) {
             manager.insertRecord(pointer_convert<char*>(&t), RID( pageid, slotid) , 0);
             t_vec.push_back({ pageid, slotid });
@@ -78,14 +78,13 @@ int main() {
     sort(t_vec.begin(), t_vec.end(), RID_Comp());
     sort(f_vec.begin(), f_vec.end(), RID_Comp());
 
-    cout << "True vector: " << endl;
-    copy(t_vec.begin(), t_vec.end(), ostream_iterator<RID>(cout, ", "));
-    cout << endl << "False vector: " << endl;
-    copy(f_vec.begin(), f_vec.end(), ostream_iterator<RID>(cout, ", "));
-    cout << endl;
+    // cout << "True vector: " << endl;
+    // copy(t_vec.begin(), t_vec.end(), ostream_iterator<RID>(cout, ", "));
+    // cout << endl << "False vector: " << endl;
+    // copy(f_vec.begin(), f_vec.end(), ostream_iterator<RID>(cout, ", "));
+    // cout << endl;
   
 
-//    manager.show();
 
 
     // search 0 or 1
