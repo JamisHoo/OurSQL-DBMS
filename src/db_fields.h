@@ -82,8 +82,8 @@ public:
                     return 0;
                 }
                 case 8:
-                    return *pointer_convert<const bool*>(a) -
-                           *pointer_convert<const bool*>(b);
+                    return bool(*pointer_convert<const bool*>(a)) -
+                           bool(*pointer_convert<const bool*>(b));
                 case 9:
                 case 10:
                     return memcmp(a, b, length);
