@@ -34,11 +34,11 @@ struct RID {
     RID(const uint64 pageid, const uint64 slotid): 
         pageID(pageid), slotID(slotid) { }
 
-    inline bool operator==(const RID& rid) {
+    inline bool operator==(const RID& rid) const {
         return pageID == rid.pageID && slotID == rid.slotID;
     }
 
-    inline bool operator!=(const RID& rid) {
+    inline bool operator!=(const RID& rid) const {
         return !(*this == rid);
     }
 
