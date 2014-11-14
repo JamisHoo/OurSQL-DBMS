@@ -39,70 +39,44 @@ int main() {
     
     static constexpr uint64 TYPE_INT64   = 6;
     static constexpr uint64 TYPE_BOOL    = 8;
-    static constexpr uint64 TYPE_INT32   = 4;
+    static constexpr uint64 TYPE_CHAR    = 9;
+    static constexpr uint64 TYPE_UCHAR   = 10;
 
     constexpr uint64 page_size = 128;
-    constexpr uint64 data_length = 8;
+    constexpr uint64 data_length = 4;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
 
     if(manager.open() == 0) {
-        manager.create(page_size, data_length, TYPE_BOOL);
+        manager.create(page_size, data_length, TYPE_CHAR);
         manager.open();
     }
 
 
-    bool t = 0, f = 1;
+    char a[5] = "abcd";
+    char b[5] = "bbcd";
+    char c[5] = "cbcd";
+    char d[5] = "ddcd";
+
+    manager.insertRecord(a, { 0, 0 }, 0);
+    manager.insertRecord(b, { 0, 1 }, 0);
+    manager.insertRecord(c, { 0, 2 }, 0);
+    manager.insertRecord(d, { 0, 3 }, 0);
+
+    auto rids = manager.rangeQuery(a, c);
+    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
     
-    std::vector<RID> t_vec;
-    std::vector<RID> f_vec;
+    rids = manager.rangeQuery(c, a);
+    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
 
-    uint64 pageid = 1;
-    uint64 slotid = 1;
-    
-    // randomly insert 0 and 1
-    for (int i = 0; i < 2000; ++i) {
-        if (rand() & 1) {
-            manager.insertRecord(pointer_convert<char*>(&t), RID( pageid, slotid) , 0);
-            t_vec.push_back({ pageid, slotid });
-        } else {
-            manager.insertRecord(pointer_convert<char*>(&f), RID( pageid, slotid ), 0);
-            f_vec.push_back({ pageid, slotid });
-        }
+    rids = manager.rangeQuery(b, d);
+    cout << rids.size() << ": "; for (RID rid: rids) cout << rid << ' '; cout << endl;
 
-        ++slotid;
-        if (slotid == 38) 
-            slotid = 1, ++pageid;
-    }
+    rids = manager.rangeQuery(a, d);
+    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
 
-    sort(t_vec.begin(), t_vec.end(), RID_Comp());
-    sort(f_vec.begin(), f_vec.end(), RID_Comp());
+    rids = manager.rangeQuery(d, a);
+    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
 
-    // cout << "True vector: " << endl;
-    // copy(t_vec.begin(), t_vec.end(), ostream_iterator<RID>(cout, ", "));
-    // cout << endl << "False vector: " << endl;
-    // copy(f_vec.begin(), f_vec.end(), ostream_iterator<RID>(cout, ", "));
-    // cout << endl;
-  
-
-
-
-    // search 0 or 1
-    for (int i = 0; i < 200000; ++i) {
-        int rnd = rand() & 1;
-        auto rids = manager.searchRecords(pointer_convert<char*>(rnd? &t: &f));
-        sort(rids.begin(), rids.end(), RID_Comp());
-
-        if (rids != (rnd? t_vec: f_vec)) {
-            cout << "rnd: " << rnd << endl;
-            cout << "i: " << i << endl;
-            cout << "RIDs: " << endl;
-            copy(rids.begin(), rids.end(), ostream_iterator<RID>(cout, ", "));
-            cout << endl;
-            assert(0);
-        }
-    }
-
-
-
+    remove("index.idx");
 }
