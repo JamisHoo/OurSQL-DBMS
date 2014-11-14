@@ -663,7 +663,7 @@ public:
         // parse fields description
         _fields.clear();
         for (uint64 i = 0; i < _num_fields; ++i) {
-            _fields.insert(buffer + pos, FIELD_INFO_LENGTH);
+            _fields.insert(buffer + pos);
             pos += FIELD_INFO_LENGTH;
         }
     }
