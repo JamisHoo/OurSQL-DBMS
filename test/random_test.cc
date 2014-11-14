@@ -245,7 +245,7 @@ int main() {
             }
         }
 
-    for (int i = 0; i < 4000; ++i)
+    for (int i = 0; i < 40000; ++i)
         switch (rand() % 3) {
             case 0: {
                 uint64_t pos = randuint64() % vec1.size();
@@ -254,8 +254,15 @@ int main() {
                     assert(string(reference[rid].name, 100) == vec1[pos]);
                 break;
             }
-            case 1:
+            case 1: {
+                string str = randstring(100);
+                if (binary_search(vec1.begin(), vec1.end(), str)) continue;
+                auto rids = table.findRecords(0, pointer_convert<const char*>(str.data()));
+                assert(rids.size() == 0);
+                break;
+            }
             case 2: {
+                break;
                 uint64_t pos1 = randuint64() % vec1.size();
                 uint64_t pos2 = randuint64() % vec1.size();
                 auto rids = table.findRecords(1, pointer_convert<const char*>(vec1.data() + pos1), pointer_convert<const char*>(vec1.data() + pos2));
