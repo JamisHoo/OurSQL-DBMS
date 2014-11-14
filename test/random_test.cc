@@ -126,7 +126,7 @@ void compare(DBTableManager& table, std::map<RID, Record, Comp>& reference) {
 
 int main() {
     int seed = time(0);
-    srand(seed);
+    srand(0);
     cout << "Seed: " << seed << endl;
 
     DBTableManager table;
@@ -169,12 +169,14 @@ int main() {
     rtv = table.open("student");
     assert(rtv == 0);
 
-    for (int i = 0; i < 400000; ++i)
+    // insert some records
+    for (int i = 0; i < 40000; ++i)
         insert(table, reference);
 
     std::cout << "Insert Finished" << endl;
        
-    for (int i = 0; i < 40000; ++i) {
+    // random insert/modify/remove record
+    for (int i = 0; i < 4000; ++i) {
         switch (rand() % 3) {
             case 0:
                 insert(table, reference);
@@ -187,6 +189,9 @@ int main() {
                 remove(table, reference);
         }
     }
+
+    table.createIndex(1, "fuck");
+    table.createIndex(2, "fucktheshit");
 
     table.checkIndex();
     compare(table, reference);
@@ -231,7 +236,7 @@ int main() {
                            reference[rid].id < vec[pos2]);
             }
         }
-
+    
 
     // remove table
     rtv = table.remove();
