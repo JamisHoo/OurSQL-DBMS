@@ -266,8 +266,6 @@ int main() {
                 uint64_t pos1 = randuint64() % vec1.size();
                 uint64_t pos2 = randuint64() % vec1.size();
                 auto rids = table.findRecords(1, pointer_convert<const char*>(vec1.data() + pos1), pointer_convert<const char*>(vec1.data() + pos2));
-                std::cout << rids.size() << ' ' << pos1 << ' ' << pos2 << endl;
-                assert(rids.size() == (pos1 > pos2? 0ull: pos2 - pos1));
 
                 for (auto rid: rids)
                     assert(string(reference[rid].name, 100) >= vec1[pos1] &&
