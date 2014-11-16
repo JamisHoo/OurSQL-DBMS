@@ -44,8 +44,6 @@ private:
 
 public:
     DBTableManager(): _file(nullptr), 
-                      // INDEX MANIPULATE
-                      // _index(nullptr),
                       _num_fields(0), 
                       _pages_each_map_page(0),
                       _record_length(0),
