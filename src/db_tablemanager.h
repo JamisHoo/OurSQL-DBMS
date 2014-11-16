@@ -1101,10 +1101,7 @@ public:
 
     DBBuffer* _file;
 
-    // TODO
-    // add support for multi-index
-    // primary key index
-    // DBIndexManager<DBFields::Comparator>* _index;
+    // indexes
     std::vector< DBIndexManager<DBFields::Comparator>* > _index;
 
     // variables below descript an open table
