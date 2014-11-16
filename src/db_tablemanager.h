@@ -59,20 +59,6 @@ public:
         // but we will close it if not
         if (isopen())
             close();
-        /*
-        if (isopen()) {
-            // INDEX MANIPULATE
-            // ignore close fail
-            assert(_index->close() == 0);
-            delete _index;
-            _index = nullptr;
-            
-            _file->close();
-            delete _file;
-            _file = nullptr;
-            
-        }
-        */
     }
 
     // create a table 
@@ -171,20 +157,7 @@ public:
                              fields.field_type()[fields.primary_key_field_id()]);
         assert(rtv == 0);
         _index[fields.primary_key_field_id()]->close();
-        /*
-        _index = new DBIndexManager<DBFields::Comparator>(
-            table_name + "_" + 
-            fields.field_name().at(fields.primary_key_field_id()) + 
-            INDEX_SUFFIX);
         
-        rtv = _index->create(page_size, 
-                             fields.field_length()[fields.primary_key_field_id()],
-                             fields.field_type()[fields.primary_key_field_id()]);
-        assert(rtv == 0);
-
-        // close index
-        _index->close();
-        */
         // close table
         _file->close();
 
@@ -194,10 +167,7 @@ public:
         delete _index[fields.primary_key_field_id()];
         _index[fields.primary_key_field_id()] = nullptr;
         _index.clear();
-        /*
-        delete _index;
-        _index = nullptr;
-        */
+        
         delete _file;
         _file = nullptr;
 
@@ -248,14 +218,7 @@ public:
                 uint64 rtv = _index[id]->open();
                 assert(rtv);
             }
-        /*
-        _index = new DBIndexManager<DBFields::Comparator>(
-            table_name + "_" + 
-            _fields.field_name().at(_fields.primary_key_field_id()) + 
-            INDEX_SUFFIX);
-        uint64 rtv = _index->open();
-        assert(rtv);
-        */
+        
         delete[] buffer;
         return !page_size;
     }
@@ -278,11 +241,7 @@ public:
                 index_pointer = nullptr;
             }
             _index.clear();
-            /*
-            assert(_index->close() == 0);
-            delete _index;
-            _index = nullptr;
-            */
+            
             delete _file;
             _file = nullptr;
             _table_name = "";
@@ -313,10 +272,6 @@ public:
         for (auto id: _fields.field_id())
             if (_index[id])
                 index_names.push_back(_fields.field_name()[id]);
-        /*
-        std::string primary_index_name = 
-            _fields.field_name().at(_fields.primary_key_field_id());
-        */
 
         // store table name
         std::string table_name = _table_name;
@@ -338,16 +293,7 @@ public:
                 assert(index->remove() == 0);
                 delete index;
             }
-            /*
-            // open index
-            _index = new DBIndexManager<DBFields::Comparator>(
-                table_name + "_" + primary_index_name + INDEX_SUFFIX);
             
-            // remove this index
-            assert(_index->remove() == 0);
-            delete _index;
-            _index = nullptr;
-            */
         }
 
         delete _file;
@@ -423,15 +369,6 @@ public:
                     std::get<0>(rtv),
                     id == _fields.primary_key_field_id());
         assert(successful == 1);
-        /*
-        bool successful = _index->insertRecord(
-            pointer_convert<char*>(*std::next(args.begin(), 
-                                              _fields.primary_key_field_id())),
-            std::get<0>(rtv), 
-            1);
-
-        assert(successful);
-        */
 
         delete[] buffer;
         return std::get<0>(rtv);
@@ -470,20 +407,7 @@ public:
                                   _fields.offset()[id];
                 assert(_index[id]->removeRecord(oldRecord, rid));
             }
-        #if 0
-        // remove from index
-        char* oldRecord = /* base */
-                          buffer + 
-                          /* page header offset */
-                          PAGE_HEADER_LENGTH + 
-                          /* bitmap offset */
-                          (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
-                          /* record offset */
-                          _record_length * rid.slotID +
-                          /* field offset */
-                          _fields.offset()[_fields.primary_key_field_id()];
-        assert(_index->removeRecord(oldRecord, rid));
-        #endif
+        
         // check whether this page get empty
         if (_empty_slots_map[rid.pageID] != 1) {
             // mark this page as empty
@@ -551,12 +475,6 @@ public:
                                                  field_id == _fields.primary_key_field_id());
             assert(rtv);
         }
-        /*
-        if (field_id == _fields.primary_key_field_id()) {
-            assert(_index->removeRecord(oldRecord, rid));
-            assert(_index->insertRecord(pointer_convert<const char*>(arg), rid, 1));
-        }
-        */
 
         // modify record
         memcpy(oldRecord, arg, _fields.field_length()[field_id]);
@@ -599,12 +517,6 @@ public:
         // INDEX MANIPULATE
         assert(_index[field_id]);
         auto rids = _index[field_id]->searchRecords(key);
-        /*
-        // only primary key index supported for now
-        assert(field_id == _fields.primary_key_field_id());
-        auto rids = _index->searchRecords(key);
-        assert(rids.size() <= 1);
-        */
         return rids;
     }
 
@@ -616,11 +528,6 @@ public:
         assert(_index[field_id]);
         // INDEX MANIPULATE
         return _index[field_id]->rangeQuery(lb, ub);
-        /*
-        // only primary key index supported for now
-        assert(field_id == _fields.primary_key_field_id());
-        return _index->rangeQuery(lb, ub);
-        */
     }
 
     // check if there's already table opened
