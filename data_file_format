@@ -14,6 +14,7 @@ Data File Format(Not finished)
 
     Pages number in each bitmap page: 8 Byte
 
+    // record length is null flags(Fields number bytes) + length of records
     Record length(in Byte): 8 Byte
     Records number in each page / slot count: 8 Byte
     Last empty slots map page: 8 Byte
@@ -42,6 +43,7 @@ Data File Format(Not finished)
     Bitmap: ceil(slot count / 64) * 8 Byte
     // RID of record is (Page Number + Slot Number)
     RECORD
+    // A record is null flag(1 Byte) + record, its length is length of record + 1
     RECORD
     RECORD
     ...
@@ -52,6 +54,7 @@ ALIGN: fill the rest of this page with align characters
 FIELD_INFO: 256 Byte
     Field ID: 8 Byte
     Field Type: 8 Byte
+    // field length is numm flag(1 Byte) + length of record
     Field Length(in Byte): 8 Byte
     Primary key: 1 Byte
     INDEXED : 1 Byte
