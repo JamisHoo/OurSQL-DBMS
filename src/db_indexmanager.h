@@ -351,7 +351,7 @@ public:
 
 // public interface of IndexManager operation
 
-// Warning: search/remove/insert are non-entrant
+// Warning: search/remove/insert are non-reentrant
 //          use these carefully if you implement a multiple thread database
 
     // return RID(0,0) if not found
