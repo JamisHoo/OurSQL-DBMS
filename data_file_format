@@ -43,7 +43,8 @@ Data File Format(Not finished)
     Bitmap: ceil(slot count / 64) * 8 Byte
     // RID of record is (Page Number + Slot Number)
     RECORD
-    // A record is null flag(1 Byte) + record, its length is length of record + 1
+    // A record is null flag + 1st field + null flag + 2nd field + ...
+    // null flag: 0x00 means null while 0xff means not null
     RECORD
     RECORD
     ...
