@@ -72,15 +72,16 @@ T pointer_convert(const T2* pointer) {
 } // namespace Database
 
 
-/* Platform-independent timer
+/* 
+   Platform-independent timer
    Function uniqueNumber will return current wall-clock time with an accuracy 
    of nanosecond. That is, numbers won't duplicate even in two successive 
    calls on GHz-level CPU.
   
    On most hardware platforms, system_clock doesn't support nanosecond-accuracy 
-   clock while high_resolution_clock doesn't ensure the same epoch with 
-   system_clock. The function below works as long as nanosecond-accuracy is 
-   supported. For fear that nanosecond-accurary clock isn't supported by  
+   while high_resolution_clock doesn't ensure the same epoch with system_clock. 
+   The function below works as long as nanosecond-accuracy is supported. 
+   For fear that nanosecond-accurary clock isn't supported by  
    either hardware or software, doubel-check is still recommended.
 */
 const std::chrono::system_clock::duration sys_clock_epoch = 
