@@ -306,7 +306,8 @@ public:
     // assert number of args == number of fields
     // assert file is open
     // returns rid if succeed, rid(0, 0) otherwise
-    RID insertRecord(const std::initializer_list<void*> args) {
+    // RID insertRecord(const std::initializer_list<void*> args) {
+    RID insertRecord(const std::vector<void*> args) {
         if (!isopen()) return { 0, 0 };
         if (args.size() != _fields.size()) return { 0, 0 };
 
