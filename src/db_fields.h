@@ -100,7 +100,7 @@ public:
                            bool(*pointer_convert<const bool*>(b_data));
                 case 9:
                 case 10:
-                    return memcmp(a, b, length);
+                    return memcmp(a, b, length - 1);
                 case 11: {
                     float aa = *pointer_convert<const float*>(a_data);
                     float bb = *pointer_convert<const float*>(b_data);
