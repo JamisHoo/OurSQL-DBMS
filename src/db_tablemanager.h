@@ -311,11 +311,26 @@ public:
         if (!isopen()) return { 0, 0 };
         if (args.size() != _fields.size()) return { 0, 0 };
 
+        //args with null flags
+        std::vector<void*> null_flag_args;
+        for (uint64 i = 0; i < args.size(); ++i) {
+            char* arg = new char[_fields.field_length()[i]];
+            // if not null
+            if (args[i]) {
+                arg[0] = '\xff';
+                memcpy(arg + 1, args[i], _fields.field_length()[i] - 1);
+            } else
+                memset(arg, 0, _fields.field_length()[i]);
+            null_flag_args.push_back(arg);
+        }
+
         // INDEX MANIPULATE
         // find in index
         auto rid = _index[_fields.primary_key_field_id()]->searchRecord(
-            pointer_convert<char*>(*std::next(args.begin(), 
-                                              _fields.primary_key_field_id())));
+            // pointer_convert<char*>(*std::next(null_flag_args.begin(), 
+            //                                   _fields.primary_key_field_id())));
+            pointer_convert<char*>(null_flag_args[_fields.primary_key_field_id()]));
+
         // if exist already
         if (rid) return  { 0, 0 };
         // else not exist, continue inserting
@@ -335,7 +350,7 @@ public:
         // char* buffer = new char[_fields.recordLength()];
         // allocate more space, reserve for later
         char* buffer = new char[_file->pageSize()];
-        _fields.generateRecord(args, buffer);
+        _fields.generateRecord(null_flag_args, buffer);
 
         // insert the record to the slot
         auto rtv = insertRecordtoPage(empty_slot_pageID, buffer);
@@ -364,12 +379,15 @@ public:
         for (auto id: _fields.field_id()) 
             if (_index[id])
                 successful &= _index[id]->insertRecord(
-                    pointer_convert<char*>(*std::next(args.begin(), id)),
+                    // pointer_convert<char*>(*std::next(null_flag_args.begin(), id)),
+                    pointer_convert<char*>(null_flag_args[id]),
                     std::get<0>(rtv),
                     id == _fields.primary_key_field_id());
         assert(successful == 1);
 
         delete[] buffer;
+        for (const auto arg: null_flag_args)
+            delete[] arg;
         return std::get<0>(rtv);
     }
 
@@ -488,6 +506,7 @@ public:
 
     // find records meet the conditions in field_id
     // CONDITION is conditon(const char*)
+    // NULL value will give a null pointer
     // rid of record will be added to vector if condition returns 1
     // return RIDs of the records
     // assert file is open
@@ -499,7 +518,7 @@ public:
         if (!isopen()) return rids;
 
         auto traverseCallback = [&rids, this, &field_id, &condition](const char* record, const RID rid) {
-            if (condition(record + _fields.offset()[field_id])) 
+            if (condition(char[record + _fields.offset()[field_id]]? record + _fields.offset()[field_id] + 1: nullptr)) 
                 rids.push_back(rid);
         };
 
@@ -515,7 +534,14 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
         // INDEX MANIPULATE
         assert(_index[field_id]);
-        auto rids = _index[field_id]->searchRecords(key);
+        char* null_flag_key = new char[_fields.field_length()[field_id]];
+        if (key) {
+            null_flag_key[0] = '\xff';
+            memcpy(null_flag_key + 1, key, _fields.field_length()[field_id] - 1);
+        } else
+            memset(null_flag_key, 0, _fields.field_length()[field_id]);
+        auto rids = _index[field_id]->searchRecords(null_flag_key);
+        delete[] null_flag_key;
         return rids;
     }
 
@@ -526,8 +552,27 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) const {
         assert(_index[field_id]);
         // INDEX MANIPULATE
-        return _index[field_id]->rangeQuery(lb, ub);
+        char* null_flag_lb = new char[_fields.field_length()[field_id]];
+        char* null_flag_ub = new char[_fields.field_length()[field_id]];
+        if (lb) {
+            null_flag_lb[0] = '\xff';
+            memcpy(null_flag_lb + 1, lb, _fields.field_length()[field_id] - 1);
+        } else
+            memset(null_flag_lb, 0, _fields.field_length()[field_id]);
+        if (ub) {
+            null_flag_ub[0] = '\xff';
+            memcpy(null_flag_ub + 1, ub, _fields.field_length()[field_id] - 1);
+        } else
+            memset(null_flag_ub, 0, _fields.field_length()[field_id]);
+
+        // TODO: unique_ptr?
+        // return _index[field_id]->rangeQuery(lb, ub);
+        auto rids = _index[field_id]->rangeQuery(null_flag_lb, null_flag_ub);
+        delete[] null_flag_lb;
+        delete[] null_flag_ub;
+        return rids;
     }
+
 
     // check if there's already table opened
     // returns 1 if there is, null string otherwise
