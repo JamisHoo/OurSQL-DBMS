@@ -52,9 +52,9 @@ public:
         int operator()(const void* a, const void* b, const uint64 length) {
             char a_null_flag = pointer_convert<const char*>(a)[0];
             char b_null_flag = pointer_convert<const char*>(b)[0];
-            if (a_null_flag == 0x00 && b_null_flag == 0x00) return 0;
-            if (a_null_flag == 0x00 && b_null_flag != 0x00) return 1;
-            if (a_null_flag != 0x00 && b_null_flag == 0x00) return -1;
+            if (a_null_flag == '\x00' && b_null_flag == '\x00') return 0;
+            if (a_null_flag == '\x00' && b_null_flag != '\x00') return 1;
+            if (a_null_flag != '\x00' && b_null_flag == '\x00') return -1;
 
             switch (type) {
                 case 0:
@@ -131,14 +131,15 @@ public:
         _field_id.push_back(_field_id.size());
         _offset.push_back(_total_length);
         _field_type.push_back(field_type);
-        _field_length.push_back(field_length);
+        // length + 1, because the first byte is null flag
+        _field_length.push_back(field_length + 1);
         _indexed.push_back(indexed);
         if (is_primary_key) _primary_key_field_id = _field_id.back();
         if (field_name.length() > FIELD_NAME_LENGTH)
             _field_name.push_back(field_name.substr(0, FIELD_NAME_LENGTH));
         else
             _field_name.push_back(field_name);
-        _total_length += field_length;
+        _total_length += field_length + 1;
     }
     
     // insert a field with unknown types data
