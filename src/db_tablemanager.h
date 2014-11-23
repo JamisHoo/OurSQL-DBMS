@@ -451,11 +451,18 @@ public:
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
         if (!isopen()) return 1;
 
+        char* null_flag_arg = new char[_fields.field_length()[field_id]];
+        if (arg) {
+            null_flag_arg[0] = '\xff';
+            memcpy(null_flag_arg + 1, arg, _fields.field_length()[field_id] - 1);
+        } else
+            memset(null_flag_arg, 0, _fields.field_length()[field_id]);
+
         // INDEX MANIPULATE
         // if this is primary key field, find in index
         if (field_id == _fields.primary_key_field_id()) {
             auto rtv = _index[_fields.primary_key_field_id()]->
-                searchRecord(pointer_convert<const char*>(arg));
+                searchRecord(pointer_convert<const char*>(null_flag_arg));
             // if exist already
             if (rtv) return 1;
         } // else not exist, continue modifying
@@ -487,20 +494,21 @@ public:
             bool rtv;
             rtv = _index[field_id]->removeRecord(oldRecord, rid);
             assert(rtv);
-            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(arg), 
+            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(null_flag_arg), 
                                                  rid, 
                                                  field_id == _fields.primary_key_field_id());
             assert(rtv);
         }
 
         // modify record
-        memcpy(oldRecord, arg, _fields.field_length()[field_id]);
+        memcpy(oldRecord, null_flag_arg, _fields.field_length()[field_id]);
         
         // write back
         _file->writePage(rid.pageID, buffer);
 
 
         delete[] buffer;
+        delete[] null_flag_arg;
         return 0;
     }
 
