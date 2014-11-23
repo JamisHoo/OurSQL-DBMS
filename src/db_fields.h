@@ -43,7 +43,19 @@ public:
 
     struct Comparator {
         uint64 type;
+        // return 0 if a == b
+        // return 1 if a > b
+        // return -1 if a < b
+        // 1st byte of a(b) is 00 means this is null
+        // null value is larger than non-null value
+        // null value is equal to null
         int operator()(const void* a, const void* b, const uint64 length) {
+            char a_null_flag = pointer_convert<const char*>(a)[0];
+            char b_null_flag = pointer_convert<const char*>(b)[0];
+            if (a_null_flag == 0x00 && b_null_flag == 0x00) return 0;
+            if (a_null_flag == 0x00 && b_null_flag != 0x00) return 1;
+            if (a_null_flag != 0x00 && b_null_flag == 0x00) return -1;
+
             switch (type) {
                 case 0:
                     return *pointer_convert<const int8_t*>(a) - 
