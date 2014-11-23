@@ -56,59 +56,61 @@ public:
             if (a_null_flag == '\x00' && b_null_flag != '\x00') return 1;
             if (a_null_flag != '\x00' && b_null_flag == '\x00') return -1;
 
+            const void* a_data = pointer_convert<const char*>(a) + 1;
+            const void* b_data = pointer_convert<const char*>(b) + 1;
             switch (type) {
                 case 0:
-                    return *pointer_convert<const int8_t*>(a) - 
-                           *pointer_convert<const int8_t*>(b);
+                    return *pointer_convert<const int8_t*>(a_data) - 
+                           *pointer_convert<const int8_t*>(b_data);
                 case 1:
-                    return *pointer_convert<const uint8_t*>(a) -
-                           *pointer_convert<const uint8_t*>(b);
+                    return *pointer_convert<const uint8_t*>(a_data) -
+                           *pointer_convert<const uint8_t*>(b_data);
                 case 2:
-                    return *pointer_convert<const int16_t*>(a) - 
-                           *pointer_convert<const int16_t*>(b);
+                    return *pointer_convert<const int16_t*>(a_data) - 
+                           *pointer_convert<const int16_t*>(b_data);
                 case 3:
-                    return *pointer_convert<const uint16_t*>(a) - 
-                           *pointer_convert<const uint16_t*>(b);
+                    return *pointer_convert<const uint16_t*>(a_data) - 
+                           *pointer_convert<const uint16_t*>(b_data);
                 case 4:
-                    return *pointer_convert<const int32_t*>(a) -
-                           *pointer_convert<const int32_t*>(b);
+                    return *pointer_convert<const int32_t*>(a_data) -
+                           *pointer_convert<const int32_t*>(b_data);
                 case 5: {
-                    uint32_t aa = *pointer_convert<const uint32_t*>(a);
-                    uint32_t bb = *pointer_convert<const uint32_t*>(a);
+                    uint32_t aa = *pointer_convert<const uint32_t*>(a_data);
+                    uint32_t bb = *pointer_convert<const uint32_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
                 }
                 case 6: {
-                    int64_t aa = *pointer_convert<const int64_t*>(a);
-                    int64_t bb = *pointer_convert<const int64_t*>(b);
+                    int64_t aa = *pointer_convert<const int64_t*>(a_data);
+                    int64_t bb = *pointer_convert<const int64_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
                 }
                 case 7: {
-                    uint64_t aa = *pointer_convert<const uint64_t*>(a);
-                    uint64_t bb = *pointer_convert<const uint64_t*>(b);
+                    uint64_t aa = *pointer_convert<const uint64_t*>(a_data);
+                    uint64_t bb = *pointer_convert<const uint64_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
                 }
                 case 8:
-                    return bool(*pointer_convert<const bool*>(a)) -
-                           bool(*pointer_convert<const bool*>(b));
+                    return bool(*pointer_convert<const bool*>(a_data)) -
+                           bool(*pointer_convert<const bool*>(b_data));
                 case 9:
                 case 10:
                     return memcmp(a, b, length);
                 case 11: {
-                    float aa = *pointer_convert<const float*>(a);
-                    float bb = *pointer_convert<const float*>(b);
+                    float aa = *pointer_convert<const float*>(a_data);
+                    float bb = *pointer_convert<const float*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
                 }
                 case 12: {
-                    double aa = *pointer_convert<const double*>(a);
-                    double bb = *pointer_convert<const double*>(b);
+                    double aa = *pointer_convert<const double*>(a_data);
+                    double bb = *pointer_convert<const double*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
