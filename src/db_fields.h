@@ -62,7 +62,7 @@ public:
                            *pointer_convert<const int32_t*>(b);
                 case 5: {
                     uint32_t aa = *pointer_convert<const uint32_t*>(a);
-                    uint32_t bb = *pointer_convert<const uint32_t*>(a);
+                    uint32_t bb = *pointer_convert<const uint32_t*>(b);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
