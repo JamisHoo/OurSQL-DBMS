@@ -416,7 +416,7 @@ public:
     std::vector<RID> rangeQuery(const char* lower, const char* upper) {
         std::vector<RID> ridVector;
         int answer = _comparator(lower, upper, _data_length);
-        if(answer > 0)
+        if(answer >= 0)
             return ridVector;
 
         RID first = searchRecord(lower);
@@ -467,7 +467,7 @@ public:
         bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
         if(answer && !checkLast && ifPrimary){
             #ifdef DEBUG
-                //std::cout<<"primary key already exist"<<std::endl;
+                std::cout<<"primary key already exist"<<std::endl;
             #endif
             return false;
         }
@@ -485,7 +485,6 @@ public:
                 solveChangeGreater(key);
             return true;
         }
-
     }
 
     // remove all records where index.key == key
@@ -1153,7 +1152,7 @@ private:
 
 
 // members of IndexManager
-    static constexpr uint64 MAX_LEVEL = 8;
+    static constexpr uint64 MAX_LEVEL = 16;
     static constexpr uint64 BUFFER_SIZE = 16;
 
     // track different level of BTreeNode during search

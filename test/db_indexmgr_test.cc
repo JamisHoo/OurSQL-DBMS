@@ -76,6 +76,7 @@ int main() {
                 if (vec1[i] == rids[0]) cout << vec[i] << endl;
 
         }
+        cout<<i<<endl;
         assert(rids.size() == 0);
     }
 
