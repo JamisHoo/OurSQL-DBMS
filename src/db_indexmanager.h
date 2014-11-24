@@ -24,6 +24,7 @@
 #define DB_INDEXMANAGER_H_
 
 #include <vector>
+#include <stack>
 #include <cassert>
 #include <cstdlib>
 #include <iostream>
@@ -357,11 +358,11 @@ public:
     // return RID(0,0) if not found
     RID searchRecord(const char* key) {
         bool answer = locateRecord(key);
-        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        bool checkLast = (_level.top()._offset >= _node_tracker->_size);
         //std::cout<<answer<<" "<<checkLast<<std::endl;
         if(answer && !checkLast){               // key exists in this index file
-            uint64 which = _level[_lev_track]._block;
-            uint64 off = _level[_lev_track]._offset;
+            uint64 which = _level.top()._block;
+            uint64 off = _level.top()._offset;
             getBuffer(which);
             uint64 pos = _node_tracker->getPosition(off);
             return decode(pos);
@@ -381,12 +382,12 @@ public:
         else{
             ridVector.push_back(first);
             // continue push RID with the same key
-            uint64 off = _level[_lev_track]._offset;
+            uint64 off = _level.top()._offset;
             while(true){
                 if(off >= _node_tracker->_size - 1){    // find the proper node
                     bool answer = findNextNode();
                     if(answer){
-                        off = _level[_lev_track]._offset;
+                        off = _level.top()._offset;
                         int answer = _node_tracker->compareKey(key, off);
                         if(answer == 0){
                             uint64 pos = _node_tracker->getPosition(off);
@@ -427,12 +428,12 @@ public:
         else{
             ridVector.push_back(first);
             // continue push RID with key within range
-            uint64 off = _level[_lev_track]._offset;
+            uint64 off = _level.top()._offset;
             while(true){
                 if(off == _node_tracker->_size - 1){
                     bool answer = findNextNode();
                     if(answer){
-                        off = _level[_lev_track]._offset;
+                        off = _level.top()._offset;
                         char* currentKey = _node_tracker->getKey(off);
                         int answer = _comparator(currentKey, upper, _data_length);
                         if(answer < 0){
@@ -464,7 +465,7 @@ public:
     // ifPrimary: is this key a primary key(cannot insert twice)?
     bool insertRecord(const char* key, const RID rid, const bool ifPrimary) {
         bool answer = locateRecord(key);
-        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        bool checkLast = (_level.top()._offset >= _node_tracker->_size);
         if(answer && !checkLast && ifPrimary){
             #ifdef DEBUG
                 std::cout<<"primary key already exist"<<std::endl;
@@ -476,7 +477,7 @@ public:
             char entry[_data_length + sizeof(uint64)];
             memcpy(entry, key, _data_length);
             memcpy(entry + _data_length, &position, sizeof(uint64));
-            _node_tracker->insertKey(entry, _level[_lev_track]._offset);
+            _node_tracker->insertKey(entry, _level.top()._offset);
             setDirty(_node_tracker);
             _num_records++;
             if(_node_tracker->_size >= _max_sons)
@@ -505,20 +506,19 @@ public:
     // don't check the RID
     bool removeRecord(const char* key) {
         bool answer = locateRecord(key);
-        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        bool checkLast = (_level.top()._offset >= _node_tracker->_size);
         if(answer && !checkLast){
-            uint64 off = _level[_lev_track]._offset;
+            uint64 off = _level.top()._offset;
             _node_tracker->deleteKey(off);
             setDirty(_node_tracker);                // delete the key and set dirty
             _num_records--;
 
             if(off == _node_tracker->_size){        // delete the last record in this node, may lead to change of parent nodes
-                uint64 tempLev = _lev_track;
-                uint64 tempBlk = _level[_lev_track]._block;
+                std::stack<Level> tmp_level = _level;
                 char* keyUpdate = _node_tracker->getKey(off - 1);
                 solveChangeSmaller(keyUpdate);
-                _lev_track = tempLev;
-                getBuffer(tempBlk);
+                _level = tmp_level;
+                getBuffer(_level.top()._block);
             }
             if(_node_tracker->_size < _max_sons / 2){       // node size break through the lower bound
                 solveNodeMerge();
@@ -536,12 +536,12 @@ public:
     // remove only one record if index.key == key && index.rid == rid
     bool removeRecord(const char* key, const RID rid) {
         bool answer = locateRecord(key);
-        bool checkLast = (_level[_lev_track]._offset >= _node_tracker->_size);
+        bool checkLast = (_level.top()._offset >= _node_tracker->_size);
         if(answer && !checkLast){
             bool findRID = false;
             // find the record if index.key == key && index.rid == rid
             while(true){
-                uint64 off = _level[_lev_track]._offset;
+                uint64 off = _level.top()._offset;
                 if(_node_tracker->compareKey(key, off) != 0)    // if index.key != key, failed
                     break;
 
@@ -552,8 +552,8 @@ public:
                     break;
                 }
                 else{                                           // if index.rid != rid, find next record
-                    if(_level[_lev_track]._offset < _node_tracker->_size - 1)
-                        _level[_lev_track]._offset++;
+                    if(_level.top()._offset < _node_tracker->_size - 1)
+                        _level.top()._offset++;
                     else{
                         bool way = findNextNode();
                         if(way == false)                        // continue to search next node, failed if it comes to the last node
@@ -563,18 +563,17 @@ public:
             }       // end of while(true)
 
             if(findRID){                                // if find succeed, delete it
-                uint64 off = _level[_lev_track]._offset;
+                uint64 off = _level.top()._offset;
                 _node_tracker->deleteKey(off);
                 setDirty(_node_tracker);                // delete the key and set dirty
                 _num_records--;
 
                 if(off == _node_tracker->_size){        // delete the last record in this node, may lead to change of parent nodes
-                    uint64 tempLev = _lev_track;
-                    uint64 tempBlk = _level[_lev_track]._block;
+                    std::stack<Level> tmp_level = _level;
                     char* keyUpdate = _node_tracker->getKey(off - 1);
                     solveChangeSmaller(keyUpdate);
-                    _lev_track = tempLev;
-                    getBuffer(tempBlk);
+                    _level = tmp_level;
+                    getBuffer(_level.top()._block);
                 }
                 if(_node_tracker->_size < _max_sons / 2){       // node size break through the lower bound
                     solveNodeMerge();
@@ -603,10 +602,11 @@ public:
     // callback function is like: void func(const char* key, const RID rid)
     template<class CALLBACKFUNC>
     void traverseRecords(CALLBACKFUNC func) {
-        _lev_track = 0;
+        _level = std::stack<Level>();
+        _level.push(Level());
         _node_tracker = &_root;
-        _level[_lev_track]._offset = 0;
-        _level[_lev_track]._block = 1;
+        _level.top()._offset = 0;
+        _level.top()._block = 1;
         findFirstNode();
         while(true){
             for(int i=0; i<_node_tracker->_size; i++){
@@ -664,61 +664,65 @@ private:
     void findFirstNode() {
         // add these if want to find the global first node
         /*
-            _lev_track = 0;
+            _level = std::stack<Level>();
+            _level.push(Level());
             _node_tracker = &_root;
-            _level[_lev_track]._block = 1;
-            _level[_lev_track]._offset = 0;
+            _level.top()._block = 1;
+            _level.top()._offset = 0;
         */
         if(_node_tracker->_leaf == 1)
             return;
 
-        uint64 nextLevel = _node_tracker->getPosition(_level[_lev_track]._offset);
-        _lev_track++;
-        _level[_lev_track]._block = nextLevel;
+        uint64 nextLevel = _node_tracker->getPosition(_level.top()._offset);
+        _level.push(Level());
+        _level.top()._block = nextLevel;
         getBuffer(nextLevel);
         while(_node_tracker->_leaf == 0) {
-            _level[_lev_track++]._offset = 0;
+            _level.top()._offset = 0;
+            _level.push(Level());
             uint64 next = _node_tracker->getPosition(0);
-            _level[_lev_track]._block = next;
+            _level.top()._block = next;
             getBuffer(next);
         }
-        _level[_lev_track]._offset = 0;
+        _level.top()._offset = 0;
     }
 
     // find the last record in index file according to _comparator
     void findLastNode() {
-        _lev_track = 0;
+        _level = std::stack<Level>();
+        _level.push(Level());
         _node_tracker = &_root;
-        _level[_lev_track]._block = 1;
+        _level.top()._block = 1;
         while(_node_tracker->_leaf == 0) {
             uint64 off = _node_tracker->_size - 1;
             uint64 next = _node_tracker->getPosition(off);
-            _level[_lev_track++]._offset = off;
-            _level[_lev_track]._block = next;
+            _level.top()._offset = off;
+            _level.push(Level());
+            _level.top()._block = next;
             getBuffer(next);
         }
-        _level[_lev_track]._offset = _node_tracker->_size - 1;
+        _level.top()._offset = _node_tracker->_size - 1;
     }
 
     // find next record according to the current one
     // return false if there is no next node to find
     bool findNextNode() {
-        if(_lev_track == 0)
+        if (_level.size() == 1)
             return false;
 
         // search up to the common parent
         uint64 off, pos;
         while(true) {
-            _lev_track--;
-            pos = _level[_lev_track]._block;
-            off = _level[_lev_track]._offset;
+            _level.pop();
+            pos = _level.top()._block;
+            off = _level.top()._offset;
             getBuffer(pos);
             if(_node_tracker->_size > (off + 1))
                 break;
-            if(_lev_track == 0)
+            if (_level.size() == 1)
                 return false;
         }
-        _level[_lev_track]._offset = off + 1;
+        _level.top()._offset = off + 1;
 
         // search down and find the next node
         findFirstNode();
@@ -840,15 +844,15 @@ private:
         _write_to++;
         _buffer[pos]._dirty = true;
 
-        if(_lev_track == 0){
+        if (_level.size() == 1) {
             solveRootSplit(leftChild, rightChild, _buffer[pos]._node._position);
             return;
         }
 
         // not the root node, recursively solve the split problem
-        _lev_track--;
-        uint64 blk = _level[_lev_track]._block;
-        uint64 off = _level[_lev_track]._offset;
+        _level.pop();
+        uint64 blk = _level.top()._block;
+        uint64 off = _level.top()._offset;
         getBuffer(blk);
         _node_tracker->writeKey(leftChild, off);
 
@@ -879,7 +883,7 @@ private:
 
     // check if left brother node can lend an entry
     int checkLeft() {
-        uint64 off = _level[_lev_track]._offset;
+        uint64 off = _level.top()._offset;
         if(off == 0)        // no left brother
             return 0;
         uint64 leftPos = _node_tracker->getPosition(off - 1);
@@ -891,7 +895,7 @@ private:
 
     // check if right brother node can lend an entry
     int checkRight() {
-        uint64 off = _level[_lev_track]._offset;
+        uint64 off = _level.top()._offset;
         if(off == _node_tracker->_size-1)       // no right brother
             return 0;
         uint64 rightPos = _node_tracker->getPosition(off + 1);
@@ -915,7 +919,7 @@ private:
             setDirty(_node_tracker);
             
             getBuffer(upper);                       // update the keys of father node
-            uint64 offUpper = _level[_lev_track]._offset - 1;
+            uint64 offUpper = _level.top()._offset - 1;
             _node_tracker->writeKey(update, offUpper);
             setDirty(_node_tracker);
 
@@ -935,7 +939,7 @@ private:
             setDirty(_node_tracker);
 
             getBuffer(upper);                       // update the keys of father node
-            uint64 offupper = _level[_lev_track]._offset;
+            uint64 offupper = _level.top()._offset;
             _node_tracker->writeKey(buffer, offupper);
             setDirty(_node_tracker);
         }
@@ -944,7 +948,7 @@ private:
     // if cannot lend entry, then merge
     void mergeNode(uint64 upper, uint64 current) {
         getBuffer(upper);
-        uint64 off = _level[_lev_track]._offset;
+        uint64 off = _level.top()._offset;
         if(off != _node_tracker->_size-1) {     // merge to right node if possible
             uint64 posRight = _node_tracker->getPosition(off + 1);
             getBuffer(posRight);
@@ -990,13 +994,13 @@ private:
         if(_node_tracker->_size >= _max_sons / 2)
             return;
         
-        if(_lev_track == 0)
+        if (_level.size() == 1)
             return;
 
         uint64 current = _node_tracker->_position;
 
-        _lev_track--;
-        uint64 blk = _level[_lev_track]._block;
+        _level.pop();
+        uint64 blk = _level.top()._block;
         getBuffer(blk);
         int answer = checkLeft();           // check if left or right is possible to lend
         if(answer == 0){
@@ -1008,7 +1012,7 @@ private:
         }
         else {                              // merge node is recursive
             bool way = true;
-            if(_lev_track == 0){
+            if (_level.size() == 1) {
                 getBuffer(blk);             // get the root node, if size == 2, then height - 1
                 if(_node_tracker->_size == 2){
                     solveRootMerge();
@@ -1025,14 +1029,14 @@ private:
 
     // solve the max son is greater than before
     void solveChangeGreater(const char* key) {
-        if((_level[_lev_track]._offset + 1) < _node_tracker->_size)
+        if((_level.top()._offset + 1) < _node_tracker->_size)
             return;
-        if(_lev_track == 0)
+        if (_level.size() == 1)
             return;
 
-        _lev_track--;
-        uint64 blk = _level[_lev_track]._block;
-        uint64 off = _level[_lev_track]._offset;
+        _level.pop();
+        uint64 blk = _level.top()._block;
+        uint64 off = _level.top()._offset;
         getBuffer(blk);
         _node_tracker->writeKey(key, off);
         setDirty(_node_tracker);
@@ -1043,14 +1047,14 @@ private:
 
     // solve the max son is smaller than before
     void solveChangeSmaller(const char* key) {
-        if((_level[_lev_track]._offset + 1 < _node_tracker->_size))
+        if((_level.top()._offset + 1 < _node_tracker->_size))
             return;
-        if(_lev_track == 0)
+        if (_level.size() == 1)
             return;
 
-        _lev_track--;
-        uint64 blk = _level[_lev_track]._block;
-        uint64 off = _level[_lev_track]._offset;
+        _level.pop();
+        uint64 blk = _level.top()._block;
+        uint64 off = _level.top()._offset;
         getBuffer(blk);
         _node_tracker->writeKey(key, off);
         setDirty(_node_tracker);
@@ -1062,19 +1066,21 @@ private:
     // find the most suitable place for key and check if this key exist
     // return true if this key exist, return false if not exist
     bool locateRecord(const char* key) {
-        _lev_track = 0;
+        _level = std::stack<Level>();
+        _level.push(Level());
         _node_tracker = &_root; 
-        _level[_lev_track]._block = 1;
+        _level.top()._block = 1;
         while(_node_tracker->_leaf == 0) {
             uint64 next;
             uint64 off = _node_tracker->searchKey(key, &_comparator, &next);
-            _level[_lev_track++]._offset = off;
-            _level[_lev_track]._block = next;
+            _level.top()._offset = off;
+            _level.push(Level());
+            _level.top()._block = next;
             getBuffer(next);
         }
         uint64 next;
         uint64 off = _node_tracker->searchKey(key, &_comparator, &next);
-        _level[_lev_track]._offset = off;
+        _level.top()._offset = off;
         // check if it is exactly the same to this entry?
         // or it is just a proper position for insertion?
         if(_node_tracker->compareKey(key, off) == 0)
@@ -1152,8 +1158,7 @@ private:
 
 
 // members of IndexManager
-    static constexpr uint64 MAX_LEVEL = 16;
-    static constexpr uint64 BUFFER_SIZE = 16;
+    static constexpr uint64 BUFFER_SIZE = 256;
 
     // track different level of BTreeNode during search
     // record the position and offset of every node from root to the target
@@ -1161,10 +1166,8 @@ private:
         uint64 _block;
         uint64 _offset;
     };
-    Level _level[MAX_LEVEL];
+    std::stack<Level> _level;
 
-    // a tracker of the current level
-    uint64 _lev_track;
 
     // each buffer node contains a header and data area
     struct BufferNode {
