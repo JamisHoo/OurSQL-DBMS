@@ -60,9 +60,10 @@ int main() {
     for (int i = 0; i < 300000; ++i) {
         int64_t tmp = rand() % 5 - 10;
         memcpy(buff1 + 1, &tmp, data_length);
-        int rtv = manager.insertRecord(buff1, { pageid, slotid++ }, 0);
+        int rtv = manager.insertRecord(buff1, RID(pageid, slotid++), 0);
         assert(rtv == 1);
     }
 
     remove("index.idx");
 }
+
