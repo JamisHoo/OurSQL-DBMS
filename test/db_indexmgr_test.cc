@@ -38,47 +38,31 @@ int main() {
     DBFields fields;
     
     static constexpr uint64 TYPE_INT64   = 6;
-    static constexpr uint64 TYPE_BOOL    = 8;
-    static constexpr uint64 TYPE_CHAR    = 9;
-    static constexpr uint64 TYPE_UCHAR   = 10;
 
     constexpr uint64 page_size = 128;
-    constexpr uint64 data_length = 4;
+    constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
 
     if(manager.open() == 0) {
-        manager.create(page_size, data_length, TYPE_CHAR);
+        manager.create(page_size, data_length + 1, TYPE_INT64);
         manager.open();
     }
 
+    int pageid = 100;
+    int slotid = 100;
 
-    char a[5] = "abcd";
-    char b[5] = "bbcd";
-    char c[5] = "cbcd";
-    char d[5] = "ddcd";
+    char* buff1 = new char[data_length + 1];
+    char* buff2 = new char[data_length + 1];
+    buff1[0] = '\xff';
+    buff2[0] = '\xff';
 
-    manager.insertRecord(a, { 1, 0 }, 0);
-    manager.insertRecord(b, { 1, 1 }, 0);
-    manager.insertRecord(c, { 1, 2 }, 0);
-    manager.insertRecord(d, { 1, 3 }, 0);
-
-    auto rids = manager.rangeQuery(a, c);
-    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
-    
-    rids = manager.rangeQuery(c, a);
-    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
-
-    rids = manager.rangeQuery(b, d);
-    cout << rids.size() << ": "; for (RID rid: rids) cout << rid << ' '; cout << endl;
-
-    rids = manager.rangeQuery(a, d);
-    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
-
-    rids = manager.rangeQuery(d, a);
-    cout << rids.size() << ": "; for (auto rid: rids) cout << rid << ' '; cout << endl;
-
-    manager.show();
+    for (int i = 0; i < 300000; ++i) {
+        int64_t tmp = rand() % 5 - 10;
+        memcpy(buff1 + 1, &tmp, data_length);
+        int rtv = manager.insertRecord(buff1, { pageid, slotid++ }, 0);
+        assert(rtv == 1);
+    }
 
     remove("index.idx");
 }
