@@ -39,7 +39,7 @@ int main() {
     
     static constexpr uint64 TYPE_INT64   = 6;
 
-    constexpr uint64 page_size = 128;
+    constexpr uint64 page_size = 1024;
     constexpr uint64 data_length = 8;
 
     DBIndexManager<DBFields::Comparator> manager("index.idx");
@@ -52,13 +52,31 @@ int main() {
     int pageid = 100;
     int slotid = 0;
 
+    std::vector<int64_t> vec;
+    std::vector<RID> vec1;
     // crash when ceiling of i is relatively large
-    for (int i = 0; i < 30000; ++i) {
+    for (int i = 0; i < 5000; ++i) {
         int64_t tmp = rand() % 5 - 10;
+        vec.push_back(tmp);
+        vec1.push_back({ pageid, slotid });
         int rtv = manager.insertRecord(pointer_convert<char*>(&tmp), { pageid, slotid++ }, 0);
         assert(rtv == 1);
         if (slotid == 40) 
             ++pageid, slotid = 0;
+    }
+
+
+    for (int i = 0; i < 100000; ++i) {
+        int tmp = rand() % vec.size();
+        auto rids = manager.rangeQuery(pointer_convert<char*>(&vec[tmp]), pointer_convert<char*>(&vec[tmp]));
+        if (rids.size()) {
+            cout << vec[tmp] << ' ' << vec1[tmp] << endl;
+            cout << rids.size() << ' ' << rids[0] << ' ';
+            for (int i = 0; i < vec1.size(); ++i)
+                if (vec1[i] == rids[0]) cout << vec[i] << endl;
+
+        }
+        assert(rids.size() == 0);
     }
 
     remove("index.idx");
