@@ -387,7 +387,7 @@ public:
 
         delete[] buffer;
         for (const auto arg: null_flag_args)
-            delete[] arg;
+            delete[] pointer_convert<const char*>(arg);
         return std::get<0>(rtv);
     }
 
@@ -526,7 +526,7 @@ public:
         if (!isopen()) return rids;
 
         auto traverseCallback = [&rids, this, &field_id, &condition](const char* record, const RID rid) {
-            if (condition(char[record + _fields.offset()[field_id]]? record + _fields.offset()[field_id] + 1: nullptr)) 
+            if (condition(record[_fields.offset()[field_id]]? record + _fields.offset()[field_id] + 1: nullptr)) 
                 rids.push_back(rid);
         };
 
