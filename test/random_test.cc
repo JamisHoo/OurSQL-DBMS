@@ -180,7 +180,7 @@ int main() {
     // create table
     // It's a litter faster with a large page size if there's lots of data
     // If there's little data, small page size will be extremely faster
-    rtv = table.create("student", fields, 1024 * 4);
+    rtv = table.create("student", fields, 1024 * 16);
     assert(rtv == 0);
 
     // open table
