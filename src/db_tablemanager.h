@@ -326,8 +326,6 @@ public:
         // INDEX MANIPULATE
         // find in index
         auto rid = _index[_fields.primary_key_field_id()]->searchRecord(
-            // pointer_convert<char*>(*std::next(null_flag_args.begin(), 
-            //                                   _fields.primary_key_field_id())));
             pointer_convert<char*>(null_flag_args[_fields.primary_key_field_id()]));
 
         // if exist already
@@ -378,7 +376,6 @@ public:
         for (auto id: _fields.field_id()) 
             if (_index[id])
                 successful &= _index[id]->insertRecord(
-                    // pointer_convert<char*>(*std::next(null_flag_args.begin(), id)),
                     pointer_convert<char*>(null_flag_args[id]),
                     std::get<0>(rtv),
                     id == _fields.primary_key_field_id());
