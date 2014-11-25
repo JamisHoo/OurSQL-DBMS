@@ -74,17 +74,16 @@ public:
         // create DBFile
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
-        char* buffer = new char[page_size];
+        std::unique_ptr<char[]> buffer(new char[page_size]);
 
         // create file description page, 0th page
-        createFileDescriptionPage(page_size, buffer);
+        createFileDescriptionPage(page_size, buffer.get());
         
         // create file and write file description page(0th page)
-        bool rtv = _file->create(page_size, buffer);
+        bool rtv = _file->create(page_size, buffer.get());
 
         // create failed
         if (rtv) {
-            delete[] buffer;
             delete _file;
             return 1;
         }
@@ -92,33 +91,33 @@ public:
         _file->open();
 
         // create 1st page
-        createDataDescriptionPage(fields, page_size, buffer);
+        createDataDescriptionPage(fields, page_size, buffer.get());
 
         // write 1st page
-        _file->writePage(1, buffer);
+        _file->writePage(1, buffer.get());
         
         // create Fields description page(s), the first is 2nd page
-        createFieldsDescriptionPages(fields, page_size, buffer);
+        createFieldsDescriptionPages(fields, page_size, buffer.get());
 
         // write 2nd page
-        _file->writePage(FIRST_FIELDS_INFO_PAGE, buffer);
+        _file->writePage(FIRST_FIELDS_INFO_PAGE, buffer.get());
 
         // create empty slots bitmap page, the first is 3rd page
         // 0 means full, 1 means there's at least one empty slot
-        memset(buffer, 0x00, page_size);
+        memset(buffer.get(), 0x00, page_size);
         // write page header
         auto page_header = makePageHeader(FIRST_EMPTY_SLOTS_PAGE, 0, 0);
-        memcpy(buffer, page_header.data(), page_header.size());
+        memcpy(buffer.get(), page_header.data(), page_header.size());
         // set 5th page as empty slots
         buffer[PAGE_HEADER_LENGTH] |= (1 << FIRST_RECORD_PAGE);
 
         // write 3rd page
-        _file->writePage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+        _file->writePage(FIRST_EMPTY_SLOTS_PAGE, buffer.get());
 
         // write the first empty record page, 4th page
-        memset(buffer, 0x00, page_size);
+        memset(buffer.get(), 0x00, page_size);
         uint64 first_page = FIRST_RECORD_PAGE;
-        memcpy(buffer, &first_page, sizeof(first_page));
+        memcpy(buffer.get(), &first_page, sizeof(first_page));
         
         // initialize bitmap
         uint64 records_num_each_page = (page_size - PAGE_HEADER_LENGTH) /
@@ -139,7 +138,7 @@ public:
             ++i;
         }
 
-        _file->writePage(FIRST_RECORD_PAGE, buffer);
+        _file->writePage(FIRST_RECORD_PAGE, buffer.get());
 
         
         // INDEX MANIPULATE
@@ -160,7 +159,6 @@ public:
         _file->close();
 
         // delete DBFile
-        delete[] buffer;
         // INDEX MANIPULATE
         delete _index[fields.primary_key_field_id()];
         _index[fields.primary_key_field_id()] = nullptr;
@@ -186,21 +184,22 @@ public:
         // openfile
         uint64 page_size = _file->open();
         
-        char* buffer = new char[page_size];
+        std::unique_ptr<char[]> buffer(new char[page_size]);
+
         // read 1st page
-        _file->readPage(1, buffer); 
+        _file->readPage(1, buffer.get()); 
         // parse 1st page
-        parseDataDescriptionPage(buffer);
+        parseDataDescriptionPage(buffer.get());
 
         // read 2nd page
-        _file->readPage(FIRST_FIELDS_INFO_PAGE, buffer);
+        _file->readPage(FIRST_FIELDS_INFO_PAGE, buffer.get());
         // parse 2nd page
-        parseFieldsDescriptionPages(buffer);
+        parseFieldsDescriptionPages(buffer.get());
 
         // read 3rd page
-        _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+        _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer.get());
         // parse 3rd page
-        parseEmptyMapPages(buffer);
+        parseEmptyMapPages(buffer.get());
 
         // INDEX MANIPULATE
         // open index
@@ -217,7 +216,6 @@ public:
                 assert(rtv);
             }
         
-        delete[] buffer;
         return !page_size;
     }
 
@@ -347,13 +345,13 @@ public:
             empty_slot_pageID = createNewRecordPage();
 
         // pass args to _field to generate a record in raw data
-        // char* buffer = new char[_fields.recordLength()];
         // allocate more space, reserve for later
-        char* buffer = new char[_file->pageSize()];
-        _fields.generateRecord(null_flag_args, buffer);
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
+
+        _fields.generateRecord(null_flag_args, buffer.get());
 
         // insert the record to the slot
-        auto rtv = insertRecordtoPage(empty_slot_pageID, buffer);
+        auto rtv = insertRecordtoPage(empty_slot_pageID, buffer.get());
         // rtv[0]: RID, rtv[1]: empty_slots_remained
 
         // if there isn't any empty slot in this page
@@ -363,14 +361,14 @@ public:
 
             // write back map page to file
             uint64 pageID = empty_slot_pageID;
-            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer.get());
             while (pageID >= _pages_each_map_page) {
                 pageID -= _pages_each_map_page;
-                uint64 nextPageID = *pointer_convert<uint64*>(buffer + 2 * sizeof(uint64));
-                _file->readPage(nextPageID, buffer);
+                uint64 nextPageID = *pointer_convert<uint64*>(buffer.get() + 2 * sizeof(uint64));
+                _file->readPage(nextPageID, buffer.get());
             }
             buffer[PAGE_HEADER_LENGTH + pageID / 8] &= ~('\x01' << pageID % 8);
-            _file->writePage(*pointer_convert<uint64*>(buffer), buffer);
+            _file->writePage(*pointer_convert<uint64*>(buffer.get()), buffer.get());
         }
         
         // INDEX MANIPULATE
@@ -385,7 +383,6 @@ public:
                     id == _fields.primary_key_field_id());
         assert(successful == 1);
 
-        delete[] buffer;
         for (const auto arg: null_flag_args)
             delete[] pointer_convert<const char*>(arg);
         return std::get<0>(rtv);
@@ -398,22 +395,22 @@ public:
     bool removeRecord(const RID rid) {
         if (!isopen()) return 1;
 
-        char* buffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
         // find the record
-        _file->readPage(rid.pageID, buffer);
+        _file->readPage(rid.pageID, buffer.get());
         // assert slot is originally full
         assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
         // mark this slot as empty
         buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] |= '\x01' << rid.slotID % 8;
-        _file->writePage(rid.pageID, buffer);
+        _file->writePage(rid.pageID, buffer.get());
 
 
         // INDEX MANIPULATE
         for (const auto id: _fields.field_id()) 
             if (_index[id]) {
                 char* oldRecord = /* base */
-                                  buffer + 
+                                  buffer.get() + 
                                   /* page header offset */
                                   PAGE_HEADER_LENGTH + 
                                   /* bitmap offset */
@@ -432,16 +429,15 @@ public:
             
             // write back to map page
             uint64 pageID = rid.pageID;
-            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer);
+            _file->readPage(FIRST_EMPTY_SLOTS_PAGE, buffer.get());
             while (pageID >= _pages_each_map_page) {
                 pageID -= _pages_each_map_page;
-                _file->readPage(*pointer_convert<uint64*>(buffer + 2 * sizeof(uint64)), buffer);
+                _file->readPage(*pointer_convert<uint64*>(buffer.get() + 2 * sizeof(uint64)), buffer.get());
             }
             buffer[PAGE_HEADER_LENGTH + pageID / 8] |= '\x01' << pageID % 8;
-            _file->writePage(*pointer_convert<uint64*>(buffer), buffer);
+            _file->writePage(*pointer_convert<uint64*>(buffer.get()), buffer.get());
         }
         
-        delete[] buffer;
         return 0;
     }
 
@@ -451,34 +447,34 @@ public:
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
         if (!isopen()) return 1;
 
-        char* null_flag_arg = new char[_fields.field_length()[field_id]];
+        std::unique_ptr<char[]> null_flag_arg(new char[_fields.field_length()[field_id]]);
         if (arg) {
             null_flag_arg[0] = '\xff';
-            memcpy(null_flag_arg + 1, arg, _fields.field_length()[field_id] - 1);
+            memcpy(null_flag_arg.get() + 1, arg, _fields.field_length()[field_id] - 1);
         } else
-            memset(null_flag_arg, 0, _fields.field_length()[field_id]);
+            memset(null_flag_arg.get(), 0, _fields.field_length()[field_id]);
 
         // INDEX MANIPULATE
         // if this is primary key field, find in index
         if (field_id == _fields.primary_key_field_id()) {
             auto rtv = _index[_fields.primary_key_field_id()]->
-                searchRecord(pointer_convert<const char*>(null_flag_arg));
+                searchRecord(pointer_convert<const char*>(null_flag_arg.get()));
             // if exist already
             if (rtv) return 1;
         } // else not exist, continue modifying
     
 
-        char* buffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
         // read in this page
-        _file->readPage(rid.pageID, buffer);
+        _file->readPage(rid.pageID, buffer.get());
         
         // assert this slot is used
         assert(!(buffer[PAGE_HEADER_LENGTH + rid.slotID / 8] & '\x01' << rid.slotID % 8));
 
         // modify record
         char* oldRecord = /* base */
-                          buffer + 
+                          buffer.get() + 
                           /* page header offset */
                           PAGE_HEADER_LENGTH + 
                           /* bitmap offset */
@@ -494,21 +490,19 @@ public:
             bool rtv;
             rtv = _index[field_id]->removeRecord(oldRecord, rid);
             assert(rtv);
-            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(null_flag_arg), 
+            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(null_flag_arg.get()), 
                                                  rid, 
                                                  field_id == _fields.primary_key_field_id());
             assert(rtv);
         }
 
         // modify record
-        memcpy(oldRecord, null_flag_arg, _fields.field_length()[field_id]);
+        memcpy(oldRecord, null_flag_arg.get(), _fields.field_length()[field_id]);
         
         // write back
-        _file->writePage(rid.pageID, buffer);
+        _file->writePage(rid.pageID, buffer.get());
 
 
-        delete[] buffer;
-        delete[] null_flag_arg;
         return 0;
     }
 
@@ -542,14 +536,13 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
         // INDEX MANIPULATE
         assert(_index[field_id]);
-        char* null_flag_key = new char[_fields.field_length()[field_id]];
+        std::unique_ptr<char[]> null_flag_key(new char[_fields.field_length()[field_id]]);
         if (key) {
             null_flag_key[0] = '\xff';
-            memcpy(null_flag_key + 1, key, _fields.field_length()[field_id] - 1);
+            memcpy(null_flag_key.get() + 1, key, _fields.field_length()[field_id] - 1);
         } else
-            memset(null_flag_key, 0, _fields.field_length()[field_id]);
-        auto rids = _index[field_id]->searchRecords(null_flag_key);
-        delete[] null_flag_key;
+            memset(null_flag_key.get(), 0, _fields.field_length()[field_id]);
+        auto rids = _index[field_id]->searchRecords(null_flag_key.get());
         return rids;
     }
 
@@ -560,25 +553,20 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) const {
         assert(_index[field_id]);
         // INDEX MANIPULATE
-        char* null_flag_lb = new char[_fields.field_length()[field_id]];
-        char* null_flag_ub = new char[_fields.field_length()[field_id]];
+        std::unique_ptr<char[]> null_flag_lb(new char[_fields.field_length()[field_id]]);
+        std::unique_ptr<char[]> null_flag_ub(new char[_fields.field_length()[field_id]]);
         if (lb) {
             null_flag_lb[0] = '\xff';
-            memcpy(null_flag_lb + 1, lb, _fields.field_length()[field_id] - 1);
+            memcpy(null_flag_lb.get() + 1, lb, _fields.field_length()[field_id] - 1);
         } else
-            memset(null_flag_lb, 0, _fields.field_length()[field_id]);
+            memset(null_flag_lb.get(), 0, _fields.field_length()[field_id]);
         if (ub) {
             null_flag_ub[0] = '\xff';
-            memcpy(null_flag_ub + 1, ub, _fields.field_length()[field_id] - 1);
+            memcpy(null_flag_ub.get() + 1, ub, _fields.field_length()[field_id] - 1);
         } else
-            memset(null_flag_ub, 0, _fields.field_length()[field_id]);
+            memset(null_flag_ub.get(), 0, _fields.field_length()[field_id]);
 
-        // TODO: unique_ptr?
-        // return _index[field_id]->rangeQuery(lb, ub);
-        auto rids = _index[field_id]->rangeQuery(null_flag_lb, null_flag_ub);
-        delete[] null_flag_lb;
-        delete[] null_flag_ub;
-        return rids;
+        return _index[field_id]->rangeQuery(null_flag_lb.get(), null_flag_ub.get());
     }
 
 
@@ -611,17 +599,16 @@ public:
         assert(rtv == 0);
 
         // modify fields description page
-        char* buffer = new char[_file->pageSize()];
-        _file->readPage(2, buffer);
-        char* offset = buffer +
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
+        _file->readPage(2, buffer.get());
+        char* offset = buffer.get() +
                        PAGE_HEADER_LENGTH + 
                        FIELD_INFO_LENGTH * field_id + 
                        sizeof(uint64) + sizeof(uint64) + sizeof(uint64) + 
                        sizeof(bool);
         assert(offset[0] == '\x00');
         offset[0] = '\x01';
-        _file->writePage(2, buffer);
-        delete[] buffer;
+        _file->writePage(2, buffer.get());
 
         _index[field_id]->open();
 
@@ -661,19 +648,17 @@ public:
         _index[field_id] = nullptr;
 
         // modify fields description page
-        char* buffer = new char[_file->pageSize()];
-        _file->readPage(2, buffer);
-        char* offset = buffer +
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
+        _file->readPage(2, buffer.get());
+        char* offset = buffer.get() +
                        PAGE_HEADER_LENGTH + 
                        FIELD_INFO_LENGTH * field_id + 
                        sizeof(uint64) + sizeof(uint64) + sizeof(uint64) + 
                        sizeof(bool);
         assert(offset[0] != '\x00');
         offset[0] = '\x00';
-        _file->writePage(2, buffer);
+        _file->writePage(2, buffer.get());
 
-        delete[] buffer;
-        
         return 0;
     }
 
@@ -884,13 +869,13 @@ public:
     uint64 createNewRecordPage() {
         uint64 newPageID = _file->numPages();
 
-        char* buffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
         // record pages are double-linked list, need to modify the last page
-        _file->readPage(_last_record_page, buffer);
+        _file->readPage(_last_record_page, buffer.get());
 
         // page header of the last page
-        auto oldPageHeader = parsePageHeader(buffer);
+        auto oldPageHeader = parsePageHeader(buffer.get());
 
         
         // modify "Next Page" to new page id
@@ -898,17 +883,17 @@ public:
                                                  oldPageHeader[1],
                                                  newPageID);
         // copy to buffer
-        memcpy(buffer, modifiedPageHeader.data(), PAGE_HEADER_LENGTH);
+        memcpy(buffer.get(), modifiedPageHeader.data(), PAGE_HEADER_LENGTH);
         // and overwrite
-        _file->writePage(_last_record_page, buffer);
+        _file->writePage(_last_record_page, buffer.get());
         
         // generate new page header
         auto newPageHeader = makePageHeader(newPageID, 
                                             oldPageHeader[0],
                                             0);
         // copy to buffer
-        memset(buffer, 0x00, _file->pageSize());
-        memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
+        memset(buffer.get(), 0x00, _file->pageSize());
+        memcpy(buffer.get(), newPageHeader.data(), PAGE_HEADER_LENGTH);
 
         // mark bitmap as empty(1)
         for (uint64 i = 0; i < _num_records_each_page;) {
@@ -923,16 +908,16 @@ public:
         }
 
         // write to file 
-        _file->writePage(newPageID, buffer);
+        _file->writePage(newPageID, buffer.get());
         // modify _last_record_page
         _last_record_page = newPageID;
 
         // write back last record page
-        _file->readPage(1, buffer);
-        memcpy(buffer + 5 * sizeof(uint64), 
+        _file->readPage(1, buffer.get());
+        memcpy(buffer.get() + 5 * sizeof(uint64), 
                &_last_record_page, 
                sizeof(_last_record_page));
-        _file->writePage(1, buffer);
+        _file->writePage(1, buffer.get());
 
 
         assert(_file->numPages() == newPageID + 1);
@@ -945,13 +930,11 @@ public:
         _empty_slots_map[newPageID] = 1;
 
         // write map page back to file
-        _file->readPage(_last_empty_slots_map_page, buffer);
+        _file->readPage(_last_empty_slots_map_page, buffer.get());
         buffer[PAGE_HEADER_LENGTH + (newPageID % _pages_each_map_page) / 8] |=
             '\x01' << (newPageID % _pages_each_map_page) % 8;
-        _file->writePage(_last_empty_slots_map_page, buffer);
+        _file->writePage(_last_empty_slots_map_page, buffer.get());
 
-
-        delete[] buffer;
         return newPageID;
     }
 
@@ -959,62 +942,59 @@ public:
     void createNewMapPage() {
         uint64 newPageID = _file->numPages();
 
-        char* buffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
         // record pages are double-linked list, need to modify the last page
-        _file->readPage(_last_empty_slots_map_page, buffer);
+        _file->readPage(_last_empty_slots_map_page, buffer.get());
 
         // page header of the last page
-        auto oldPageHeader = parsePageHeader(buffer);
+        auto oldPageHeader = parsePageHeader(buffer.get());
         
         // modify "Next Page" to new page id
         auto modifiedPageHeader = makePageHeader(oldPageHeader[0], 
                                                  oldPageHeader[1],
                                                  newPageID);
         // copy to buffer
-        memcpy(buffer, modifiedPageHeader.data(), PAGE_HEADER_LENGTH);
+        memcpy(buffer.get(), modifiedPageHeader.data(), PAGE_HEADER_LENGTH);
         // and overwrite
-        _file->writePage(_last_empty_slots_map_page, buffer);
+        _file->writePage(_last_empty_slots_map_page, buffer.get());
         
         // generate new page header
         auto newPageHeader = makePageHeader(newPageID, 
                                             oldPageHeader[0],
                                             0);
         // copy to buffer
-        memset(buffer, 0x00, _file->pageSize());
-        memcpy(buffer, newPageHeader.data(), PAGE_HEADER_LENGTH);
+        memset(buffer.get(), 0x00, _file->pageSize());
+        memcpy(buffer.get(), newPageHeader.data(), PAGE_HEADER_LENGTH);
         // need not to write bits into this page
         // becasue 0 stands for non-empty or non-existing page
 
         // write to file, and modify _last_empty_slots_map_page
-        _file->writePage(newPageID, buffer);
+        _file->writePage(newPageID, buffer.get());
         _last_empty_slots_map_page = newPageID;;
 
         assert(_file->numPages() == newPageID + 1);
 
         // write back _last_map_page
-        _file->readPage(1, buffer);
-        memcpy(buffer + 4 * sizeof(uint64), 
+        _file->readPage(1, buffer.get());
+        memcpy(buffer.get() + 4 * sizeof(uint64), 
                &_last_empty_slots_map_page, 
                sizeof(_last_empty_slots_map_page));
-        _file->writePage(1, buffer);
+        _file->writePage(1, buffer.get());
 
         
         // add the new page to slots map
         _empty_slots_map.resize(_empty_slots_map.size() + 
                                 8 * (_file->pageSize() - PAGE_HEADER_LENGTH), 0);
-        
-
-        delete[] buffer;
     }
     
     // select a slot in page pageID, insert buffer to this slot.
     // returns RID of this slot
     // returns whether there's still empty slot in this page
     std::tuple<RID, bool> insertRecordtoPage(const uint64 pageID, const char* recordBuffer) {
-        char* pageBuffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> pageBuffer(new char[_file->pageSize()]);
         // read target page
-        _file->readPage(pageID, pageBuffer);
+        _file->readPage(pageID, pageBuffer.get());
         
         uint64 empty_slot_num = _num_records_each_page;
         // scan slots bitmap, find an empty slot
@@ -1038,7 +1018,7 @@ public:
         assert(empty_slot_num >= 0 && empty_slot_num < _num_records_each_page);
 
         // write record
-        memcpy(pageBuffer + 
+        memcpy(pageBuffer.get() + 
                    /* page header offset */
                    PAGE_HEADER_LENGTH + 
                    /* bitmap offset, bitmap is n bytes aligned */
@@ -1049,9 +1029,8 @@ public:
                _record_length);
 
         // write to file
-        _file->writePage(pageID, pageBuffer);
+        _file->writePage(pageID, pageBuffer.get());
         
-        delete[] pageBuffer;
         return std::make_tuple(RID(pageID, empty_slot_num), empty_slot_remained);
     }
 #ifdef DEBUG
@@ -1076,15 +1055,15 @@ public:
                 assert(num_records == _index[id]->getNumRecords());
 
         uint64 num_records2 = 0;
-        char* buffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
         uint64 verifyRecord_field_id = 0;
         // traverse each record in index, verify in data file
         auto verifyRecord = [this, &buffer, &num_records2, &verifyRecord_field_id](const char* record, const RID rid) {
-            _file->readPage(rid.pageID, buffer);
+            _file->readPage(rid.pageID, buffer.get());
             
             char* rightRecord = /* base */
-                                buffer + 
+                                buffer.get() + 
                                 /* page header offset */
                                 PAGE_HEADER_LENGTH + 
                                 /* bitmap offset */
@@ -1104,8 +1083,6 @@ public:
             }
 
         assert(num_records2 % num_records == 0);
-        
-        delete[] buffer;
     }
 #endif
     
@@ -1116,17 +1093,17 @@ public:
     void traverseRecords(CALLBACKFUNC func) const {
         assert(isopen());
         
-        char* buffer = new char[_file->pageSize()];
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
         // current page id
         uint64 pageID = FIRST_RECORD_PAGE;
 
         // while page id != 0
         while (pageID) {
-            _file->readPage(pageID, buffer);
+            _file->readPage(pageID, buffer.get());
             
-            char* bitmap_offset = buffer + PAGE_HEADER_LENGTH;
-            char* record_offset = buffer + PAGE_HEADER_LENGTH + 
+            char* bitmap_offset = buffer.get() + PAGE_HEADER_LENGTH;
+            char* record_offset = buffer.get() + PAGE_HEADER_LENGTH + 
                 (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64);
 
             // traverse each slot
@@ -1137,10 +1114,8 @@ public:
                     func(record_offset + _record_length * i, RID(pageID, i));
 
             // next page id
-            pageID = *pointer_convert<uint64*>(buffer + sizeof(uint64) * 2);
+            pageID = *pointer_convert<uint64*>(buffer.get() + sizeof(uint64) * 2);
         }
-
-        delete[] buffer;
     }
     
 private:
