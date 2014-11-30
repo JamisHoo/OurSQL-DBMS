@@ -1,0 +1,15 @@
+create database <database name>;
+show databases;
+use <database name>;
+drop database <database name>;
+
+create table <table name> (fieldname type[(size)] [not null] [,filedname type[(size)] [not null]]? [, primary key (name)]);
+show tables;
+desc[ribe] <table name>;
+drop table <table name>;
+
+create index <index name> on <table name>(<field name> [, <field name>]?);
+drop index <index name> on <table name>;
+
+insert into <table name>[(<field name> [, <field name>]?)] values (<value> [, <value>]?);
+
