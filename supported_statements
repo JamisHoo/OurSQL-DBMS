@@ -1,0 +1,38 @@
+# This doc shows all commands we should support in our database.
+# assert all commands can run in mysql.
+# <name> means required variable or name.
+# [ ] means optional.
+
+# fundamental:
+
+# database manipulation
+create database <database name>;
+show databases;
+use <database name>;
+drop database <database name>;
+
+# table manipulation
+create table <table name> (fieldname type[(size)] [not null] [,filedname type[(size)] [not null]]? [, primary key (name)]);
+show tables;
+desc[ribe] <table name>;
+drop table <table name>;
+
+# index manipulation
+create index <index name> on <table name>(<field name> [, <field name>]?);
+drop index <index name> on <table name>;
+
+# insert record
+insert into <table name>[(<field name> [, <field name>]?)] values (<value> [, <value>]?);
+
+# delete
+# TODO
+
+# update
+# TODO
+
+# select, including fuzzy matching, aggregation query
+# TODO
+
+# extention, excluding fuzzy matching, aggregation query and index manipulation
+# TODO
+
