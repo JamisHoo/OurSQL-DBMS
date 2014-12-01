@@ -6,32 +6,41 @@
 # fundamental:
 
 # database manipulation
-create database <database name>;
-show databases;
-use <database name>;
-drop database <database name>;
+CREAETE DATABASE <database name>;
+SHOW DATABASES;
+USE <database name>;
+DROP DATABASE <database name>;
 
 # table manipulation
-create table <table name> (fieldname type[(size)] [not null] [,filedname type[(size)] [not null]]? [, primary key (name)]);
-show tables;
-desc[ribe] <table name>;
-drop table <table name>;
+CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
+                         [,<filed name> <type>[(<size>)] [NOT NULL]]* 
+                         [, PRIMARY KEY (<field name>)]);
+SHOW TABLES;
+DESC[RIBE] <table name>;
+DROP TABLE <table name>;
 
 # index manipulation
-create index <index name> on <table name>(<field name> [, <field name>]?);
-drop index <index name> on <table name>;
+CREATE INDEX <index name> ON <table name>(<field name> [, <field name>]*);
+DROP INDEX <index name> ON <table name>;
 
 # insert record
-insert into <table name>[(<field name> [, <field name>]?)] values (<value> [, <value>]?);
+INSERT INTO <table name>[(<field name> [, <field name>]*)] 
+    VALUES (<value> [, <value>]*);
 
 # delete
-# TODO
+DELETE FROM <table name> [WHERE <condition>]
+DELETE * FROM <table name>
 
 # update
-# TODO
+UPDATE <table name> SET <field name>  = <new value> 
+                     [, <field name> = <new value>]* 
+    WHERE <field name> = <new value>
 
 # select, including fuzzy matching, aggregation query
-# TODO
+SELECT <field name> [, <field name>]* from <table name> [WHERE <condition>]
+SELECT * from <table name> [WHERE <condition>]
+SELECT <table name>.<field name> [, <table name>.<field name>] 
+    FROM <table name> [, <table name>] where <condition>
 
 # extention, excluding fuzzy matching, aggregation query and index manipulation
 # TODO
