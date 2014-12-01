@@ -32,7 +32,7 @@ DELETE FROM <table name> [WHERE <condition>];
 DELETE * FROM <table name>;
 
 # update
-UPDATE <table name> SET <field name>  = <new value> 
+UPDATE <table name> SET <field name> = <new value> 
                      [, <field name> = <new value>]* 
     WHERE <field name> = <new value>;
 
