@@ -28,19 +28,19 @@ INSERT INTO <table name>[(<field name> [, <field name>]*)]
     VALUES (<value> [, <value>]*);
 
 # delete
-DELETE FROM <table name> [WHERE <condition>]
-DELETE * FROM <table name>
+DELETE FROM <table name> [WHERE <condition>];
+DELETE * FROM <table name>;
 
 # update
 UPDATE <table name> SET <field name>  = <new value> 
                      [, <field name> = <new value>]* 
-    WHERE <field name> = <new value>
+    WHERE <field name> = <new value>;
 
 # select, including fuzzy matching, aggregation query
-SELECT <field name> [, <field name>]* from <table name> [WHERE <condition>]
-SELECT * from <table name> [WHERE <condition>]
+SELECT <field name> [, <field name>]* from <table name> [WHERE <condition>];
+SELECT * from <table name> [WHERE <condition>];
 SELECT <table name>.<field name> [, <table name>.<field name>] 
-    FROM <table name> [, <table name>] where <condition>
+    FROM <table name> [, <table name>] where <condition>;
 
 # extention, excluding fuzzy matching, aggregation query and index manipulation
 # TODO
