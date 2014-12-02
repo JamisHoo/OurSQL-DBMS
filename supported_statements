@@ -1,47 +1,65 @@
 # This doc shows all commands we should support in our database.
 # assert all commands can run in mysql.
 # <name> means required variable or name.
-# [ ] means optional.
+# [ ] means optional, that is zero or one.
+# * means zero or more.
+# { | } means 1-out-of-multi.
 
 # fundamental:
 
 # database manipulation
-CREAETE DATABASE <database name>;
-SHOW DATABASES;
-USE <database name>;
-DROP DATABASE <database name>;
+ 1. CREAETE DATABASE <database name>;
+ 2. SHOW DATABASES;
+ 3. USE <database name>;
+ 4. DROP DATABASE <database name>;
 
 # table manipulation
-CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
-                         [,<filed name> <type>[(<size>)] [NOT NULL]]* 
-                         [, PRIMARY KEY (<field name>)]);
-SHOW TABLES;
-DESC[RIBE] <table name>;
-DROP TABLE <table name>;
+ 5. CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
+                             [,<filed name> <type>[(<size>)] [NOT NULL]]* 
+                             [, PRIMARY KEY (<field name>)]);
+ 6. SHOW TABLES;
+ 7. DESC[RIBE] <table name>;
+ 8. DROP TABLE <table name>;
 
 # index manipulation
-CREATE INDEX <index name> ON <table name>(<field name> [, <field name>]*);
-DROP INDEX <index name> ON <table name>;
+ 9. CREATE INDEX <index name> ON <table name>(<field name> [, <field name>]*);
+10. DROP INDEX <index name> ON <table name>;
 
 # insert record
-INSERT INTO <table name>[(<field name> [, <field name>]*)] 
-    VALUES (<value> [, <value>]*);
+11. INSERT INTO <table name>[(<field name> [, <field name>]*)] 
+        VALUES (<value> [, <value>]*);
 
 # delete
-DELETE FROM <table name> [WHERE <condition>];
-DELETE * FROM <table name>;
+12. DELETE FROM <table name> [WHERE <condition>];
+13. DELETE * FROM <table name>;
 
 # update
-UPDATE <table name> SET <field name> = <new value> 
-                     [, <field name> = <new value>]* 
-    WHERE <field name> = <new value>;
+14. UPDATE <table name> SET <field name> = <new value> 
+                         [, <field name> = <new value>]* 
+        WHERE <field name> = <new value>;
 
 # select, including fuzzy matching, aggregation query
-SELECT <field name> [, <field name>]* from <table name> [WHERE <condition>];
-SELECT * from <table name> [WHERE <condition>];
-SELECT <table name>.<field name> [, <table name>.<field name>] 
-    FROM <table name> [, <table name>] where <condition>;
+15. SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
+16. SELECT * FROM <table name> [WHERE <condition>];
 
 # extention, excluding fuzzy matching, aggregation query and index manipulation
-# TODO
 
+# inner join
+17. SELECT <table name>.<field name> [, <table name>.<field name>] 
+        FROM <table name> [, <table name>] WHERE <condition>;
+# In inner join, on clause and where clause are the same.
+18. SELECT <table name>.<field name> [, <table name>.<field name>]* 
+        FROM <table name> [INNER] JOIN <table name> {ON | WHERE} <condition>;
+# Cross join is the same as inner join with condition clause always equivalent to true.
+# So it will be implemented as inner join.
+19. SELECT <table name>.<field name> [, <table name>.<field name>]*
+        FROM <table name> CROSS JOIN <table name>;
+
+# outer join
+20. SELECT <table name>.<field name> [, <table name>.<field name>]*
+        FROM <table name> {LEFT | RIGHT | FULL} [OUTER] JOIN <table name> 
+        ON <condition> [WHERE <conditon>];
+
+
+
+# TODO
