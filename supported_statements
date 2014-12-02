@@ -38,11 +38,11 @@
                          [, <field name> = <new value>]* 
         WHERE <field name> = <new value>;
 
-# select, including fuzzy matching, aggregation query
+# select
 15. SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
 16. SELECT * FROM <table name> [WHERE <condition>];
 
-# extention, excluding fuzzy matching, aggregation query and index manipulation
+# extention
 
 # inner join
 17. SELECT <table name>.<field name> [, <table name>.<field name>] 
@@ -63,3 +63,8 @@
 
 
 # TODO
+# consider join three tables or above
+# foreign key
+# select aggregate function, count, avg, max, min, sum...
+# check
+# like
