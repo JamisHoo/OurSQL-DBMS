@@ -582,7 +582,7 @@ public:
 
     // create index for field field_id.
     // returns 0 if succeed, 1 otherwise
-    bool createIndex(const uint64 field_id, const std::string& name) {
+    bool createIndex(const uint64 field_id, const std::string& /* index_name */) {
         // table not open
         if (!isopen()) return 1;
         // invalid field_id
