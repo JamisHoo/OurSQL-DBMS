@@ -329,7 +329,11 @@ public:
             pointer_convert<char*>(null_flag_args[_fields.primary_key_field_id()]));
 
         // if exist already
-        if (rid) return  { 0, 0 };
+        if (rid) {
+            for (const auto arg: null_flag_args)
+                delete[] pointer_convert<const char*>(arg);
+            return  { 0, 0 };
+        }
         // else not exist, continue inserting
 
 
