@@ -36,7 +36,7 @@
 # update
 14. UPDATE <table name> SET <field name> = <new value> 
                          [, <field name> = <new value>]* 
-        WHERE <field name> = <new value>;
+        WHERE <field name> = <some value>;
 
 # select
 15. SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
