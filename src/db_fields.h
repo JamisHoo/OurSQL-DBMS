@@ -19,7 +19,6 @@
 #include <string>
 #include <vector>
 #include <cassert>
-//#include <initializer_list>
 #include "db_common.h"
 
 class Database::DBFields {
