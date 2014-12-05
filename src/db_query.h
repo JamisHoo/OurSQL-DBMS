@@ -47,7 +47,8 @@ class Database::DBQuery {
 
 public:
     bool execute(const std::string& str) {
-        parseAsCreateDBStatement(str);
+        if (parseAsCreateDBStatement(str))
+            return 1;
     }
 
 };
