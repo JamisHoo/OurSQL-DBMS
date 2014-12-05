@@ -22,13 +22,10 @@ class Database::DBQuery {
     bool parseAsCreateDBStatement(const std::string& str) {
         using namespace QueryProcess;
 
-        auto ite_begin(std::begin(str));
-        auto ite_end(std::end(str));
-
-        CreateDBStatementParser<decltype(ite_begin), qi::space_type> p;
+        CreateDBStatementParser<std::string::const_iterator, qi::space_type> p;
         CreateDBStatement query;
         
-        bool ok = qi::phrase_parse(ite_begin, ite_end, p, qi::space, query); 
+        bool ok = qi::phrase_parse(str.begin(), str.end(), p, qi::space, query); 
         if (ok) {
             std::cout << "-------------------------\n";
             std::cout << "Stmt: " << str << std::endl;
