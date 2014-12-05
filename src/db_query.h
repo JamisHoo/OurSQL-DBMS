@@ -19,9 +19,7 @@
 #include "db_query_analyser.h"
 
 class Database::DBQuery {
-
-public:
-    bool execute(const std::string& str) {
+    bool parseAsCreateDBStatement(const std::string& str) {
         using namespace QueryProcess;
 
         auto ite_begin(std::begin(str));
@@ -45,6 +43,11 @@ public:
             std::cout << "-------------------------\n";
             return 1;
         }
+    }
+
+public:
+    bool execute(const std::string& str) {
+        parseAsCreateDBStatement(str);
     }
 
 };
