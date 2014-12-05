@@ -19,6 +19,8 @@
 #include "db_query_analyser.h"
 
 class Database::DBQuery {
+    // parse as statement "CREATE DATABASE <database name>"
+    // returns 0 if succeed
     bool parseAsCreateDBStatement(const std::string& str) {
         using namespace QueryProcess;
 
@@ -27,28 +29,44 @@ class Database::DBQuery {
         
         bool ok = qi::phrase_parse(str.begin(), str.end(), p, qi::space, query); 
         if (ok) {
-            std::cout << "-------------------------\n";
-            std::cout << "Stmt: " << str << std::endl;
-            std::cout << "Parsing succeeded\n";
-            std::cout << "Get: [" << query.db_name << "]\n";
-            std::cout << "-------------------------\n";
+            std::cout << "Parsing succeeded. ";
+            std::cout << "Get: create database [" << query.db_name << "]\n";
             return 0;
-        } else {
-            std::cout << "-------------------------\n";
-            std::cout << "Stmt: " << str << std::endl;
-            std::cout << "Parsing failed\n";
-            std::cout << "-------------------------\n";
-            return 1;
         }
+        return 1;
+    }
+    
+    // parse as statement "DROP DATABASE <database name>
+    // returns 0 if succeed
+    bool parseAsDropDBStatement(const std::string& str) {
+        using namespace QueryProcess;
+
+        DropDBStatementParser<std::string::const_iterator, qi::space_type> p;
+        DropDBStatement query;
+        
+        bool ok = qi::phrase_parse(str.begin(), str.end(), p, qi::space, query);
+        if (ok) {
+            std::cout << "Parsing succeeded ";
+            std::cout << "Get: drop database [" << query.db_name << "]\n";
+            return 0;
+        }
+        return 1;
     }
 
 public:
     bool execute(const std::string& str) {
-        if (parseAsCreateDBStatement(str))
-            return 1;
+        std::cout << "----------------------------\n";
+        std::cout << "Stmt: " << str << std::endl;
+
+        // try to parse with different patterns
+        if (!parseAsCreateDBStatement(str)) return 0;
+        if (!parseAsDropDBStatement(str)) return 0;
+
+        std::cout << "Parsing failed. " << std::endl;
+
+        return 1;
     }
 
 };
-
 
 #endif /* DB_QUERY_H_ */

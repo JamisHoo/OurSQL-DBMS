@@ -27,6 +27,11 @@ struct CreateDBStatement {
     std::string db_name;
 };
 
+struct DropDBStatement {
+    std::string db_name;
+};
+
+
 template <class Iterator, class Skipper = qi::space_type>
 struct CreateDBStatementParser: qi::grammar<Iterator, CreateDBStatement(), Skipper> {
     CreateDBStatementParser(): CreateDBStatementParser::base_type(start) {
@@ -41,6 +46,19 @@ private:
     qi::rule<Iterator, CreateDBStatement(), Skipper> start;
 };
 
+template <class Iterator, class Skipper = qi::space_type>
+struct DropDBStatementParser: qi::grammar<Iterator, DropDBStatement(), Skipper> {
+    DropDBStatementParser(): DropDBStatementParser::base_type(start) {
+        using namespace qi;
+
+        sql_identifier = lexeme[(alpha | char_('_')) >> *(alnum | char_('_'))];
+
+        start = no_case["drop database"] >> omit[no_skip[+space]] >> sql_identifier >> ';';
+    }
+private:
+    qi::rule<Iterator, std::string(), Skipper> sql_identifier;
+    qi::rule<Iterator, DropDBStatement(), Skipper> start;
+};
 
 }
 }
@@ -48,6 +66,8 @@ private:
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateDBStatement,
                           (std::string, db_name))
 
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropDBStatement,
+                          (std::string, db_name))
 
 
 #endif /* DB_QUERY_ANALYSER_H_ */
