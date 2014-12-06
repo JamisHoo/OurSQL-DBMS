@@ -16,56 +16,94 @@
 #ifndef DB_QUERY_H_
 #define DB_QUERY_H_
 
+#include <boost/filesystem.hpp>
 #include "db_query_analyser.h"
 
 class Database::DBQuery {
-    // parse as statement "CREATE DATABASE <database name>"
-    // returns 0 if succeed
-    bool parseAsCreateDBStatement(const std::string& str) {
-        using namespace QueryProcess;
+public:
+    bool execute(const std::string& str) {
+#ifdef DEBUG
+        std::cout << "----------------------------\n";
+        std::cout << "Stmt: " << str << std::endl;
+#endif
+        // try to parse with different patterns
+        for (int i = 0; i < 2; ++i) {
+            int rtv = (this->*parseFunctions[i])(str);
 
-        CreateDBStatementParser<std::string::const_iterator, qi::space_type> p;
+            switch (rtv) {
+                // parse and execute sucessful
+                case 0: 
+                    return 0;
+                // parse failed
+                case 1:
+                    continue;
+                // parse sucessful but execute failed
+                default:
+                    return 1;
+            }
+        }
+#ifdef DEBUG
+        std::cout << "Parsing failed. " << std::endl;
+#endif
+        return 1;
+    }
+
+private:
+    // parse as statement "CREATE DATABASE <database name>"
+    // returns 0 if parse and execute successful
+    // returns 1 if parse failed
+    // returns other values if parse successful but execute failed
+    int parseAsCreateDBStatement(const std::string& str) {
+        using namespace QueryProcess;
+        using namespace boost::filesystem;
+
+        CreateDBStatementParser<std::string::const_iterator, qi::space_type> parser;
         CreateDBStatement query;
         
-        bool ok = qi::phrase_parse(str.begin(), str.end(), p, qi::space, query); 
+        bool ok = qi::phrase_parse(str.begin(), str.end(), parser, qi::space, query); 
         if (ok) {
-            std::cout << "Parsing succeeded. ";
-            std::cout << "Get: create database [" << query.db_name << "]\n";
+#ifdef DEBUG
+            std::cout << "Parsing succeeded. " << "Get: create database [" << query.db_name << "]\n";
+#endif
+            // check whether existing file or directory with the same name
+            if (exists(query.db_name)) return 2;
+            // create directory
+            if (!create_directory(query.db_name)) return 3;
             return 0;
         }
         return 1;
     }
     
     // parse as statement "DROP DATABASE <database name>
-    // returns 0 if succeed
-    bool parseAsDropDBStatement(const std::string& str) {
+    // returns 0 if parse and execute successful
+    // returns 1 if parse failed
+    // returns other values if parse successful but execute failed
+    int parseAsDropDBStatement(const std::string& str) {
         using namespace QueryProcess;
+        using namespace boost::filesystem;
 
-        DropDBStatementParser<std::string::const_iterator, qi::space_type> p;
+        DropDBStatementParser<std::string::const_iterator, qi::space_type> parser;
         DropDBStatement query;
         
-        bool ok = qi::phrase_parse(str.begin(), str.end(), p, qi::space, query);
+        bool ok = qi::phrase_parse(str.begin(), str.end(), parser, qi::space, query);
         if (ok) {
-            std::cout << "Parsing succeeded ";
-            std::cout << "Get: drop database [" << query.db_name << "]\n";
+#ifdef DEBUG
+            std::cout << "Parsing succeeded " << "Get: drop database [" << query.db_name << "]\n";
+#endif
+            // check whether database exists
+            if (!exists(query.db_name) || !is_directory(query.db_name)) return 2;
+            // remove directory
+            if (!remove_all(query.db_name)) return 3;
             return 0;
         }
         return 1;
     }
 
-public:
-    bool execute(const std::string& str) {
-        std::cout << "----------------------------\n";
-        std::cout << "Stmt: " << str << std::endl;
-
-        // try to parse with different patterns
-        if (!parseAsCreateDBStatement(str)) return 0;
-        if (!parseAsDropDBStatement(str)) return 0;
-
-        std::cout << "Parsing failed. " << std::endl;
-
-        return 1;
-    }
+    typedef int (DBQuery::*ParseFunctions)(const std::string&);
+    ParseFunctions parseFunctions[2] = {
+        &DBQuery::parseAsCreateDBStatement,
+        &DBQuery::parseAsDropDBStatement
+    };
 
 };
 
