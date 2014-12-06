@@ -20,49 +20,15 @@ int main() {
     using namespace Database;
     
     DBQuery query;
-    query.execute("create database fuck;");
-    query.execute("create databasefuck;");
-    query.execute("create database\tfuck;");
-    query.execute("crEAte datABASe __fuck;");
-    query.execute("create database\t\t\tfu__c123k;");
-    query.execute("create database 12fuck__;");
-    query.execute("createdatabase fuck;");
-  
+
     
-    /*
-    using namespace std;
-    using namespace Database::QueryProcess;
-    using namespace boost::spirit;
+    
+    assert(query.execute(" \t\r\ncreate\rdatabase\n__fuck123 ;") == 0);
+    cout << query.db_inuse << endl;
 
-    std::string str;
-    while (getline(std::cin, str)) {
-        if (str.empty() || str[0] == 'q' || str[0] == 'Q')
-            break;
-        
-        auto ite_begin(std::begin(str));
-        auto ite_end(std::end(str));
-        parser<decltype(ite_begin), qi::space_type> p;
-        CreateDBStatement query;
-
-        
-        bool ok = qi::phrase_parse(ite_begin, ite_end, p, qi::space, query); 
-        if (ok) {
-            std::cout << "-------------------------\n";
-            std::cout << "Stmt: " << str << std::endl;
-            std::cout << "Parsing succeeded\n";
-            std::cout << "Get: [" << query.db_name << "]\n";
-            std::cout << "\n-------------------------\n";
-        } else {
-            std::cout << "-------------------------\n";
-            std::cout << "Stmt: " << str << std::endl;
-            std::cout << "Parsing failed\n";
-            std::cout << "-------------------------\n";
-        }
-    }
-
-    std::cout << "Bye... :-) \n\n";
-    return 0;
-    */
-
-}
-
+    assert(query.execute("use __fuck123;") == 0);
+    cout << query.db_inuse << endl;
+    assert(query.execute("show databases;") == 0);
+    assert(query.execute("DROP dataBAse     __fuck123;") == 0);
+    cout << query.db_inuse << endl;
+} 
