@@ -155,16 +155,55 @@ private:
         return 1;
     }
 
+    // parse as statement "CREATE TABLE <table name> (+<field name>);"
+    // returns 0 if parse and execute succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed
+    int parseAsCreateTableStatement(const std::string& str) {
+        QueryProcess::CreateTableStatement query;
+
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(),
+                                                  str.end(),
+                                                  createTableStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query
+                                                 );
+        
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Parsing succeed Get: create table [" << query.table_name << "] (\n";
+#endif
+            for (const auto& x: query.field_descs) {
+                std::cout << x.field_name << ' ' << 
+                             x.field_type << ' ' << 
+                             x.field_length.size() << ' ';
+
+                if (x.field_length.size())
+                    std::cout << x.field_length[0];
+                else 
+                    std::cout << "(no length)";
+
+                std::cout << ' ' << x.field_not_null << std::endl;
+            }
+            std::cout << "primary key [" << query.primary_key_name << "]" << std::endl;
+            std::cout << ");" << std::endl;
+
+            return 0;
+        }
+        return 1;
+    }
+  
 
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 4;
+    constexpr static int kParseFunctions = 5;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
         &DBQuery::parseAsUseDBStatement,
-        &DBQuery::parseAsShowDBStatement
+        &DBQuery::parseAsShowDBStatement,
+        &DBQuery::parseAsCreateTableStatement
     };
 
     // parsers
@@ -172,6 +211,7 @@ private:
     QueryProcess::CreateDBStatementParser createDBStatementParser;
     QueryProcess::UseDBStatementParser useDBStatementParser;
     QueryProcess::ShowDBStatementParser showDBStatementParser;
+    QueryProcess::CreateTableStatementParser createTableStatementParser;
 #ifdef DEBUG
 public:
 #endif

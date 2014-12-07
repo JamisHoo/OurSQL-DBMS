@@ -22,7 +22,7 @@ int main() {
     DBQuery query;
 
     
-    
+    /*    
     assert(query.execute(" \t\r\ncreate\rdatabase\n__fuck123 ;") == 0);
     cout << query.db_inuse << endl;
 
@@ -31,4 +31,9 @@ int main() {
     assert(query.execute("show databases;") == 0);
     assert(query.execute("DROP dataBAse     __fuck123;") == 0);
     cout << query.db_inuse << endl;
+    */
+    cout << query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3), priMary key(chedan));");
+    cout << query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3));");
+    cout << query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, pRimary key (chedan \n), shit5 shit6( -3));");
+    cout << endl;
 } 
