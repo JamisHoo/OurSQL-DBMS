@@ -40,10 +40,27 @@ struct CreateTableStatement {
     std::string primary_key_name;
 };
 
+// definition of keywords
+qi::rule<std::string::const_iterator, std::string(), qi::space_type> keywords = 
+    qi::no_case[
+                qi::lit("create") |
+                qi::lit("database") |
+                qi::lit("drop") |
+                qi::lit("show") |
+                qi::lit("use") |
+                qi::lit("databases") |
+                qi::lit("table") |
+                qi::lit("not") |
+                qi::lit("null") |
+                qi::lit("primary") | 
+                qi::lit("key") 
+               ];
 
 // rule for identifier
 qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_identifier = 
-    lexeme[(qi::alpha | qi::char_('_')) >> *(qi::alnum | qi::char_('_'))];
+    (lexeme[(qi::alpha | qi::char_('_')) >> *(qi::alnum | qi::char_('_'))] - keywords);
+
+
 
 // parser of "CREATE DATABASE <database name>"
 struct CreateDBStatementParser: qi::grammar<std::string::const_iterator, CreateDBStatement(), qi::space_type> {
@@ -114,7 +131,9 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                 ')' >>
                 ';';
 
-        field_desc = (sql_identifier - qi::no_case["primary"]) >>  // TODO
+
+        field_desc = 
+                     sql_identifier >>  
                      sql_identifier >> 
                      -('(' >> ulong_long >> ')') >>
                      not_null

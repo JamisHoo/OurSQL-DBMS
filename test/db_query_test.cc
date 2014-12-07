@@ -22,7 +22,7 @@ int main() {
     DBQuery query;
 
     
-    /*    
+    /* 
     assert(query.execute(" \t\r\ncreate\rdatabase\n__fuck123 ;") == 0);
     cout << query.db_inuse << endl;
 
@@ -32,8 +32,15 @@ int main() {
     assert(query.execute("DROP dataBAse     __fuck123;") == 0);
     cout << query.db_inuse << endl;
     */
+    
+    /*
     query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6(0), priMary key(chedan));");
     query.execute("create table create ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3));");
     query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, pRimary key (chedan \n), shit5 shit6( -3));");
+    query.execute("Create table fuck( primary key (_ad));");
+    */
+    
     query.execute("Create table fuck ( shit shit );");
+    query.execute("CREATE TABLE fuck (shit shit , primary key (chedan));");
+    query.execute("CREATE TABLE createx (shit shit , primary key (chedan));");
 } 
