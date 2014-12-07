@@ -32,7 +32,7 @@ int main() {
     assert(query.execute("DROP dataBAse     __fuck123;") == 0);
     cout << query.db_inuse << endl;
     */
-    query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3), priMary key(chedan));");
+    query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6(0), priMary key(chedan));");
     query.execute("create table create ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3));");
     query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, pRimary key (chedan \n), shit5 shit6( -3));");
     query.execute("Create table fuck ( shit shit );");

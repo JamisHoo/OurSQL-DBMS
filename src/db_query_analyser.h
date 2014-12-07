@@ -32,7 +32,7 @@ struct CreateTableStatement {
     struct FieldDesc {
         std::string field_name;
         std::string field_type;
-        std::vector<int> field_length;
+        std::vector<uint64> field_length;
         bool field_not_null;
     };
     std::string table_name;
@@ -116,7 +116,7 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
 
         field_desc = (sql_identifier - qi::no_case["primary"]) >>  // TODO
                      sql_identifier >> 
-                     -('(' >> int_ >> ')') >>
+                     -('(' >> ulong_long >> ')') >>
                      not_null
                      ;
 
@@ -155,7 +155,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::UseDBStatement,
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::FieldDesc,
                           (std::string, field_name)
                           (std::string, field_type)
-                          (std::vector<int>, field_length)
+                          (std::vector<Database::uint64>, field_length)
                           (bool, field_not_null)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
