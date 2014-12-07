@@ -175,15 +175,16 @@ private:
 #endif
             for (const auto& x: query.field_descs) {
                 std::cout << x.field_name << ' ' << 
-                             x.field_type << ' ' << 
-                             x.field_length.size() << ' ';
+                             x.field_type << ' ';
+                
+                assert(x.field_length.size() < 2);
 
                 if (x.field_length.size())
                     std::cout << x.field_length[0];
                 else 
                     std::cout << "(no length)";
 
-                std::cout << ' ' << x.field_not_null << std::endl;
+                std::cout << ' ' << (x.field_not_null? "not null": "") << std::endl;
             }
             std::cout << "primary key [" << query.primary_key_name << "]" << std::endl;
             std::cout << ");" << std::endl;

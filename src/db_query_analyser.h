@@ -114,7 +114,7 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                 ')' >>
                 ';';
 
-        field_desc = (sql_identifier - qi::no_case["primary"]) >> 
+        field_desc = (sql_identifier - qi::no_case["primary"]) >>  // TODO
                      sql_identifier >> 
                      -('(' >> int_ >> ')') >>
                      not_null
