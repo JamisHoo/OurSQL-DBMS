@@ -182,6 +182,8 @@ private:
                     std::cout << x.field_length[0];
                 else 
                     std::cout << "(no length)";
+                if (x.field_type_unsigned)
+                    std::cout << " unsigned";
 
                 std::cout << ' ' << (x.field_not_null? "not null": "") << std::endl;
             }

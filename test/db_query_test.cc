@@ -34,13 +34,23 @@ int main() {
     */
     
     /*
-    query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6(0), priMary key(chedan));");
-    query.execute("create table create ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3));");
-    query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, pRimary key (chedan \n), shit5 shit6( -3));");
+    // this should pass
+    query.execute("create table fuck ( shit smallint (12), shit3 varchar Not nuLL, shit5 char(0), priMary key(chedan));");
+    // test minus filed length
+    query.execute("create table createx ( shit tinyint (12), shit3 bigint Not nuLL, shit5 char( -3));");
+    // test primary location
+    query.execute("create table fuck ( shit bool (12), shit3 varchar Not nuLL, pRimary key (chedan \n), shit5 int( -3));");
+    // test no field description
     query.execute("Create table fuck( primary key (_ad));");
-    query.execute("Create table fuck ( shit shit );");
-    query.execute("CREATE TABLE fuck (shit shit , primary key (chedan));");
-    query.execute("CREATE TABLE createx (shit shit , primary key (chedan));");
+    // this illegal table name
+    query.execute("Create table create ( shit int );");
+    // test illegal field name
+    query.execute("CREATE TABLE fuck (table int , primary key (chedan));");
+    // this should pass
+    query.execute("CREATE TABLE createx (tablex int , primary key (chedan));");
     */
+    
     query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
+    query.execute("Create TabLE ints (student_id int signed not null, student_name varchar(100)Unsigned, clever bool, primary key(student_id));");
+    
 } 
