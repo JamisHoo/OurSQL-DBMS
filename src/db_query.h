@@ -21,24 +21,11 @@
 #include <tuple>
 #include <boost/filesystem.hpp>
 #include "db_query_analyser.h"
+#include "db_fields.h"
 
 class Database::DBQuery {
 public:
-    DBQuery() {
-        //                   (type name, is unsigned) ------> (type, default length, use provided length)
-        datatype_map.emplace(std::make_tuple("int8", 0),       std::make_tuple( 0, 1, 0));
-        datatype_map.emplace(std::make_tuple("int8", 1),       std::make_tuple( 1, 1, 0));
-        datatype_map.emplace(std::make_tuple("int16", 0),      std::make_tuple( 2, 2, 0));
-        datatype_map.emplace(std::make_tuple("int16", 1),      std::make_tuple( 3, 2, 0));
-        datatype_map.emplace(std::make_tuple("int32", 0),      std::make_tuple( 4, 4, 0));
-        datatype_map.emplace(std::make_tuple("int32", 1),      std::make_tuple( 5, 4, 0));
-        datatype_map.emplace(std::make_tuple("int64", 0),      std::make_tuple( 6, 8, 0));
-        datatype_map.emplace(std::make_tuple("int64", 1),      std::make_tuple( 7, 8, 0));
-        datatype_map.emplace(std::make_tuple("bool", 0),       std::make_tuple( 8, 1, 0));
-        datatype_map.emplace(std::make_tuple("char", 0),       std::make_tuple(10, 0, 1));
-        datatype_map.emplace(std::make_tuple("float", 0),      std::make_tuple(11, 4, 0));
-        datatype_map.emplace(std::make_tuple("double", 0),     std::make_tuple(12, 8, 0));
-    }
+    DBQuery() { }
 
     bool execute(const std::string& str) {
 #ifdef DEBUG
@@ -221,7 +208,7 @@ private:
                 if (field.field_name == query.primary_key_name) 
                     primary_key_exist = 3;
 
-                auto type_desc = datatype_map.find(
+                auto type_desc = DBFields::datatype_map.find(
                     std::make_tuple(field.field_type, 
                                     field.field_type_unsigned));
 
@@ -233,7 +220,7 @@ private:
 
                 // unsupported type.
                 // this is usually because of redundant "unsigned"
-                if (type_desc == datatype_map.end()) 
+                if (type_desc == DBFields::datatype_map.end()) 
                     return 4;
 
                 // field length should be explicited provided, but not provided
@@ -301,11 +288,6 @@ public:
 #endif
     // database currently using
     std::string db_inuse;
-
-    // TODO: move this to db_fields.h
-    // <type name, is unsigned> -> <type, default length, explicit length required>
-    std::map< std::tuple<std::string, bool>, 
-              std::tuple<uint64, uint64, bool> > datatype_map;
 
 };
 
