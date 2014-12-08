@@ -278,6 +278,7 @@ private:
 // TODO: move this to a seperate cc file.
 const std::map< std::tuple<std::string, bool>, 
                            std::tuple<Database::uint64, Database::uint64, bool> > Database::DBFields::datatype_map = { 
+        // (type name, is unsigned) ------> (type number, length, must provide a length)
         { std::make_tuple("int8", 0),       std::make_tuple( 0, 1, 0) },
         { std::make_tuple("int8", 1),       std::make_tuple( 1, 1, 0) },
         { std::make_tuple("int16", 0),      std::make_tuple( 2, 2, 0) },
