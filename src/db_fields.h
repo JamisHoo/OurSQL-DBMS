@@ -140,7 +140,9 @@ public:
         // length + 1, because the first byte is null flag
         _field_length.push_back(field_length + 1);
         _indexed.push_back(indexed);
-        _notnull.push_back(notnull);
+        // primary key cannot be null
+        _notnull.push_back(notnull || is_primary_key);
+        assert(!is_primary_key || notnull);
         if (is_primary_key) _primary_key_field_id = _field_id.back();
         if (field_name.length() > FIELD_NAME_LENGTH)
             _field_name.push_back(field_name.substr(0, FIELD_NAME_LENGTH));
