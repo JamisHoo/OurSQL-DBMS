@@ -1,12 +1,12 @@
 /******************************************************************************
- *  Copyright (c) 2014 Jinming Hu 
+ *  Copyright (c) 2014 Jamis Hoo 
  *  Distributed under the MIT license 
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
  *  Project: Database
  *  Filename: db_file.h 
  *  Version: 1.0
- *  Author: Jinming Hu
+ *  Author: Jamis Hoo
  *  E-mail: hjm211324@gmail.com
  *  Date: Oct. 22, 2014
  *  Time: 18:57:07

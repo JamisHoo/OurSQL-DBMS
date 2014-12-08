@@ -1,12 +1,12 @@
 /******************************************************************************
- *  Copyright (c) 2014 Jinming Hu 
+ *  Copyright (c) 2014 Jamis Hoo 
  *  Distributed under the MIT license 
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
  *  Project: Database
  *  Filename: db_query_analyser.h 
  *  Version: 1.0
- *  Author: Jinming Hu
+ *  Author: Jamis Hoo
  *  E-mail: hjm211324@gmail.com
  *  Date: Dec. 05, 2014
  *  Time: 20:33:43
