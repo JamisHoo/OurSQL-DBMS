@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <tuple>
 #include "db_common.h"
 
 class Database::DBFields {
@@ -39,6 +40,10 @@ public:
 
     static constexpr uint64 FIELD_INFO_LENGTH = 256;
     static constexpr uint64 FIELD_NAME_LENGTH = 229;
+
+    // <type name, is unsigned> -> <type, default length, explicit length required>
+    static const std::map< std::tuple<std::string, bool>, 
+                           std::tuple<uint64, uint64, bool> > datatype_map;
 
     struct Comparator {
         uint64 type;
@@ -257,7 +262,7 @@ public:
     uint64 primary_key_field_id() const {
         return _primary_key_field_id;
     }
-    
+
 private:
     std::vector<uint64> _field_id;
     std::vector<uint64> _offset;
@@ -267,6 +272,24 @@ private:
     std::vector<bool> _indexed;
     uint64 _total_length;
     uint64 _primary_key_field_id;
+
+};
+
+// TODO: move this to a seperate cc file.
+const std::map< std::tuple<std::string, bool>, 
+                           std::tuple<Database::uint64, Database::uint64, bool> > Database::DBFields::datatype_map = { 
+        { std::make_tuple("int8", 0),       std::make_tuple( 0, 1, 0) },
+        { std::make_tuple("int8", 1),       std::make_tuple( 1, 1, 0) },
+        { std::make_tuple("int16", 0),      std::make_tuple( 2, 2, 0) },
+        { std::make_tuple("int16", 1),      std::make_tuple( 3, 2, 0) },
+        { std::make_tuple("int32", 0),      std::make_tuple( 4, 4, 0) },
+        { std::make_tuple("int32", 1),      std::make_tuple( 5, 4, 0) },
+        { std::make_tuple("int64", 0),      std::make_tuple( 6, 8, 0) },
+        { std::make_tuple("int64", 1),      std::make_tuple( 7, 8, 0) },
+        { std::make_tuple("bool", 0),       std::make_tuple( 8, 1, 0) },
+        { std::make_tuple("char", 0),       std::make_tuple(10, 0, 1) },
+        { std::make_tuple("float", 0),      std::make_tuple(11, 4, 0) },
+        { std::make_tuple("double", 0),     std::make_tuple(12, 8, 0) }
 };
 
 #endif /* DB_FIELDS_H_ */
