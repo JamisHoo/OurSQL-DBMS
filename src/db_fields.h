@@ -133,13 +133,14 @@ public:
     // usually used by upper layer control module
     void insert(const uint64 field_type, const uint64 field_length,
                 const bool is_primary_key, const bool indexed, 
-                const std::string& field_name) {
+                const bool notnull, const std::string& field_name) {
         _field_id.push_back(_field_id.size());
         _offset.push_back(_total_length);
         _field_type.push_back(field_type);
         // length + 1, because the first byte is null flag
         _field_length.push_back(field_length + 1);
         _indexed.push_back(indexed);
+        _notnull.push_back(notnull);
         if (is_primary_key) _primary_key_field_id = _field_id.back();
         if (field_name.length() > FIELD_NAME_LENGTH)
             _field_name.push_back(field_name.substr(0, FIELD_NAME_LENGTH));
@@ -170,6 +171,9 @@ public:
         _indexed.push_back(bool(field_description[pos] != '\x00'));
         pos += sizeof(bool);
 
+        _notnull.push_back(bool(field_description[pos] != '\x00'));
+        pos += sizeof(bool);
+
         _field_name.push_back(std::string(field_description + pos));
         if (_field_name.back().length() > FIELD_NAME_LENGTH)
             _field_name.back().substr(0, FIELD_NAME_LENGTH);
@@ -197,6 +201,9 @@ public:
         pos += sizeof(bool);
         // indexed
         buffer[pos] = _indexed[i];
+        pos += sizeof(bool);
+        // not null
+        buffer[pos] = _notnull[i];
         pos += sizeof(bool);
         // field name
         memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
@@ -231,6 +238,7 @@ public:
         _field_length.clear();
         _field_name.clear();
         _indexed.clear();
+        _notnull.clear();
         _total_length = 0;
     }
 
@@ -259,6 +267,10 @@ public:
         return _indexed;
     }
 
+    const std::vector<bool> notnull() const {
+        return _notnull;
+    }
+
     uint64 primary_key_field_id() const {
         return _primary_key_field_id;
     }
@@ -270,6 +282,7 @@ private:
     std::vector<uint64> _field_length;
     std::vector<std::string> _field_name;
     std::vector<bool> _indexed;
+    std::vector<bool> _notnull;
     uint64 _total_length;
     uint64 _primary_key_field_id;
 
