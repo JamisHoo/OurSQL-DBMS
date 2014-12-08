@@ -50,7 +50,7 @@ int main() {
     query.execute("CREATE TABLE createx (tablex int , primary key (chedan));");
     */
     
-    query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
-    query.execute("Create TabLE ints (student_id int signed not null, student_name varchar(100)Unsigned, clever bool, primary key(student_id));");
+    cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
+    cout << query.execute("Create TabLE ints (student_id int signed not null, student_name varchar(100) not nUll, clever bool);");
     
 } 

@@ -51,6 +51,8 @@ struct Keyword_symbols: qi::symbols<> {
            ("use")
            ("databases")
            ("table")
+           ("signed")
+           ("unsigned")
            ("not")
            ("null")
            ("primary")
@@ -62,18 +64,15 @@ struct Keyword_symbols: qi::symbols<> {
 // datatype symbols set
 struct Datatype_symbols: qi::symbols<char, std::string> {
     Datatype_symbols() {
-        add("int", "int")
-           ("smallint", "smallint")
-           ("tinyint", "tynyint")
-           ("mediumint", "mediumint")
-           ("bigint", "bigint")
+        add("int", "int32")
+           ("smallint", "int16")
+           ("tinyint", "int8")
+           ("bigint", "int64")
            ("bool", "bool")
            ("float", "float")
            ("double", "double")
-           ("varchar", "varchar")
+           ("varchar", "char")
            ("char", "char")
-           ("signed")
-           ("unsigned")
           ;
     }
 };
@@ -171,6 +170,7 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                      datatypes >> 
                      // possible length
                      -('(' >> ulong_long >> ')') >>
+                     // TODO: verify both unsigned and signed
                      // possible unsigned or signed
                      qi::matches[qi::no_case["unsigned"]] >>
                      -qi::no_case["signed"] >>
@@ -219,7 +219,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::FieldD
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::CreateTableStatement::FieldDesc>, field_descs)
+                          (std::vector< ::Database::QueryProcess::CreateTableStatement::FieldDesc >, field_descs)
                           (std::string, primary_key_name)
                          )
 
