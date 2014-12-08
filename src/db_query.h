@@ -190,6 +190,8 @@ private:
                     std::cout << "(no length)";
                 if (x.field_type_unsigned)
                     std::cout << " unsigned";
+                if (x.field_type_signed)
+                    std::cout << " signed";
 
                 std::cout << ' ' << (x.field_not_null? "not null": "") << std::endl;
             }
@@ -210,7 +212,8 @@ private:
 
                 auto type_desc = DBFields::datatype_map.find(
                     std::make_tuple(field.field_type, 
-                                    field.field_type_unsigned));
+                                    field.field_type_unsigned,
+                                    field.field_type_signed));
 
 #ifdef DEBUG
                 static_assert(std::is_same<decltype(type_desc->second), 
@@ -219,7 +222,7 @@ private:
 #endif
 
                 // unsupported type.
-                // this is usually because of redundant "unsigned"
+                // this is usually because of redundant "unsigned" and "signed"
                 if (type_desc == DBFields::datatype_map.end()) 
                     return 4;
 

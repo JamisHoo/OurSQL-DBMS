@@ -41,8 +41,8 @@ public:
     static constexpr uint64 FIELD_INFO_LENGTH = 256;
     static constexpr uint64 FIELD_NAME_LENGTH = 229;
 
-    // <type name, is unsigned> -> <type, default length, explicit length required>
-    static const std::map< std::tuple<std::string, bool>, 
+    // <type name, is unsigned, is signed> -> <type, default length, explicit length required>
+    static const std::map< std::tuple<std::string, bool, bool>, 
                            std::tuple<uint64, uint64, bool> > datatype_map;
 
     struct Comparator {
@@ -276,21 +276,32 @@ private:
 };
 
 // TODO: move this to a seperate cc file.
-const std::map< std::tuple<std::string, bool>, 
+const std::map< std::tuple<std::string, bool, bool>, 
                            std::tuple<Database::uint64, Database::uint64, bool> > Database::DBFields::datatype_map = { 
-        // (type name, is unsigned) ------> (type number, length, must provide a length)
-        { std::make_tuple("int8", 0),       std::make_tuple( 0, 1, 0) },
-        { std::make_tuple("int8", 1),       std::make_tuple( 1, 1, 0) },
-        { std::make_tuple("int16", 0),      std::make_tuple( 2, 2, 0) },
-        { std::make_tuple("int16", 1),      std::make_tuple( 3, 2, 0) },
-        { std::make_tuple("int32", 0),      std::make_tuple( 4, 4, 0) },
-        { std::make_tuple("int32", 1),      std::make_tuple( 5, 4, 0) },
-        { std::make_tuple("int64", 0),      std::make_tuple( 6, 8, 0) },
-        { std::make_tuple("int64", 1),      std::make_tuple( 7, 8, 0) },
-        { std::make_tuple("bool", 0),       std::make_tuple( 8, 1, 0) },
-        { std::make_tuple("char", 0),       std::make_tuple(10, 0, 1) },
-        { std::make_tuple("float", 0),      std::make_tuple(11, 4, 0) },
-        { std::make_tuple("double", 0),     std::make_tuple(12, 8, 0) }
+        // (type name, is unsigned, is signed) ------> (type number, length, must provide a length)
+        // 8 bit int, defalut signed
+        { std::make_tuple("int8", 0, 0),       std::make_tuple( 0, 1, 0) },
+        // signed 8 bit int
+        { std::make_tuple("int8", 0, 1),       std::make_tuple( 0, 1, 0) },
+        // unsigned 8 bit int
+        { std::make_tuple("int8", 1, 0),       std::make_tuple( 1, 1, 0) },
+        { std::make_tuple("int16", 0, 0),      std::make_tuple( 2, 2, 0) },
+        { std::make_tuple("int16", 0, 1),      std::make_tuple( 2, 2, 0) },
+        { std::make_tuple("int16", 1, 0),      std::make_tuple( 3, 2, 0) },
+        { std::make_tuple("int32", 0, 0),      std::make_tuple( 4, 4, 0) },
+        { std::make_tuple("int32", 0, 1),      std::make_tuple( 4, 4, 0) },
+        { std::make_tuple("int32", 1, 0),      std::make_tuple( 5, 4, 0) },
+        { std::make_tuple("int64", 0, 0),      std::make_tuple( 6, 8, 0) },
+        { std::make_tuple("int64", 0, 1),      std::make_tuple( 6, 8, 0) },
+        { std::make_tuple("int64", 1, 0),      std::make_tuple( 7, 8, 0) },
+        // signed, unsigned cannot apply to bool and char(varchar)
+        { std::make_tuple("bool", 0, 0),       std::make_tuple( 8, 1, 0) },
+        { std::make_tuple("char", 0, 0),       std::make_tuple(10, 0, 1) },
+        // unsigned float and double not supported.
+        { std::make_tuple("float", 0, 0),      std::make_tuple(11, 4, 0) },
+        { std::make_tuple("float", 0, 1),      std::make_tuple(11, 4, 0) },
+        { std::make_tuple("double", 0, 0),     std::make_tuple(12, 8, 0) },
+        { std::make_tuple("double", 0, 1),     std::make_tuple(12, 8, 0) }
 };
 
 #endif /* DB_FIELDS_H_ */

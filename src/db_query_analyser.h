@@ -33,6 +33,7 @@ struct CreateTableStatement {
         std::string field_name;
         std::string field_type;
         bool field_type_unsigned;
+        bool field_type_signed;
         std::vector<uint64> field_length;
         bool field_not_null;
     };
@@ -170,10 +171,9 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                      datatypes >> 
                      // possible length
                      -('(' >> ulong_long >> ')') >>
-                     // TODO: verify both unsigned and signed
                      // possible unsigned or signed
                      qi::matches[qi::no_case["unsigned"]] >>
-                     -qi::no_case["signed"] >>
+                     qi::matches[qi::no_case["signed"]] >>
                      // possible not null
                      qi::matches[qi::no_case["not"] >>
                                  no_skip[+qi::space] >>
@@ -215,6 +215,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::FieldD
                           (std::string, field_type)
                           (std::vector<Database::uint64>, field_length)
                           (bool, field_type_unsigned)
+                          (bool, field_type_signed)
                           (bool, field_not_null)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
