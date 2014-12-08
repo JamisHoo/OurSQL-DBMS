@@ -15,9 +15,9 @@
 #ifndef DB_QUERY_ANALYSER_H_
 #define DB_QUERY_ANALYSER_H_
 
-#include <tuple>
 #include <boost/fusion/adapted.hpp>
 #include <boost/spirit/include/qi.hpp>
+#include <boost/spirit/repository/include/qi_distinct.hpp>
 #include "db_common.h"
 
 namespace Database{
@@ -40,27 +40,30 @@ struct CreateTableStatement {
     std::string primary_key_name;
 };
 
+// keyword symbols set
+struct Keyword_symbols: qi::symbols<> {
+    Keyword_symbols() {
+        add("create")
+           ("database")
+           ("drop")
+           ("show")
+           ("use")
+           ("databases")
+           ("table")
+           ("not")
+           ("null")
+           ("primary")
+           ("key")
+        ;
+    }
+};
+
 // definition of keywords
-qi::rule<std::string::const_iterator, std::string(), qi::space_type> keywords = 
-    qi::no_case[
-                qi::lit("create") |
-                qi::lit("database") |
-                qi::lit("drop") |
-                qi::lit("show") |
-                qi::lit("use") |
-                qi::lit("databases") |
-                qi::lit("table") |
-                qi::lit("not") |
-                qi::lit("null") |
-                qi::lit("primary") | 
-                qi::lit("key") 
-               ];
+const qi::rule<std::string::const_iterator> keywords = 
+    repository::distinct(qi::alnum | '_')[qi::no_case[Keyword_symbols()]];
 
-// rule for identifier
-qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_identifier = 
-    (lexeme[(qi::alpha | qi::char_('_')) >> *(qi::alnum | qi::char_('_'))] - keywords);
-
-
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_identifier = 
+    lexeme[(qi::alpha | '_') >> *(qi::alnum | '_')] - keywords;
 
 // parser of "CREATE DATABASE <database name>"
 struct CreateDBStatementParser: qi::grammar<std::string::const_iterator, CreateDBStatement(), qi::space_type> {
@@ -116,21 +119,20 @@ private:
 
 // parser of 
 // "CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
-//                           [,<filed name> <type>[(<size>)] [NOT NULL]]* 
-//                           [, PRIMARY KEY (<field name>)]); "
+//                          [, <filed name> <type>[(<size>)] [NOT NULL]]* 
+//                          [, PRIMARY KEY (<field name>)]); "
 struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, CreateTableStatement(), qi::space_type> {
     CreateTableStatementParser(): CreateTableStatementParser::base_type(start) {
         start = qi::no_case["create"] >>
                 omit[no_skip[+qi::space]] >>
                 qi::no_case["table"] >>
                 omit[no_skip[+qi::space]] >> 
-                sql_identifier >>
+                sql_identifier >> 
                 '(' >>
                 (field_desc % ',') >>
                 -(',' >> primary_key) >>
                 ')' >>
                 ';';
-
 
         field_desc = 
                      sql_identifier >>  

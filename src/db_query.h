@@ -172,7 +172,6 @@ private:
         if (ok) {
 #ifdef DEBUG
             std::cout << "Parsing succeed Get: create table [" << query.table_name << "] (\n";
-#endif
             for (const auto& x: query.field_descs) {
                 std::cout << x.field_name << ' ' << 
                              x.field_type << ' ';
@@ -188,6 +187,7 @@ private:
             }
             std::cout << "primary key [" << query.primary_key_name << "]" << std::endl;
             std::cout << ");" << std::endl;
+#endif
 
             return 0;
         }
@@ -208,8 +208,8 @@ private:
     };
 
     // parsers
-    QueryProcess::DropDBStatementParser dropDBStatementParser;
     QueryProcess::CreateDBStatementParser createDBStatementParser;
+    QueryProcess::DropDBStatementParser dropDBStatementParser;
     QueryProcess::UseDBStatementParser useDBStatementParser;
     QueryProcess::ShowDBStatementParser showDBStatementParser;
     QueryProcess::CreateTableStatementParser createTableStatementParser;

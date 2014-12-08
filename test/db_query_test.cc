@@ -38,9 +38,9 @@ int main() {
     query.execute("create table create ( shit shit2 (12), shit3 shit4 Not nuLL, shit5 shit6( -3));");
     query.execute("create table fuck ( shit shit2 (12), shit3 shit4 Not nuLL, pRimary key (chedan \n), shit5 shit6( -3));");
     query.execute("Create table fuck( primary key (_ad));");
-    */
-    
     query.execute("Create table fuck ( shit shit );");
     query.execute("CREATE TABLE fuck (shit shit , primary key (chedan));");
     query.execute("CREATE TABLE createx (shit shit , primary key (chedan));");
+    */
+    query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
 } 
