@@ -1,12 +1,12 @@
 /******************************************************************************
- *  Copyright (c) 2014 Jinming Hu 
+ *  Copyright (c) 2014 Terran Lee 
  *  Distributed under the MIT license 
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
  *  Project: Database
  *  Filename: db_query.h 
  *  Version: 1.0
- *  Author: Jinming Hu
+ *  Author: Terran Lee
  *  E-mail: hjm211324@gmail.com
  *  Date: Dec. 05, 2014
  *  Time: 21:01:37
