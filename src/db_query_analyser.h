@@ -199,6 +199,18 @@ private:
     qi::rule<std::string::const_iterator, CreateTableStatement(), qi::space_type> start;
 };
 
+// parser of "SHOW TABLES"
+struct ShowTablesStatementParser: qi::grammar<std::string::const_iterator, unused_type, qi::space_type> {
+    ShowTablesStatementParser(): ShowTablesStatementParser::base_type(start) {
+        start = qi::no_case["show"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["tables"] >> 
+                ';';
+    }
+private:
+    qi::rule<std::string::const_iterator, unused_type, qi::space_type> start;
+};
+
 } // namespace QueryProcess
 } // namespace Database
 

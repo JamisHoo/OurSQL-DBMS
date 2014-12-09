@@ -278,7 +278,7 @@ private:
 
             dbfields.addPrimaryKey();
             // create table
-            bool create_rtv = table_manager.create(query.table_name, dbfields, 
+            bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
             if (create_rtv) return 7;
             
@@ -286,18 +286,46 @@ private:
         }
         return 1;
     }
-  
+
+    // parse as statement "SHOW TABLES"
+    // returns 0 if parse and execute succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed
+    int parseAsShowTablesStatement(const std::string& str) {
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(), 
+                                                  showTablesStatementParser, 
+                                                  boost::spirit::qi::space
+                                                  );
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: show tables" << std::endl;
+#endif
+            // no database is opened
+            if (db_inuse.length() == 0) return 2;
+
+            for (auto f = boost::filesystem::directory_iterator(db_inuse); 
+                 f != boost::filesystem::directory_iterator(); ++f) 
+                if (boost::filesystem::is_regular_file(f->path()) &&
+                    boost::filesystem::extension(f->path()) == DBTableManager::TABLE_SUFFIX)
+                    std::cout << f->path().stem().filename().string() << std::endl;
+
+            return 0;
+        }
+        return 1;
+    }
 
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 5;
+    constexpr static int kParseFunctions = 6;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
         &DBQuery::parseAsUseDBStatement,
         &DBQuery::parseAsShowDBStatement,
-        &DBQuery::parseAsCreateTableStatement
+        &DBQuery::parseAsCreateTableStatement,
+        &DBQuery::parseAsShowTablesStatement
     };
 
     // parsers
@@ -306,6 +334,7 @@ private:
     QueryProcess::UseDBStatementParser useDBStatementParser;
     QueryProcess::ShowDBStatementParser showDBStatementParser;
     QueryProcess::CreateTableStatementParser createTableStatementParser;
+    QueryProcess::ShowTablesStatementParser showTablesStatementParser;
 #ifdef DEBUG
 public:
 #endif
