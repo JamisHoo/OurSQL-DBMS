@@ -816,7 +816,7 @@ public:
         for (uint64 i = 0; i < fields.size(); ++i) {
             memset(field_info_buffer, ALIGN, FIELD_INFO_LENGTH);
             fields.generateFieldDescription(i, field_info_buffer);
-            field_info_buffer[FIELD_INFO_LENGTH - 1] = '\x00';
+            assert(field_info_buffer[FIELD_INFO_LENGTH - 1] == '\x00');
             memcpy(buffer + pos, field_info_buffer, FIELD_INFO_LENGTH);
             pos += FIELD_INFO_LENGTH;
         }

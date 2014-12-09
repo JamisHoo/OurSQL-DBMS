@@ -213,6 +213,8 @@ public:
         pos += sizeof(bool);
         // field name
         memcpy(buffer + pos, _field_name[i].data(), _field_name[i].length());
+        pos += FIELD_NAME_LENGTH;
+        buffer[pos] = '\x00';
     }
 
     // generate a record with fields info
