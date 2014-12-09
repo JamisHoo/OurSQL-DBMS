@@ -128,7 +128,7 @@ public:
 
 public:
     DBFields(): _total_length(0), 
-                primary_key_field_id(std::numeric_limits<decltype(primary_key_field_id)>::max()) { }
+                _primary_key_field_id(std::numeric_limits<decltype(_primary_key_field_id)>::max()) { }
     ~DBFields() { }
 
     // insert a field with known types data
