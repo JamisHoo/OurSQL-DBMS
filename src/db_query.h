@@ -275,6 +275,8 @@ private:
                                 std::get<5>(desc),
                                 std::get<0>(desc));
             DBTableManager table_manager;
+
+            dbfields.addPrimaryKey();
             // create table
             bool create_rtv = table_manager.create(query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
