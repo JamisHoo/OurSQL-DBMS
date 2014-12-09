@@ -70,8 +70,6 @@ T pointer_convert(const T2* pointer) {
     return static_cast<T>(static_cast<const void*>(pointer));
 }
 
-} // namespace Database
-
 
 /* 
    Platform-independent timer
@@ -90,11 +88,13 @@ const std::chrono::system_clock::duration sys_clock_epoch =
 const std::chrono::high_resolution_clock::time_point hr_clock_epoch = 
     std::chrono::high_resolution_clock::now();
 
-template <class T>
+template <class T = uint64>
 T uniqueNumber() {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(sys_clock_epoch).count() +
            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - hr_clock_epoch).count();
 
 }
+
+} // namespace Database
 
 #endif /* COMMON_H_ */
