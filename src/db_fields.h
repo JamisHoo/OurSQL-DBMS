@@ -242,7 +242,7 @@ public:
 
         _field_id.push_back(_field_id.size());
         _offset.push_back(_total_length);
-        _field_type.push_back(DBFields::TYPE_UINT64);
+        _field_type.push_back(TYPE_UINT64);
         _field_length.push_back(sizeof(uint64) + 1);
         _indexed.push_back(true);
         _notnull.push_back(true);
@@ -321,6 +321,8 @@ private:
     uint64 _primary_key_field_id;
 
 };
+
+constexpr Database::uint64 Database::DBFields::TYPE_UINT64;
 
 // TODO: move this to a seperate cc file.
 const std::map< std::tuple<std::string, bool, bool>, 
