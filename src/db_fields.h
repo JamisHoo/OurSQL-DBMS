@@ -45,6 +45,8 @@ public:
     // <type name, is unsigned, is signed> -> <type, default length, explicit length required>
     static const std::map< std::tuple<std::string, bool, bool>, 
                            std::tuple<uint64, uint64, bool> > datatype_map;
+    // <type code> -> <type name>
+    static const std::map< uint64, std::string > datatype_name_map;
 
     struct Comparator {
         uint64 type;
@@ -322,9 +324,9 @@ private:
 
 };
 
+// TODO: move this to a seperate cc file.
 constexpr Database::uint64 Database::DBFields::TYPE_UINT64;
 
-// TODO: move this to a seperate cc file.
 const std::map< std::tuple<std::string, bool, bool>, 
                            std::tuple<Database::uint64, Database::uint64, bool> > Database::DBFields::datatype_map = { 
         // (type name, is unsigned, is signed) ------> (type number, length, must provide a length)
@@ -352,5 +354,21 @@ const std::map< std::tuple<std::string, bool, bool>,
         { std::make_tuple("double", 0, 0),     std::make_tuple(12, 8, 0) },
         { std::make_tuple("double", 0, 1),     std::make_tuple(12, 8, 0) }
 };
+
+const std::map< Database::uint64, std::string > Database::DBFields::datatype_name_map = {
+    {  0, "TINY INT" },
+    {  1, "UNSIGNED TINY INT" },
+    {  2, "SMALL INT" },
+    {  3, "UNSIGNED SMALL INT" },
+    {  4, "INT" },
+    {  5, "UNSIGNED INT" }, 
+    {  6, "BIG INT" },
+    {  7, "UNSIGNED BIG INT" },
+    {  8, "BOOL" },
+    { 10, "STRING" },
+    { 11, "FLOAT" },
+    { 12, "DOUBLE" }
+};
+
 
 #endif /* DB_FIELDS_H_ */
