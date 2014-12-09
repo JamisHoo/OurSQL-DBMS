@@ -182,7 +182,7 @@ public:
 
         _field_name.push_back(std::string(field_description + pos));
         if (_field_name.back().length() > FIELD_NAME_LENGTH)
-            _field_name.back().substr(0, FIELD_NAME_LENGTH);
+            _field_name.back() = _field_name.back().substr(0, FIELD_NAME_LENGTH);
         _total_length += _field_length.back();
     }
     
@@ -212,7 +212,7 @@ public:
         buffer[pos] = _notnull[i];
         pos += sizeof(bool);
         // field name
-        memcpy(buffer + pos, _field_name[i].c_str(), _field_name[i].length());
+        memcpy(buffer + pos, _field_name[i].data(), _field_name[i].length());
     }
 
     // generate a record with fields info
