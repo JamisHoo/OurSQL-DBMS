@@ -172,9 +172,10 @@ int main() {
 
     DBFields fields;
     // test create
-    fields.insert(DBFields::TYPE_UINT64, 8, 1, 1, "Student_ID");
-    fields.insert(DBFields::TYPE_CHAR, 100, 0, 0, "Student_name");
-    fields.insert(DBFields::TYPE_BOOL, 1, 0, 0, "Clever_or_Foolish");
+    // type, length, primary, indexed, not null, name
+    fields.insert(DBFields::TYPE_UINT64, 8, 1, 1, 1, "Student_ID");
+    fields.insert(DBFields::TYPE_CHAR, 100, 0, 0, 0, "Student_name");
+    fields.insert(DBFields::TYPE_BOOL, 1, 0, 0, 0,"Clever_or_Foolish");
 
     int rtv;
     // create table

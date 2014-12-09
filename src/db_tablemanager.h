@@ -310,6 +310,11 @@ public:
         if (!isopen()) return { 0, 0 };
         if (args.size() != _fields.size()) return { 0, 0 };
 
+        // check null
+        for (uint i = 0; i < args.size(); ++i) 
+            if (_fields.notnull()[i] == 1 && args[i] == nullptr) 
+                return { 0, 0 };
+
         //args with null flags
         std::vector<void*> null_flag_args;
         for (uint64 i = 0; i < args.size(); ++i) {
@@ -448,6 +453,10 @@ public:
     // returns 0 if succeed, 1 otherwise
     bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
         if (!isopen()) return 1;
+
+        // check null
+        if (_fields.notnull()[field_id] == 1 && arg == nullptr) 
+            return 1;
 
         std::unique_ptr<char[]> null_flag_arg(new char[_fields.field_length()[field_id]]);
         if (arg) {
