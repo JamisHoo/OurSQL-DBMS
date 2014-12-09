@@ -23,7 +23,7 @@
 
 # index manipulation
  9. CREATE INDEX ON <table name> (<field name>);
-10. DROP INDEX ON <table name>;
+10. DROP INDEX ON <table name> (<field name>);
 
 # insert record
 11. INSERT INTO <table name>[(<field name> [, <field name>]*)] 
