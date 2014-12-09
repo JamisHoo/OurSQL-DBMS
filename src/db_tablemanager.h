@@ -28,14 +28,15 @@
 #include "db_indexmanager.h"
 
 class Database::DBTableManager {
-private:
+public:
     static constexpr char* TABLE_SUFFIX = (char*)".tb";
     static constexpr char* INDEX_SUFFIX = (char*)".idx";
     static constexpr char ALIGN = 0x00;
     // default page size, in Bytes
-    static constexpr uint64 DEFAULT_PAGE_SIZE = 4 * 1024;
+    static constexpr uint64 DEFAULT_PAGE_SIZE = 8 * 1024;
     static constexpr uint64 DEFAULT_BUFFER_SIZE = 4096 * 1024;
 
+private:
     // header pages format constants
     static constexpr uint64 FIELD_INFO_LENGTH = DBFields::FIELD_INFO_LENGTH;
     static constexpr uint64 PAGE_HEADER_LENGTH = 24;
