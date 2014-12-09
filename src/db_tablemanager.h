@@ -90,6 +90,7 @@ public:
         // create failed
         if (rtv) {
             delete _file;
+            _file = nullptr;
             return 1;
         }
         // else create successful
