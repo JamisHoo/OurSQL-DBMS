@@ -199,8 +199,8 @@ private:
     qi::rule<std::string::const_iterator, CreateTableStatement(), qi::space_type> start;
 };
 
-}
-}
+} // namespace QueryProcess
+} // namespace Database
 
 // BOOST_FUSION_ADAPT_STRUCT macro should be placed at global namespace, 
 // according to the documentation.
