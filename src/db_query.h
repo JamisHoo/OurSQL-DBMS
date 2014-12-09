@@ -21,6 +21,7 @@
 #include <tuple>
 #include <boost/filesystem.hpp>
 #include "db_query_analyser.h"
+#include "db_tablemanager.h"
 #include "db_fields.h"
 
 class Database::DBQuery {
@@ -200,8 +201,8 @@ private:
 #endif
             std::set<std::string> field_names;
             bool primary_key_exist = 0;
-            // field name, field type, field length, is primary key, indexed
-            std::vector< std::tuple<std::string, uint64, uint64, bool, bool> > field_descs;
+            // field name, field type, field length, is primary key, indexed, not null
+            std::vector< std::tuple<std::string, uint64, uint64, bool, bool, bool> > field_descs;
             for (const auto& field: query.field_descs) {
                 // insert failed, there're duplicate field names
                 if (field_names.insert(field.field_name).second == 0)
@@ -243,25 +244,42 @@ private:
                         std::get<1>(type_desc->second),
                     // is primary key
                     (field.field_name == query.primary_key_name),
-                    // not null
-                    // TODO: add support for non-primary-key not null
-                    (field.field_name == query.primary_key_name)));
+                    // indexed, primary key is indexed by default
+                    (field.field_name == query.primary_key_name),
+                    // not null, primary key is not null by default
+                    (field.field_name == query.primary_key_name || 
+                     field.field_not_null)));
             }
             
             // invalid primary key name
             if (query.primary_key_name.length() != 0 && primary_key_exist == 0) 
                 return 6;
-
+#ifdef DEBUG
             std::cout << "+++++++++++++++++" << std::endl;
             for (const auto& desc: field_descs) {
                 std::cout << std::get<0>(desc) << ' ' <<
                              std::get<1>(desc) << ' ' << 
                              std::get<2>(desc) << ' ' <<
                              std::get<3>(desc) << ' ' <<
-                             std::get<4>(desc) << std::endl;
+                             std::get<4>(desc) << ' ' << 
+                             std::get<5>(desc) << std::endl;
             }
             std::cout << "+++++++++++++++++" << std::endl;
-
+#endif 
+            DBFields dbfields;
+            for (const auto& desc: field_descs) 
+                dbfields.insert(std::get<1>(desc),
+                                std::get<2>(desc),
+                                std::get<3>(desc),
+                                std::get<4>(desc),
+                                std::get<5>(desc),
+                                std::get<0>(desc));
+            DBTableManager table_manager;
+            // create table
+            bool create_rtv = table_manager.create(query.table_name, dbfields, 
+                                                   DBTableManager::DEFAULT_PAGE_SIZE);
+            if (create_rtv) return 7;
+            
             return 0;
         }
         return 1;
