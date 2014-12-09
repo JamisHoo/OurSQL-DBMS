@@ -386,13 +386,16 @@ private:
             
             const DBFields& fields_desc = table_manager.fieldsDesc();
             
-            // TODO: parse type code
             std::cout << "name, type, primary, not null, index" << std::endl;
             for (int i = 0; i < fields_desc.size(); ++i) {
                 // empty field name means this is a auto created primary key field
                 if (fields_desc.field_name()[i].length() == 0) continue; 
                 std::cout << fields_desc.field_name()[i] << ' ' <<
-                             fields_desc.field_type()[i] << ' ' <<
+                             DBFields::datatype_name_map.at(fields_desc.field_type()[i]);
+                
+                if (fields_desc.field_type()[i] == DBFields::TYPE_CHAR || fields_desc.field_type()[i] == DBFields::TYPE_UCHAR)
+                    std::cout << "(" << fields_desc.field_length()[i] - 1 << ')';
+                std::cout << ' ' <<
                              (fields_desc.field_id()[i] == fields_desc.primary_key_field_id()) << ' ' <<
                              fields_desc.notnull()[i] << ' ' << 
                              fields_desc.indexed()[i] << std::endl;
