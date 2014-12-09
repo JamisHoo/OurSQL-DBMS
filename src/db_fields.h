@@ -313,6 +313,7 @@ private:
     std::vector<uint64> _offset;
     std::vector<uint64> _field_type;
     std::vector<uint64> _field_length;
+    // if field name is empty, then this is an unnamed primary key.
     std::vector<std::string> _field_name;
     std::vector<bool> _indexed;
     std::vector<bool> _notnull;
