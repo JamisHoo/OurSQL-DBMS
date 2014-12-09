@@ -408,10 +408,93 @@ private:
         return 1;
     }
 
+    // parse as statement "CREATE INDEX ON <table name> (<field name>)"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsCreateIndexStatement(const std::string& str) {
+        QueryProcess::CreateIndexStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  createIndexStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: create index on " << query.table_name << "(" << query.field_name << ")" << std::endl;
+#endif
+            if (db_inuse.length() == 0) return 2;
+
+            DBTableManager table_manager;
+            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            // open failed
+            if (rtv) return 3;
+
+            auto index_field_ite = std::find(
+                table_manager.fieldsDesc().field_name().begin(),
+                table_manager.fieldsDesc().field_name().end(),
+                query.field_name);
+
+            // invalid table name
+            if (index_field_ite == table_manager.fieldsDesc().field_name().end())
+                return 4;
+
+            rtv = table_manager.createIndex(
+                index_field_ite - table_manager.fieldsDesc().field_name().begin(),
+                "Index name not supported yet");
+            
+            // create failed
+            if (rtv) return 5;
+            return 0;
+        }
+        return 1;
+    }
+
+    // parse as statement "DROP INDEX ON <table name> (<field name>)"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsDropIndexStatement(const std::string& str) {
+        QueryProcess::DropIndexStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  dropIndexStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: drop index on " << query.table_name << "(" << query.field_name << ")" << std::endl;
+#endif
+            if (db_inuse.length() == 0) return 2;
+
+            DBTableManager table_manager;
+            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            // open failed
+            if (rtv) return 3;
+
+            auto index_field_ite = std::find(
+                table_manager.fieldsDesc().field_name().begin(),
+                table_manager.fieldsDesc().field_name().end(),
+                query.field_name);
+
+            // invalid table name
+            if (index_field_ite == table_manager.fieldsDesc().field_name().end())
+                return 4;
+
+            rtv = table_manager.removeIndex(
+                index_field_ite - table_manager.fieldsDesc().field_name().begin());
+            
+            // remove failed
+            if (rtv) return 5;
+            return 0;
+        }
+        return 1;
+    }
+
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 8;
+    constexpr static int kParseFunctions = 10;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -420,7 +503,9 @@ private:
         &DBQuery::parseAsCreateTableStatement,
         &DBQuery::parseAsShowTablesStatement,
         &DBQuery::parseAsDropTableStatement,
-        &DBQuery::parseAsDescTableStatement
+        &DBQuery::parseAsDescTableStatement,
+        &DBQuery::parseAsCreateIndexStatement,
+        &DBQuery::parseAsDropIndexStatement
     };
 
     // parsers
@@ -432,6 +517,8 @@ private:
     QueryProcess::ShowTablesStatementParser showTablesStatementParser;
     QueryProcess::DropTableStatementParser dropTableStatementParser;
     QueryProcess::DescTableStatementParser descTableStatementParser;
+    QueryProcess::CreateIndexStatementParser createIndexStatementParser;
+    QueryProcess::DropIndexStatementParser dropIndexStatementParser;
 #ifdef DEBUG
 public:
 #endif

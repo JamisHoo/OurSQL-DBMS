@@ -43,6 +43,15 @@ struct CreateTableStatement {
 };
 struct DropTableStatement { std::string table_name; };
 struct DescTableStatement { std::string table_name; };
+struct CreateIndexStatement {
+    std::string table_name;
+    std::string field_name;
+};
+struct DropIndexStatement {
+    std::string table_name;
+    std::string field_name;
+
+};
 
 // keyword symbols set
 struct Keyword_symbols: qi::symbols<> {
@@ -55,6 +64,8 @@ struct Keyword_symbols: qi::symbols<> {
            ("databases")
            ("table")
            ("tables")
+           ("index")
+           ("on")
            ("signed")
            ("unsigned")
            ("not")
@@ -230,7 +241,7 @@ private:
     qi::rule<std::string::const_iterator, DropTableStatement(), qi::space_type> start;
 };
 
-// parser of"DESC[RIBE] <table name>"
+// parser of "DESC[RIBE] <table name>"
 struct DescTableStatementParser: qi::grammar<std::string::const_iterator, DescTableStatement(), qi::space_type> {
     DescTableStatementParser(): DescTableStatementParser::base_type(start) {
         start = qi::no_case["desc"] >>
@@ -243,6 +254,45 @@ struct DescTableStatementParser: qi::grammar<std::string::const_iterator, DescTa
 private:
     qi::rule<std::string::const_iterator, DescTableStatement(), qi::space_type> start;
 };
+
+// parser of "CREATE INDEX ON <table name> ( <field name> );"
+struct CreateIndexStatementParser: qi::grammar<std::string::const_iterator, CreateIndexStatement(), qi::space_type> {
+    CreateIndexStatementParser(): CreateIndexStatementParser::base_type(start) {
+        start = qi::no_case["create"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["index"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["on"] >>
+                omit[no_skip[+qi::space]] >>
+                sql_identifier >>
+                '(' >>
+                sql_identifier >>
+                ')' >>
+                ';';
+    }
+private:
+    qi::rule<std::string::const_iterator, CreateIndexStatement(), qi::space_type> start;
+};
+
+// parser of "DROP INDEX ON <table name> ( <field name> );"
+struct DropIndexStatementParser: qi::grammar<std::string::const_iterator, DropIndexStatement(), qi::space_type> {
+    DropIndexStatementParser(): DropIndexStatementParser::base_type(start) {
+        start = qi::no_case["drop"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["index"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["on"] >>
+                omit[no_skip[+qi::space]] >>
+                sql_identifier >>
+                '(' >>
+                sql_identifier >>
+                ')' >>
+                ';';
+    }
+private:
+    qi::rule<std::string::const_iterator, DropIndexStatement(), qi::space_type> start;
+};
+
 
 
 } // namespace QueryProcess
@@ -273,5 +323,11 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
                           (std::string, table_name))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DescTableStatement,
                           (std::string, table_name))  
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateIndexStatement,
+                          (std::string, table_name)
+                          (std::string, field_name))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropIndexStatement,
+                          (std::string, table_name)
+                          (std::string, field_name))
 
 #endif /* DB_QUERY_ANALYSER_H_ */
