@@ -225,6 +225,10 @@ public:
         return !page_size;
     }
 
+    const DBFields& fieldsDesc() const {
+        return _fields;
+    }
+
     // close an open table
     // assert there's an open table
     // returns 0 if succeed, 1 otherwise
