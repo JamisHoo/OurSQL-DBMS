@@ -224,13 +224,21 @@ public:
         }
     }
 
+    // check whether there's a primary key in all fields
+    // returns 1 if there's
+    // returns 0 otherwise
+    bool hasPrimaryKey() const {
+        if (std::find(_field_id.begin(), _field_id.end(), _primary_key_field_id) != _field_id.end())
+            return 1;
+        return 0;
+    }
+
     // add primary key if all fields are not primary key
     // returns 1 if primary key is added
     // returns 0 if there'is already a primary key
     bool addPrimaryKey() {
         // find primary key field id
-        if (std::find(_field_id.begin(), _field_id.end(), _primary_key_field_id) != _field_id.end())
-            return 0;
+        if (hasPrimaryKey()) return 0;
 
         _field_id.push_back(_field_id.size());
         _offset.push_back(_total_length);
