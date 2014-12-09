@@ -73,6 +73,9 @@ public:
         // there's already a table opened
         if (isopen()) return 1;
 
+        // must have a primary key
+        if (!fields.hasPrimaryKey()) return 1;
+
         // create DBFile
         _file = new DBBuffer(table_name + TABLE_SUFFIX, DEFAULT_BUFFER_SIZE);
 
@@ -309,7 +312,8 @@ public:
     // RID insertRecord(const std::initializer_list<void*> args) {
     RID insertRecord(const std::vector<void*> args) {
         if (!isopen()) return { 0, 0 };
-        if (args.size() != _fields.size()) return { 0, 0 };
+        if (args.size() != _fields.size() && _fields.field_name()[_fields.primary_key_field_id()] != "") 
+            return { 0, 0 };
 
         // check null
         for (uint i = 0; i < args.size(); ++i) 
@@ -327,6 +331,17 @@ public:
             } else
                 memset(arg, 0, _fields.field_length()[i]);
             null_flag_args.push_back(arg);
+        }
+
+        // if this table doesn't have a primary key
+        // add a unique number as primary key
+        if (_fields.field_name()[_fields.primary_key_field_id()] == "") {
+            char* arg = new char[_fields.field_length()[_fields.primary_key_field_id()]];
+            uint64 unique_number = uniqueNumber();
+            arg[0] = '\xff';
+            memcpy(arg + 1, arg, _fields.field_length()[_fields.primary_key_field_id()] - 1);
+            null_flag_args.insert(null_flag_args.begin() + _fields.primary_key_field_id(),
+                                  arg);
         }
 
         // INDEX MANIPULATE
