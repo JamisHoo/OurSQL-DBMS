@@ -52,7 +52,7 @@ Data File Format(Not finished)
 
 ALIGN: fill the rest of this page with align characters
 
-FIELD_INFO: 256 Byte
+FIELD_INFO: 512 Byte
     Field ID: 8 Byte
     Field Type: 8 Byte
     // field length is numm flag(1 Byte) + length of record
@@ -61,7 +61,9 @@ FIELD_INFO: 256 Byte
     INDEXED : 1 Byte
     // This field can be null when (NOT NULL == 0)
     NOT NULL : 1 Byte
-    Field Name: 228 Byte
+    Field Name: 242 Byte
+    0x00: 1 Byte // means field name must end with 0x00
+    Index Name: 241 Byte
     0x00: 1 Byte // means field name must end with 0x00
 
 PAGE HEADER: 24 Byte
