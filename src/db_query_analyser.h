@@ -42,6 +42,7 @@ struct CreateTableStatement {
     std::string primary_key_name;
 };
 struct DropTableStatement { std::string table_name; };
+struct DescTableStatement { std::string table_name; };
 
 // keyword symbols set
 struct Keyword_symbols: qi::symbols<> {
@@ -53,12 +54,15 @@ struct Keyword_symbols: qi::symbols<> {
            ("use")
            ("databases")
            ("table")
+           ("tables")
            ("signed")
            ("unsigned")
            ("not")
            ("null")
            ("primary")
            ("key")
+           ("desc")
+           ("describe")
         ;
     }
 };
@@ -226,6 +230,19 @@ private:
     qi::rule<std::string::const_iterator, DropTableStatement(), qi::space_type> start;
 };
 
+// parser of"DESC[RIBE] <table name>"
+struct DescTableStatementParser: qi::grammar<std::string::const_iterator, DescTableStatement(), qi::space_type> {
+    DescTableStatementParser(): DescTableStatementParser::base_type(start) {
+        start = qi::no_case["desc"] >>
+                // DESC or DESCRIBE
+                -omit[no_skip[qi::no_case["ribe"]]] >>
+                omit[no_skip[+qi::space]] >>
+                sql_identifier >> 
+                ';';
+    }
+private:
+    qi::rule<std::string::const_iterator, DescTableStatement(), qi::space_type> start;
+};
 
 
 } // namespace QueryProcess
@@ -253,6 +270,8 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::string, primary_key_name)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
-                           (std::string, table_name))
+                          (std::string, table_name))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DescTableStatement,
+                          (std::string, table_name))  
 
 #endif /* DB_QUERY_ANALYSER_H_ */

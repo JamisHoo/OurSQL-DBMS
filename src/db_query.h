@@ -344,10 +344,60 @@ private:
             if (!boost::filesystem::exists(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX) || 
                 !boost::filesystem::is_regular_file(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX)) 
                 return 3;
-            // remove .tb file
-            if (std::remove((db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX).data())) 
-                return 4;
 
+            // remove table file and related index file
+            DBTableManager table_manager;
+            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            if (rtv) return 4;
+
+            rtv = table_manager.remove();
+            if (rtv) return 5;
+
+            return 0;
+        }
+        return 1;
+    }
+
+    // parse as statement "DESC[RIBE] TABLE <table name>"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsDescTableStatement(const std::string& str) {
+        QueryProcess::DescTableStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  descTableStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: desc table [" << query.table_name << "]\n";
+#endif
+            if (db_inuse.length() == 0) return 2;
+            // check whether table exists
+            if (!boost::filesystem::exists(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX) || 
+                !boost::filesystem::is_regular_file(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX)) 
+                return 3;
+            // open table
+            DBTableManager table_manager;
+            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            // open failed
+            if (rtv) return 4;
+            
+            const DBFields& fields_desc = table_manager.fieldsDesc();
+            
+            // TODO: parse type code
+            std::cout << "name, type, primary, not null, index" << std::endl;
+            for (int i = 0; i < fields_desc.size(); ++i) {
+                // empty field name means this is a auto created primary key field
+                if (fields_desc.field_name()[i].length() == 0) continue; 
+                std::cout << fields_desc.field_name()[i] << ' ' <<
+                             fields_desc.field_type()[i] << ' ' <<
+                             (fields_desc.field_id()[i] == fields_desc.primary_key_field_id()) << ' ' <<
+                             fields_desc.notnull()[i] << ' ' << 
+                             fields_desc.indexed()[i] << std::endl;
+            }
+            
             return 0;
         }
         return 1;
@@ -356,7 +406,7 @@ private:
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 7;
+    constexpr static int kParseFunctions = 8;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -364,7 +414,8 @@ private:
         &DBQuery::parseAsShowDBStatement,
         &DBQuery::parseAsCreateTableStatement,
         &DBQuery::parseAsShowTablesStatement,
-        &DBQuery::parseAsDropTableStatement
+        &DBQuery::parseAsDropTableStatement,
+        &DBQuery::parseAsDescTableStatement
     };
 
     // parsers
@@ -375,6 +426,7 @@ private:
     QueryProcess::CreateTableStatementParser createTableStatementParser;
     QueryProcess::ShowTablesStatementParser showTablesStatementParser;
     QueryProcess::DropTableStatementParser dropTableStatementParser;
+    QueryProcess::DescTableStatementParser descTableStatementParser;
 #ifdef DEBUG
 public:
 #endif
