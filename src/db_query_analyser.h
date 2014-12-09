@@ -41,6 +41,7 @@ struct CreateTableStatement {
     std::vector<FieldDesc> field_descs;
     std::string primary_key_name;
 };
+struct DropTableStatement { std::string table_name; };
 
 // keyword symbols set
 struct Keyword_symbols: qi::symbols<> {
@@ -211,6 +212,22 @@ private:
     qi::rule<std::string::const_iterator, unused_type, qi::space_type> start;
 };
 
+// parser of "DROP DATABASE <database name>"
+struct DropTableStatementParser: qi::grammar<std::string::const_iterator, DropTableStatement(), qi::space_type> {
+    DropTableStatementParser(): DropTableStatementParser::base_type(start) {
+        start = qi::no_case["drop"] >> 
+                omit[no_skip[+qi::space]] >> 
+                qi::no_case["table"] >> 
+                omit[no_skip[+qi::space]] >> 
+                sql_identifier >> 
+                ';';
+    }
+private:
+    qi::rule<std::string::const_iterator, DropTableStatement(), qi::space_type> start;
+};
+
+
+
 } // namespace QueryProcess
 } // namespace Database
 
@@ -235,5 +252,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::vector< ::Database::QueryProcess::CreateTableStatement::FieldDesc >, field_descs)
                           (std::string, primary_key_name)
                          )
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
+                           (std::string, table_name))
 
 #endif /* DB_QUERY_ANALYSER_H_ */

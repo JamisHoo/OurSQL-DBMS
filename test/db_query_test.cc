@@ -59,5 +59,8 @@ int main() {
     cout << query.execute("use  student;");
     cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
     cout << query.execute("show tables;");
+    cout << query.execute("drop table student;");
+    cout << query.execute("show tables;");
     cout << query.execute("drop database student;");
+    
 } 

@@ -16,6 +16,7 @@
 #ifndef DB_QUERY_H_
 #define DB_QUERY_H_
 
+#include <cstdlib>
 #include <set>
 #include <map>
 #include <tuple>
@@ -46,6 +47,9 @@ public:
                     continue;
                 // parse sucessful but execute failed
                 default:
+#ifdef DEBUG
+                    std::cout << "Error code: " << rtv << std::endl;
+#endif
                     return 1;
             }
         }
@@ -277,10 +281,14 @@ private:
             DBTableManager table_manager;
 
             dbfields.addPrimaryKey();
+            
+            // an oepn database is required.
+            if (db_inuse.length() == 0) return 7;
+
             // create table
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
-            if (create_rtv) return 7;
+            if (create_rtv) return 8;
             
             return 0;
         }
@@ -315,17 +323,48 @@ private:
         return 1;
     }
 
+    // parse as statement "DROP TABLE <table name>"
+    // returns 0 if parse and execute succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed
+    int parseAsDropTableStatement(const std::string& str) {
+        QueryProcess::DropTableStatement query;
+        
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(), 
+                                                  dropTableStatementParser, 
+                                                  boost::spirit::qi::space, 
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: drop table [" << query.table_name << "]\n";
+#endif
+            if (db_inuse.length() == 0) return 2;
+            // check whether table exists
+            if (!boost::filesystem::exists(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX) || 
+                !boost::filesystem::is_regular_file(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX)) 
+                return 3;
+            // remove .tb file
+            if (std::remove((db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX).data())) 
+                return 4;
+
+            return 0;
+        }
+        return 1;
+    }
+
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 6;
+    constexpr static int kParseFunctions = 7;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
         &DBQuery::parseAsUseDBStatement,
         &DBQuery::parseAsShowDBStatement,
         &DBQuery::parseAsCreateTableStatement,
-        &DBQuery::parseAsShowTablesStatement
+        &DBQuery::parseAsShowTablesStatement,
+        &DBQuery::parseAsDropTableStatement
     };
 
     // parsers
@@ -335,6 +374,7 @@ private:
     QueryProcess::ShowDBStatementParser showDBStatementParser;
     QueryProcess::CreateTableStatementParser createTableStatementParser;
     QueryProcess::ShowTablesStatementParser showTablesStatementParser;
+    QueryProcess::DropTableStatementParser dropTableStatementParser;
 #ifdef DEBUG
 public:
 #endif
