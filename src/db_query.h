@@ -208,12 +208,14 @@ private:
             // field name, field type, field length, is primary key, indexed, not null
             std::vector< std::tuple<std::string, uint64, uint64, bool, bool, bool> > field_descs;
             for (const auto& field: query.field_descs) {
+                if (field.field_name.length() > DBFields::FIELD_NAME_LENGTH) 
+                    return 2;
                 // insert failed, there're duplicate field names
                 if (field_names.insert(field.field_name).second == 0)
-                    return 2;
+                    return 3;
                 // check primary key name validity
                 if (field.field_name == query.primary_key_name) 
-                    primary_key_exist = 3;
+                    primary_key_exist = 4;
 
                 auto type_desc = DBFields::datatype_map.find(
                     std::make_tuple(field.field_type, 
@@ -229,11 +231,11 @@ private:
                 // unsupported type.
                 // this is usually because of redundant "unsigned" and "signed"
                 if (type_desc == DBFields::datatype_map.end()) 
-                    return 4;
+                    return 5;
 
                 // field length should be explicited provided, but not provided
                 if (std::get<2>(type_desc->second) == 1 && field.field_length.size() == 0)
-                    return 5;
+                    return 6;
 
                 field_descs.push_back(std::make_tuple(
                     // field name
@@ -257,7 +259,7 @@ private:
             
             // invalid primary key name
             if (query.primary_key_name.length() != 0 && primary_key_exist == 0) 
-                return 6;
+                return 7;
 #ifdef DEBUG
             std::cout << "+++++++++++++++++" << std::endl;
             for (const auto& desc: field_descs) {
@@ -283,12 +285,12 @@ private:
             dbfields.addPrimaryKey();
             
             // an oepn database is required.
-            if (db_inuse.length() == 0) return 7;
+            if (db_inuse.length() == 0) return 8;
 
             // create table
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
-            if (create_rtv) return 8;
+            if (create_rtv) return 9;
             
             return 0;
         }
