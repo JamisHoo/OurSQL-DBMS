@@ -56,7 +56,7 @@ public:
         // returns 0 if parse succeed.
         // returns 1 if parse failed
         // returns 2 if out of range
-        int operator()(const std::string& data, const uint64 type, const uint64 length, void* buff, bool& isnull) {
+        int operator()(const std::string& data, const uint64 type, const uint64 length, void* buff, bool& isnull) const {
             isnull = 0;
             std::string str;
             std::transform(data.begin(), data.end(), std::back_inserter(str), ::tolower);
@@ -208,7 +208,7 @@ public:
         // convert raw data of type to literal string str
         // returns 0 if succeeded
         // returns 1 if failed
-        int operator()(const void* data, const uint64 type, std::string& str) {
+        int operator()(const void* data, const uint64 type, std::string& str) const {
             //TODO
             return 0;
         }
@@ -222,7 +222,7 @@ public:
         // 1st byte of a(b) is 00 means this is null
         // null value is larger than non-null value
         // null value is equal to null
-        int operator()(const void* a, const void* b, const uint64 length) {
+        int operator()(const void* a, const void* b, const uint64 length) const {
             char a_null_flag = pointer_convert<const char*>(a)[0];
             char b_null_flag = pointer_convert<const char*>(b)[0];
             if (a_null_flag == '\x00' && b_null_flag == '\x00') return 0;
