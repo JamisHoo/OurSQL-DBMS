@@ -30,6 +30,10 @@ class Database::DBQuery {
 public:
     DBQuery() { }
 
+    ~DBQuery() {
+        closeDBInUse();
+    }
+
     bool execute(const std::string& str) {
 #ifdef DEBUG
         std::cout << "----------------------------\n";
