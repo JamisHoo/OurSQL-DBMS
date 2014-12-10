@@ -320,6 +320,9 @@ public:
         if (args.size() != _fields.size() && _fields.field_name()[_fields.primary_key_field_id()] != "") 
             return { 0, 0 };
 
+        if (_fields.field_name()[_fields.primary_key_field_id()] != "" && args.size() != _fields.size() - 1) 
+            return { 0, 0 };
+
         // check null
         for (uint i = 0; i < args.size(); ++i) 
             if (_fields.notnull()[i] == 1 && args[i] == nullptr) 
