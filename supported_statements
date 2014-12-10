@@ -27,7 +27,6 @@
 
 # insert record
 11. INSERT INTO <table name> VALUES (<value> [, <value>]*);
-                                 [, (<value> [, <value>]*)];
 
 # delete
 12. DELETE FROM <table name> [WHERE <condition>];
