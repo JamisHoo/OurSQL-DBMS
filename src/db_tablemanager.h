@@ -317,10 +317,10 @@ public:
     // RID insertRecord(const std::initializer_list<void*> args) {
     RID insertRecord(const std::vector<void*> args) {
         if (!isopen()) return { 0, 0 };
-        if (args.size() != _fields.size() && _fields.field_name()[_fields.primary_key_field_id()] != "") 
+        if (args.size() != _fields.size() && _fields.field_name()[_fields.primary_key_field_id()].length() != 0) 
             return { 0, 0 };
 
-        if (_fields.field_name()[_fields.primary_key_field_id()] != "" && args.size() != _fields.size() - 1) 
+        if (_fields.field_name()[_fields.primary_key_field_id()].length() == 0 && args.size() != _fields.size() - 1) 
             return { 0, 0 };
 
         // check null
