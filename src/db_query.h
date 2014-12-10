@@ -397,7 +397,7 @@ private:
             
             const DBFields& fields_desc = table_manager->fieldsDesc();
             
-            // TODO 
+            // TODO : use speciala outputer
             std::cout << "name, type, primary, not null, index" << std::endl;
             for (int i = 0; i < fields_desc.size(); ++i) {
                 // empty field name means this is a auto created primary key field
@@ -523,7 +523,6 @@ private:
             }
             std::cout << std::endl;
 #endif
-            // TODO: opetimise: don't close the table after insert
             if (db_inuse.length() == 0) return 2;
 
             DBTableManager* table_manager = openTable(query.table_name);
