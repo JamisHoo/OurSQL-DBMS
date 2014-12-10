@@ -52,6 +52,12 @@ struct DropIndexStatement {
     std::string field_name;
 
 };
+struct InsertRecordStatement {
+    struct ValueSet { std::vector<std::string> values; };
+    std::string table_name;
+    std::vector<ValueSet> value_sets;
+};
+
 
 // keyword symbols set
 struct Keyword_symbols: qi::symbols<> {
@@ -74,6 +80,11 @@ struct Keyword_symbols: qi::symbols<> {
            ("key")
            ("desc")
            ("describe")
+           ("insert")
+           ("into")
+           ("values")
+           ("true")
+           ("false")
         ;
     }
 };
@@ -102,8 +113,25 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> datat
 const qi::rule<std::string::const_iterator> keywords = 
     repository::distinct(qi::alnum | qi::char_('_'))[qi::no_case[Keyword_symbols()]];
 
+// definition of sql identifier
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_identifier = 
     lexeme[(qi::alpha | qi::char_('_')) >> *(qi::alnum | qi::char_('_'))] - keywords - datatypes;
+
+// definition of numeric, integer and float
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_float  =
+    lexeme[(+qi::digit >> -(qi::char_('.') >> *qi::digit)) | (qi::char_('.') >> +qi::digit)];
+
+// definition of string with single quotes
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_string  =
+    lexeme[qi::char_('\'') >> *(~qi::char_("\\\'") | ('\\' >> qi::char_("\\'"))) >> qi::char_('\'')];
+
+// definition of null
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_null = 
+    qi::as_string[qi::no_case["null"]];
+
+// definition of bool, true and false
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_bool = 
+    qi::as_string[qi::no_case["false"]] | qi::as_string[qi::no_case["true"]];
 
 // parser of "CREATE DATABASE <database name>"
 struct CreateDBStatementParser: qi::grammar<std::string::const_iterator, CreateDBStatement(), qi::space_type> {
@@ -294,6 +322,30 @@ private:
 };
 
 
+// parser of "INSERT INTO <table name> VALUES (<value> [, <value>]*);
+//                                         [, (<value> [, <value>]*)];"
+struct InsertRecordStatementParser: qi::grammar<std::string::const_iterator, InsertRecordStatement(), qi::space_type> {
+    InsertRecordStatementParser(): InsertRecordStatementParser::base_type(start) {
+        start = qi::no_case["insert"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["into"] >>
+                sql_identifier >>
+                // TODO: need a skip?
+                qi::no_case["values"] >>
+                valueset % ',' >>
+                ';';
+
+        valueset = '(' >> 
+                   (sql_string | sql_float | sql_null | sql_bool) % ',' >>
+                   ')'; 
+    }
+private:
+    qi::rule<std::string::const_iterator, InsertRecordStatement::ValueSet(), qi::space_type> valueset;
+    qi::rule<std::string::const_iterator, InsertRecordStatement(), qi::space_type> start;
+};
+
+
+
 
 } // namespace QueryProcess
 } // namespace Database
@@ -329,5 +381,10 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateIndexStatement,
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropIndexStatement,
                           (std::string, table_name)
                           (std::string, field_name))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement::ValueSet,
+                          (std::vector<std::string>, values))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement,
+                          (std::string, table_name)
+                          (std::vector< ::Database::QueryProcess::InsertRecordStatement::ValueSet >, value_sets))
 
 #endif /* DB_QUERY_ANALYSER_H_ */

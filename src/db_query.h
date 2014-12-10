@@ -491,10 +491,38 @@ private:
         return 1;
     }
 
+    // parse as statement "INSERT INTO <table name> VALUES (...) (...) ...;"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsInsertRecordStatement(const std::string& str) {
+        QueryProcess::InsertRecordStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  insertRecordStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: Insert into [" << query.table_name << "] values\n";
+            
+            for (const auto& value_set: query.value_sets) {
+                std::cout << "(";
+                for (int i = 0; i < value_set.values.size(); ++i)
+                    std::cout << (i? ",": "") << value_set.values[i];
+                std::cout << ")" << std::endl;
+            }
+#endif
+            return 0;
+        }
+        return 1;
+    }
+ 
+
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 10;
+    constexpr static int kParseFunctions = 11;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -505,7 +533,8 @@ private:
         &DBQuery::parseAsDropTableStatement,
         &DBQuery::parseAsDescTableStatement,
         &DBQuery::parseAsCreateIndexStatement,
-        &DBQuery::parseAsDropIndexStatement
+        &DBQuery::parseAsDropIndexStatement,
+        &DBQuery::parseAsInsertRecordStatement
     };
 
     // parsers
@@ -519,6 +548,7 @@ private:
     QueryProcess::DescTableStatementParser descTableStatementParser;
     QueryProcess::CreateIndexStatementParser createIndexStatementParser;
     QueryProcess::DropIndexStatementParser dropIndexStatementParser;
+    QueryProcess::InsertRecordStatementParser insertRecordStatementParser;
 #ifdef DEBUG
 public:
 #endif

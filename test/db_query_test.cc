@@ -62,6 +62,9 @@ int main() {
     cout << query.execute("create index on student(student_name);");
     cout << query.execute("drop index on student(student_name);");
     cout << query.execute("desc student;");
+
+    cout << query.execute("insert into student values(100, 'name1', true), (101, 'name2', false);");
+
     cout << query.execute("drop table student;");
     // cout << query.execute("show tables;");
     cout << query.execute("drop database student;");
