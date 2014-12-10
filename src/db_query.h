@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <set>
 #include <map>
+#include <unordered_map>
 #include <tuple>
 #include <boost/filesystem.hpp>
 #include "db_query_analyser.h"
@@ -104,11 +105,13 @@ private:
             // check whether database exists
             if (!boost::filesystem::exists(query.db_name) || 
                 !boost::filesystem::is_directory(query.db_name)) return 2;
+
+            // if this database is opened, close it first
+            if (db_inuse == query.db_name)
+                closeDBInUse();
             // remove directory
             if (!boost::filesystem::remove_all(query.db_name)) return 3;
             // if a databse in use is dropped, close it.
-            if (db_inuse == query.db_name)
-                db_inuse = "";
             return 0;
         }
         return 1;
@@ -134,6 +137,10 @@ private:
             // check whether database exists
             if (!boost::filesystem::exists(query.db_name) || 
                 !boost::filesystem::is_directory(query.db_name)) return 2;
+            // if a database has already been opened, close it first
+            if (db_inuse.length())
+                closeDBInUse();
+
             db_inuse = query.db_name;
 
             return 0;
@@ -280,13 +287,14 @@ private:
                                 std::get<4>(desc),
                                 std::get<5>(desc),
                                 std::get<0>(desc));
-            DBTableManager table_manager;
+
 
             dbfields.addPrimaryKey();
             
             // an oepn database is required.
             if (db_inuse.length() == 0) return 8;
 
+            DBTableManager table_manager;
             // create table
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
@@ -348,12 +356,12 @@ private:
                 return 3;
 
             // remove table file and related index file
-            DBTableManager table_manager;
-            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
-            if (rtv) return 4;
+            DBTableManager* table_manager = openTable(query.table_name);
+            if (!table_manager) return 4;
 
-            rtv = table_manager.remove();
+            bool rtv = table_manager->remove();
             if (rtv) return 5;
+            closeTable(query.table_name);
 
             return 0;
         }
@@ -381,13 +389,15 @@ private:
                 !boost::filesystem::is_regular_file(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX)) 
                 return 3;
             // open table
-            DBTableManager table_manager;
-            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            DBTableManager* table_manager = openTable(query.table_name);
+            // bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            if (rtv) return 4;
+            // if (rtv) return 4;
+            if (!table_manager) return 4;
             
-            const DBFields& fields_desc = table_manager.fieldsDesc();
+            const DBFields& fields_desc = table_manager->fieldsDesc();
             
+            // TODO 
             std::cout << "name, type, primary, not null, index" << std::endl;
             for (int i = 0; i < fields_desc.size(); ++i) {
                 // empty field name means this is a auto created primary key field
@@ -425,22 +435,23 @@ private:
 #endif
             if (db_inuse.length() == 0) return 2;
 
-            DBTableManager table_manager;
-            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            DBTableManager* table_manager = openTable(query.table_name);
+            // bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            if (rtv) return 3;
+            // if (rtv) return 3;
+            if (!table_manager) return 3;
 
             auto index_field_ite = std::find(
-                table_manager.fieldsDesc().field_name().begin(),
-                table_manager.fieldsDesc().field_name().end(),
+                table_manager->fieldsDesc().field_name().begin(),
+                table_manager->fieldsDesc().field_name().end(),
                 query.field_name);
 
             // invalid table name
-            if (index_field_ite == table_manager.fieldsDesc().field_name().end())
+            if (index_field_ite == table_manager->fieldsDesc().field_name().end())
                 return 4;
 
-            rtv = table_manager.createIndex(
-                index_field_ite - table_manager.fieldsDesc().field_name().begin(),
+            bool rtv = table_manager->createIndex(
+                index_field_ite - table_manager->fieldsDesc().field_name().begin(),
                 "Index name not supported yet");
             
             // create failed
@@ -467,22 +478,23 @@ private:
 #endif
             if (db_inuse.length() == 0) return 2;
 
-            DBTableManager table_manager;
-            bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            DBTableManager* table_manager = openTable(query.table_name);
+            // bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            if (rtv) return 3;
+            // if (rtv) return 3;
+            if (!table_manager) return 3;
 
             auto index_field_ite = std::find(
-                table_manager.fieldsDesc().field_name().begin(),
-                table_manager.fieldsDesc().field_name().end(),
+                table_manager->fieldsDesc().field_name().begin(),
+                table_manager->fieldsDesc().field_name().end(),
                 query.field_name);
 
             // invalid table name
-            if (index_field_ite == table_manager.fieldsDesc().field_name().end())
+            if (index_field_ite == table_manager->fieldsDesc().field_name().end())
                 return 4;
 
-            rtv = table_manager.removeIndex(
-                index_field_ite - table_manager.fieldsDesc().field_name().begin());
+            bool rtv = table_manager->removeIndex(
+                index_field_ite - table_manager->fieldsDesc().field_name().begin());
             
             // remove failed
             if (rtv) return 5;
@@ -506,18 +518,74 @@ private:
 #ifdef DEBUG
             std::cout << "Get: Insert into [" << query.table_name << "] values\n";
             
-            for (const auto& value_set: query.value_sets) {
-                std::cout << "(";
-                for (int i = 0; i < value_set.values.size(); ++i)
-                    std::cout << (i? ",": "") << value_set.values[i];
-                std::cout << ")" << std::endl;
+            for (const auto& value: query.values) {
+                std::cout << "\"" << value << "\"" << ' ';
             }
+            std::cout << std::endl;
 #endif
+            // TODO: opetimise: don't close the table after insert
+            if (db_inuse.length() == 0) return 2;
+
+            DBTableManager* table_manager = openTable(query.table_name);
+            // int rtv = table_manager.open(db_inuse + '/' + query.table_name);
+            // open failed
+            // if (rtv) return 3;
+            if (!table_manager) return 3;
+
+            DBFields fields_desc = table_manager->fieldsDesc();
+            // remove auto-created primary key
+            fields_desc.removePrimaryKey();
+
+            std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
+            std::vector<void*> args;
+
+            DBFields::LiteralParser literalParser;
+
+            for (int i = 0; i < query.values.size(); ++i) {
+                bool isnull = 0;
+                int rtv = literalParser(query.values[i],
+                                        fields_desc.field_type()[i],
+                                        fields_desc.field_length()[i],
+                                        buffer.get() + fields_desc.offset()[i],
+                                        isnull);
+                // parse failed
+                if (rtv == 1) return 4;
+                // out of range
+                if (rtv == 2) return 5;
+                args.push_back(isnull? nullptr: buffer.get() + fields_desc.offset()[i]);
+            }
+            auto rid = table_manager->insertRecord(args);
+            // insert failed
+            if (!rid) return 6;
             return 0;
         }
         return 1;
     }
- 
+
+private: 
+    DBTableManager* openTable(const std::string& table_name) {
+        auto ptr = tables_inuse.find(table_name);
+        if (ptr != tables_inuse.end()) return ptr->second;
+        DBTableManager* table_manager(new DBTableManager);
+        int rtv = table_manager->open(db_inuse + '/' + table_name);
+        if (rtv) return nullptr;
+        tables_inuse.insert({table_name, table_manager});
+        return table_manager;
+    }
+
+    void closeTable(const std::string& table_name) {
+        auto ptr = tables_inuse.find(table_name);
+        assert(ptr!= tables_inuse.end());
+        delete ptr->second;
+        tables_inuse.erase(ptr);
+    }
+
+    void closeDBInUse() {
+        for (auto& ptr: tables_inuse) 
+            delete ptr.second;
+        tables_inuse.clear();
+        db_inuse.clear();
+    }
 
 private:
     // member function pointers to parser action
@@ -554,6 +622,9 @@ public:
 #endif
     // database currently using
     std::string db_inuse;
+
+    // tables currently opened
+    std::unordered_map<std::string, DBTableManager*> tables_inuse;
 
 };
 

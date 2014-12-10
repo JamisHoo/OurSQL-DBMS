@@ -318,15 +318,15 @@ public:
     RID insertRecord(const std::vector<void*> args) {
         if (!isopen()) return { 0, 0 };
         if (args.size() != _fields.size() && _fields.field_name()[_fields.primary_key_field_id()].length() != 0) 
-            return { 0, 0 };
+            return { 0, 1 };
 
         if (_fields.field_name()[_fields.primary_key_field_id()].length() == 0 && args.size() != _fields.size() - 1) 
-            return { 0, 0 };
+            return { 0, 2 };
 
         // check null
         for (uint i = 0; i < args.size(); ++i) 
             if (_fields.notnull()[i] == 1 && args[i] == nullptr) 
-                return { 0, 0 };
+                return { 0, 3 };
 
         //args with null flags
         std::vector<void*> null_flag_args;
@@ -347,7 +347,7 @@ public:
             char* arg = new char[_fields.field_length()[_fields.primary_key_field_id()]];
             uint64 unique_number = uniqueNumber();
             arg[0] = '\xff';
-            memcpy(arg + 1, arg, _fields.field_length()[_fields.primary_key_field_id()] - 1);
+            memcpy(arg + 1, &unique_number, _fields.field_length()[_fields.primary_key_field_id()] - 1);
             null_flag_args.insert(null_flag_args.begin() + _fields.primary_key_field_id(),
                                   arg);
         }
@@ -361,7 +361,7 @@ public:
         if (rid) {
             for (const auto arg: null_flag_args)
                 delete[] pointer_convert<const char*>(arg);
-            return  { 0, 0 };
+            return  { 0, 4 };
         }
         // else not exist, continue inserting
 

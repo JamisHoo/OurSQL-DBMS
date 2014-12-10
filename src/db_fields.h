@@ -126,28 +126,28 @@ public:
                     }
                     switch (type) {
                         case TYPE_UINT8: {
-                            if (x < std::numeric_limits<uint8_t>::min() || x > std::numeric_limits<uint8_t>::max())
+                            if (x > std::numeric_limits<uint8_t>::max())
                                 return 2;
                             uint8_t xx = x;
                             memcpy(buff, &xx, sizeof(uint8_t));
                             return 0;
                         }
                         case TYPE_UINT16: {
-                            if (x < std::numeric_limits<uint16_t>::min() || x > std::numeric_limits<uint16_t>::max())
+                            if (x > std::numeric_limits<uint16_t>::max())
                                 return 2;
                             uint16_t xx = x;
                             memcpy(buff, &xx, sizeof(uint16_t));
                             return 0;
                         }
                         case TYPE_UINT32: {
-                            if (x < std::numeric_limits<uint32_t>::min() || x > std::numeric_limits<uint32_t>::max())
+                            if (x > std::numeric_limits<uint32_t>::max())
                                 return 2;
                             uint32_t xx = x;
                             memcpy(buff, &xx, sizeof(uint32_t));
                             return 0;
                         }
                         case TYPE_UINT64: {
-                            if (x < std::numeric_limits<uint64_t>::min() || x > std::numeric_limits<uint64_t>::max())
+                            if (x > std::numeric_limits<uint64_t>::max())
                                 return 2;
                             uint64_t xx = x;
                             memcpy(buff, &xx, sizeof(uint64_t));

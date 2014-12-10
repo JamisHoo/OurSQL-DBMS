@@ -53,9 +53,8 @@ struct DropIndexStatement {
 
 };
 struct InsertRecordStatement {
-    struct ValueSet { std::vector<std::string> values; };
     std::string table_name;
-    std::vector<ValueSet> value_sets;
+    std::vector<std::string> values;
 };
 
 
@@ -330,17 +329,14 @@ struct InsertRecordStatementParser: qi::grammar<std::string::const_iterator, Ins
                 omit[no_skip[+qi::space]] >>
                 qi::no_case["into"] >>
                 sql_identifier >>
-                // TODO: need a skip?
                 qi::no_case["values"] >>
-                valueset % ',' >>
+                '(' >>
+                (sql_string | sql_float | sql_null | sql_bool) % ',' >>
+                ')' >>
                 ';';
 
-        valueset = '(' >> 
-                   (sql_string | sql_float | sql_null | sql_bool) % ',' >>
-                   ')'; 
     }
 private:
-    qi::rule<std::string::const_iterator, InsertRecordStatement::ValueSet(), qi::space_type> valueset;
     qi::rule<std::string::const_iterator, InsertRecordStatement(), qi::space_type> start;
 };
 
@@ -381,10 +377,8 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateIndexStatement,
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropIndexStatement,
                           (std::string, table_name)
                           (std::string, field_name))
-BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement::ValueSet,
-                          (std::vector<std::string>, values))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement,
                           (std::string, table_name)
-                          (std::vector< ::Database::QueryProcess::InsertRecordStatement::ValueSet >, value_sets))
+                          (std::vector<std::string>, values))
 
 #endif /* DB_QUERY_ANALYSER_H_ */
