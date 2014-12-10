@@ -173,7 +173,7 @@ public:
                 }
                 case TYPE_CHAR: 
                 case TYPE_UCHAR:
-                    if (str.length() > length) return 2;
+                    if (str.length() > length + 2) return 2;
                     memcpy(buff, str.data(), str.length());
                     return 0;
                 case TYPE_FLOAT: {
