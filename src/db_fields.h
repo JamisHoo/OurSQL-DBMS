@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <cassert>
+#include <map>
 #include <tuple>
 #include <limits>
 #include "db_common.h"
@@ -47,6 +48,171 @@ public:
                            std::tuple<uint64, uint64, bool> > datatype_map;
     // <type code> -> <type name>
     static const std::map< uint64, std::string > datatype_name_map;
+
+    
+    struct LiteralParser {
+        // parse string(data) as Type(type), save the result to buff
+        // assert buff is cleared by caller
+        // returns 0 if parse succeed.
+        // returns 1 if parse failed
+        // returns 2 if out of range
+        int operator()(const std::string& data, const uint64 type, const uint64 length, void* buff, bool& isnull) {
+            isnull = 0;
+            std::string str;
+            std::transform(data.begin(), data.end(), std::back_inserter(str), ::tolower);
+            if (str == "true") str = "1";
+            else if (str == "false") str = "0";
+            else if (str == "null") { isnull = 1; return 0; }
+            else str = data;
+
+            switch (type) {
+                case TYPE_INT8:
+                case TYPE_INT16:
+                case TYPE_INT32:
+                case TYPE_INT64: {
+                    intmax_t x;
+                    try {
+                        x = std::stoll(str);
+                    } catch (const std::invalid_argument&) {
+                        return 1;
+                    } catch (const std::out_of_range&) {
+                        return 2;
+                    }
+                    switch (type) {
+                        case TYPE_INT8: {
+                            if (x < std::numeric_limits<int8_t>::min() || x > std::numeric_limits<int8_t>::max())
+                                return 2;
+                            int8_t xx = x;
+                            memcpy(buff, &xx, sizeof(int8_t));
+                            return 0;
+                        }
+                        case TYPE_INT16: {
+                            if (x < std::numeric_limits<int16_t>::min() || x > std::numeric_limits<int16_t>::max())
+                                return 2;
+                            int16_t xx = x;
+                            memcpy(buff, &xx, sizeof(int16_t));
+                            return 0;
+                        }
+                        case TYPE_INT32: {
+                            if (x < std::numeric_limits<int32_t>::min() || x > std::numeric_limits<int32_t>::max())
+                                return 2;
+                            int32_t xx = x;
+                            memcpy(buff, &xx, sizeof(int32_t));
+                            return 0;
+                        }
+                        case TYPE_INT64: {
+                            if (x < std::numeric_limits<int64_t>::min() || x > std::numeric_limits<int64_t>::max())
+                                return 2;
+                            int64_t xx = x;
+                            memcpy(buff, &xx, sizeof(int64_t));
+                            return 0;
+                        }
+                        default:
+                            assert(0);
+                    }
+
+                }
+                case TYPE_UINT8:
+                case TYPE_UINT16:
+                case TYPE_UINT32:
+                case TYPE_UINT64: {
+                    uintmax_t x;
+                    try {
+                        x = std::stoull(str);
+                    } catch (const std::invalid_argument&) {
+                        return 1;
+                    } catch (const std::out_of_range&) {
+                        return 2;
+                    }
+                    switch (type) {
+                        case TYPE_UINT8: {
+                            if (x < std::numeric_limits<uint8_t>::min() || x > std::numeric_limits<uint8_t>::max())
+                                return 2;
+                            uint8_t xx = x;
+                            memcpy(buff, &xx, sizeof(uint8_t));
+                            return 0;
+                        }
+                        case TYPE_UINT16: {
+                            if (x < std::numeric_limits<uint16_t>::min() || x > std::numeric_limits<uint16_t>::max())
+                                return 2;
+                            uint16_t xx = x;
+                            memcpy(buff, &xx, sizeof(uint16_t));
+                            return 0;
+                        }
+                        case TYPE_UINT32: {
+                            if (x < std::numeric_limits<uint32_t>::min() || x > std::numeric_limits<uint32_t>::max())
+                                return 2;
+                            uint32_t xx = x;
+                            memcpy(buff, &xx, sizeof(uint32_t));
+                            return 0;
+                        }
+                        case TYPE_UINT64: {
+                            if (x < std::numeric_limits<uint64_t>::min() || x > std::numeric_limits<uint64_t>::max())
+                                return 2;
+                            uint64_t xx = x;
+                            memcpy(buff, &xx, sizeof(uint64_t));
+                            return 0;
+                        }
+                        default:
+                            assert(0);
+                    }
+
+                }
+                case TYPE_BOOL: {
+                    intmax_t x;
+                    try {
+                        x = std::stoull(str);
+                    } catch (const std::invalid_argument&) {
+                        return 1;
+                    } catch (const std::out_of_range&) {
+                        return 2;
+                    }
+                    bool y = x? true: false;
+                    memcpy(buff, &y, sizeof(bool));
+                    return 0;
+                }
+                case TYPE_CHAR: 
+                case TYPE_UCHAR:
+                    if (str.length() > length) return 2;
+                    memcpy(buff, str.data(), str.length());
+                    return 0;
+                case TYPE_FLOAT: {
+                    float x;
+                    try {
+                        x = stof(str);
+                    } catch (const std::invalid_argument&) {
+                        return 1;
+                    } catch (const std::out_of_range&) {
+                        return 2;
+                    }
+                    memcpy(buff, &x, sizeof(float));
+                    return 0;
+                }
+                case TYPE_DOUBLE: {
+                    double x;
+                    try {
+                        x = stod(str);
+                    } catch (const std::invalid_argument&) {
+                        return 1;
+                    } catch (const std::out_of_range&) {
+                        return 2;
+                    }
+                    memcpy(buff, &x, sizeof(double));
+                    return 0;
+                }
+                default:
+                    assert(0);
+            }
+        }
+
+        // convert raw data of type to literal string str
+        // returns 0 if succeeded
+        // returns 1 if failed
+        int operator()(const void* data, const uint64 type, std::string& str) {
+            //TODO
+            return 0;
+        }
+    };
 
     struct Comparator {
         uint64 type;
@@ -254,6 +420,25 @@ public:
         _field_name.push_back("");
         _total_length += sizeof(uint64) + 1;
         
+        return 1;
+    }
+    
+    // remove auto-created primary key created by addPrimaryKey() function
+    // returns 1 if primary key is rmeoved
+    // returns 0 otherwise
+    bool removePrimaryKey() {
+        // check auto-created
+        if (_field_name[_primary_key_field_id].length() != 0) return 0;
+        assert(_primary_key_field_id == size() - 1);
+        _field_id.pop_back();
+        _offset.pop_back();
+        _field_type.pop_back();
+        _field_length.pop_back();
+        _indexed.pop_back();
+        _notnull.pop_back();
+        _field_name.pop_back();
+        _total_length -= sizeof(uint64) + 1;
+        _primary_key_field_id = std::numeric_limits<decltype(_primary_key_field_id)>::max();
         return 1;
     }
 
