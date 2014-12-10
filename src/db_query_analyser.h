@@ -122,7 +122,7 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_f
 
 // definition of string with single quotes
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_string  =
-    lexeme[qi::char_('\'') >> *(~qi::char_("\\\'") | ('\\' >> qi::char_("\\'"))) >> qi::char_('\'')];
+    lexeme[qi::char_('\'') >> *(~qi::char_("\\\'") | ('\\' >> qi::char_)) >> qi::char_('\'')];
 
 // definition of null
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_null = 
