@@ -56,6 +56,16 @@ struct InsertRecordStatement {
     std::string table_name;
     std::vector<std::string> values;
 };
+struct SimpleCondition {
+    std::string left_expr;
+    std::string op;
+    std::string right_expr;
+};
+struct SimpleSelectStatement {
+    std::vector<std::string> field_names;
+    std::string table_name;
+    SimpleCondition condition;
+};
 
 
 // keyword symbols set
@@ -84,6 +94,10 @@ struct Keyword_symbols: qi::symbols<> {
            ("values")
            ("true")
            ("false")
+           ("select")
+           ("from")
+           ("where")
+           ("is")
         ;
     }
 };
@@ -103,6 +117,19 @@ struct Datatype_symbols: qi::symbols<char, std::string> {
           ;
     }
 };
+
+struct Operator: qi::symbols<char, std::string> {
+    Operator() {
+        add("=", "=")
+           ("!=", "!=")
+           (">", ">")
+           ("<", "<")
+           (">=", ">=")
+           ("<=", "<=")
+           ("is", "is")
+          ;
+    }
+} sql_operators;
 
 // definition of datatype
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> datatypes =
@@ -124,9 +151,13 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_f
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_string  =
     lexeme[qi::char_('\'') >> *(~qi::char_("\\\'") | ('\\' >> qi::char_)) >> qi::char_('\'')];
 
-// definition of null
+// definition of not null and null
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_null = 
     qi::as_string[qi::no_case["null"]];
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_not = 
+    qi::as_string[qi::no_case["not"]];
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_notnull = 
+    sql_not >> qi::no_skip[+qi::space] >> sql_null;
 
 // definition of bool, true and false
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_bool = 
@@ -336,6 +367,7 @@ struct InsertRecordStatementParser: qi::grammar<std::string::const_iterator, Ins
         start = qi::no_case["insert"] >>
                 omit[no_skip[+qi::space]] >>
                 qi::no_case["into"] >>
+                omit[no_skip[+qi::space]] >>
                 sql_identifier >>
                 qi::no_case["values"] >>
                 '(' >>
@@ -349,7 +381,28 @@ private:
     qi::rule<std::string::const_iterator, InsertRecordStatement(), qi::space_type> start;
 };
 
-
+// parser of SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];
+//           SELECT * FROM <table name> [WHERE <simple condition>];
+struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> {
+    SimpleSelectStatementParser(): SimpleSelectStatementParser::base_type(start) {
+        start = qi::no_case["select"] >>
+                omit[no_skip[+qi::space]] >>
+                ((sql_identifier % ',') | qi::as_string[qi::char_('*')]) >>
+                qi::no_case["from"] >>
+                omit[no_skip[+qi::space]] >>
+                sql_identifier >>
+                -(qi::no_case["where"] >> omit[no_skip[+qi::space]] >> simple_condition) >>
+                ';' >>
+                qi::eoi;
+        simple_condition = 
+                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
+                           sql_operators >>
+                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool);
+    }
+private:
+    qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
+    qi::rule<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> start;
+};
 
 
 } // namespace QueryProcess
@@ -389,5 +442,13 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropIndexStatement,
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement,
                           (std::string, table_name)
                           (std::vector<std::string>, values))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleCondition,
+                          (std::string, left_expr)
+                          (std::string, op)
+                          (std::string, right_expr))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
+                          (std::vector<std::string>, field_names)
+                          (std::string, table_name)
+                          (::Database::QueryProcess::SimpleCondition, condition))
 
 #endif /* DB_QUERY_ANALYSER_H_ */

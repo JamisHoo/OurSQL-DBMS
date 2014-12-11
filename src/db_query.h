@@ -527,6 +527,7 @@ private:
             // open failed
             if (!table_manager) return 3;
 
+            // TODO: to const&
             DBFields fields_desc = table_manager->fieldsDesc();
             
             std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
@@ -573,6 +574,32 @@ private:
 
     }
 
+    // parse as statement "SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];"
+    //                  or "SELECT * FROM <table name> [WHERE <simple condition>];"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsSimpleSelectStatement(const std::string& str) {
+        QueryProcess::SimpleSelectStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  simpleSelectStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: select ";
+            for (const auto& f: query.field_names)
+                std::cout << '['<< f << "] ";
+            std::cout << "from [" << query.table_name << "] where " << query.condition.left_expr << ' ' << query.condition.op << ' ' << query.condition.right_expr << std::endl;
+#endif
+
+            return 0;
+        }
+        return 1;
+    }
+     
+
 private: 
     DBTableManager* openTable(const std::string& table_name) {
         auto ptr = tables_inuse.find(table_name);
@@ -601,7 +628,7 @@ private:
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 11;
+    constexpr static int kParseFunctions = 12;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -613,7 +640,8 @@ private:
         &DBQuery::parseAsDescTableStatement,
         &DBQuery::parseAsCreateIndexStatement,
         &DBQuery::parseAsDropIndexStatement,
-        &DBQuery::parseAsInsertRecordStatement
+        &DBQuery::parseAsInsertRecordStatement,
+        &DBQuery::parseAsSimpleSelectStatement
     };
 
     // parsers
@@ -628,6 +656,7 @@ private:
     QueryProcess::CreateIndexStatementParser createIndexStatementParser;
     QueryProcess::DropIndexStatementParser dropIndexStatementParser;
     QueryProcess::InsertRecordStatementParser insertRecordStatementParser;
+    QueryProcess::SimpleSelectStatementParser simpleSelectStatementParser;
 #ifdef DEBUG
 public:
 #endif
