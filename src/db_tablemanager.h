@@ -317,52 +317,22 @@ public:
     // RID insertRecord(const std::initializer_list<void*> args) {
     RID insertRecord(const std::vector<void*> args) {
         if (!isopen()) return { 0, 0 };
-        if (args.size() != _fields.size() && _fields.field_name()[_fields.primary_key_field_id()].length() != 0) 
+        if (args.size() != _fields.size())
             return { 0, 1 };
-
-        if (_fields.field_name()[_fields.primary_key_field_id()].length() == 0 && args.size() != _fields.size() - 1) 
-            return { 0, 2 };
 
         // check null
         for (uint i = 0; i < args.size(); ++i) 
-            if (_fields.notnull()[i] == 1 && args[i] == nullptr) 
+            if (_fields.notnull()[i] == 1 &&
+                pointer_convert<const char*>(args[i])[0] == '\x00')
                 return { 0, 3 };
-
-        //args with null flags
-        std::vector<void*> null_flag_args;
-        for (uint64 i = 0; i < args.size(); ++i) {
-            char* arg = new char[_fields.field_length()[i]];
-            // if not null
-            if (args[i]) {
-                arg[0] = '\xff';
-                memcpy(arg + 1, args[i], _fields.field_length()[i] - 1);
-            } else
-                memset(arg, 0, _fields.field_length()[i]);
-            null_flag_args.push_back(arg);
-        }
-
-        // if this table doesn't have a primary key
-        // add a unique number as primary key
-        if (_fields.field_name()[_fields.primary_key_field_id()] == "") {
-            char* arg = new char[_fields.field_length()[_fields.primary_key_field_id()]];
-            uint64 unique_number = uniqueNumber();
-            arg[0] = '\xff';
-            memcpy(arg + 1, &unique_number, _fields.field_length()[_fields.primary_key_field_id()] - 1);
-            null_flag_args.insert(null_flag_args.begin() + _fields.primary_key_field_id(),
-                                  arg);
-        }
 
         // INDEX MANIPULATE
         // find in index
         auto rid = _index[_fields.primary_key_field_id()]->searchRecord(
-            pointer_convert<char*>(null_flag_args[_fields.primary_key_field_id()]));
+            pointer_convert<char*>(args[_fields.primary_key_field_id()]));
 
         // if exist already
-        if (rid) {
-            for (const auto arg: null_flag_args)
-                delete[] pointer_convert<const char*>(arg);
-            return  { 0, 4 };
-        }
+        if (rid) return  { 0, 4 };
         // else not exist, continue inserting
 
 
@@ -380,7 +350,7 @@ public:
         // allocate more space, reserve for later
         std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
 
-        _fields.generateRecord(null_flag_args, buffer.get());
+        _fields.generateRecord(args, buffer.get());
 
         // insert the record to the slot
         auto rtv = insertRecordtoPage(empty_slot_pageID, buffer.get());
@@ -409,13 +379,11 @@ public:
         for (auto id: _fields.field_id()) 
             if (_index[id])
                 successful &= _index[id]->insertRecord(
-                    pointer_convert<char*>(null_flag_args[id]),
+                    pointer_convert<char*>(args[id]),
                     std::get<0>(rtv),
                     id == _fields.primary_key_field_id());
         assert(successful == 1);
 
-        for (const auto arg: null_flag_args)
-            delete[] pointer_convert<const char*>(arg);
         return std::get<0>(rtv);
     }
 
@@ -479,21 +447,16 @@ public:
         if (!isopen()) return 1;
 
         // check null
-        if (_fields.notnull()[field_id] == 1 && arg == nullptr) 
+        if (_fields.notnull()[field_id] == 1 && 
+            pointer_convert<const char*>(arg)[0] == '\x00')
             return 1;
 
-        std::unique_ptr<char[]> null_flag_arg(new char[_fields.field_length()[field_id]]);
-        if (arg) {
-            null_flag_arg[0] = '\xff';
-            memcpy(null_flag_arg.get() + 1, arg, _fields.field_length()[field_id] - 1);
-        } else
-            memset(null_flag_arg.get(), 0, _fields.field_length()[field_id]);
 
         // INDEX MANIPULATE
         // if this is primary key field, find in index
         if (field_id == _fields.primary_key_field_id()) {
             auto rtv = _index[_fields.primary_key_field_id()]->
-                searchRecord(pointer_convert<const char*>(null_flag_arg.get()));
+                searchRecord(pointer_convert<const char*>(arg));
             // if exist already
             if (rtv) return 1;
         } // else not exist, continue modifying
@@ -525,14 +488,14 @@ public:
             bool rtv;
             rtv = _index[field_id]->removeRecord(oldRecord, rid);
             assert(rtv);
-            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(null_flag_arg.get()), 
+            rtv = _index[field_id]->insertRecord(pointer_convert<const char*>(arg), 
                                                  rid, 
                                                  field_id == _fields.primary_key_field_id());
             assert(rtv);
         }
 
         // modify record
-        memcpy(oldRecord, null_flag_arg.get(), _fields.field_length()[field_id]);
+        memcpy(oldRecord, arg, _fields.field_length()[field_id]);
         
         // write back
         _file->writePage(rid.pageID, buffer.get());
@@ -555,7 +518,7 @@ public:
         if (!isopen()) return rids;
 
         auto traverseCallback = [&rids, this, &field_id, &condition](const char* record, const RID rid) {
-            if (condition(record[_fields.offset()[field_id]]? record + _fields.offset()[field_id] + 1: nullptr)) 
+            if (condition(record + _fields.offset()[field_id]))
                 rids.push_back(rid);
         };
 
@@ -571,13 +534,7 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
         // INDEX MANIPULATE
         assert(_index[field_id]);
-        std::unique_ptr<char[]> null_flag_key(new char[_fields.field_length()[field_id]]);
-        if (key) {
-            null_flag_key[0] = '\xff';
-            memcpy(null_flag_key.get() + 1, key, _fields.field_length()[field_id] - 1);
-        } else
-            memset(null_flag_key.get(), 0, _fields.field_length()[field_id]);
-        auto rids = _index[field_id]->searchRecords(null_flag_key.get());
+        auto rids = _index[field_id]->searchRecords(key);
         return rids;
     }
 
@@ -588,20 +545,7 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* lb, const char* ub) const {
         assert(_index[field_id]);
         // INDEX MANIPULATE
-        std::unique_ptr<char[]> null_flag_lb(new char[_fields.field_length()[field_id]]);
-        std::unique_ptr<char[]> null_flag_ub(new char[_fields.field_length()[field_id]]);
-        if (lb) {
-            null_flag_lb[0] = '\xff';
-            memcpy(null_flag_lb.get() + 1, lb, _fields.field_length()[field_id] - 1);
-        } else
-            memset(null_flag_lb.get(), 0, _fields.field_length()[field_id]);
-        if (ub) {
-            null_flag_ub[0] = '\xff';
-            memcpy(null_flag_ub.get() + 1, ub, _fields.field_length()[field_id] - 1);
-        } else
-            memset(null_flag_ub.get(), 0, _fields.field_length()[field_id]);
-
-        return _index[field_id]->rangeQuery(null_flag_lb.get(), null_flag_ub.get());
+        return _index[field_id]->rangeQuery(lb, ub);
     }
 
 

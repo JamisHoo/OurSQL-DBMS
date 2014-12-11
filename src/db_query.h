@@ -300,6 +300,7 @@ private:
 
             DBTableManager table_manager;
             // create table
+            // TODO:
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
             if (create_rtv) return 9;
@@ -507,7 +508,7 @@ private:
         return 1;
     }
 
-    // parse as statement "INSERT INTO <table name> VALUES (...) (...) ...;"
+    // parse as statement "INSERT INTO <table name> VALUES (...);"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
     // returns other values if parse succeed but execute failed.
@@ -536,27 +537,42 @@ private:
             if (!table_manager) return 3;
 
             DBFields fields_desc = table_manager->fieldsDesc();
-            // remove auto-created primary key
-            fields_desc.removePrimaryKey();
-
+            
             std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
+            // buffer is asserted to be cleared by caller
+            memset(buffer.get(), 0x00, fields_desc.recordLength());
+
+            // args with null flags
             std::vector<void*> args;
 
             DBFields::LiteralParser literalParser;
 
             for (int i = 0; i < query.values.size(); ++i) {
-                bool isnull = 0;
                 int rtv = literalParser(query.values[i],
                                         fields_desc.field_type()[i],
                                         fields_desc.field_length()[i],
-                                        buffer.get() + fields_desc.offset()[i],
-                                        isnull);
+                                        buffer.get() + fields_desc.offset()[i]
+                                       );
                 // parse failed
                 if (rtv == 1) return 4;
                 // out of range
                 if (rtv == 2) return 5;
-                args.push_back(isnull? nullptr: buffer.get() + fields_desc.offset()[i]);
+                args.push_back(buffer.get() + fields_desc.offset()[i]);
             }
+
+            // auto created primary key
+            if (fields_desc.field_name()[fields_desc.primary_key_field_id()].length() == 0) {
+                // null flag
+                (buffer.get() + fields_desc.offset()[fields_desc.primary_key_field_id()])[0] = '\xff';
+                uint64 unique_number = uniqueNumber();
+                memcpy(buffer.get() + fields_desc.offset()[fields_desc.primary_key_field_id()] + 1, 
+                       &unique_number, 
+                       fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1);
+                assert(fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1 == sizeof(uint64));
+                args.push_back(buffer.get() + fields_desc.offset()[fields_desc.primary_key_field_id()]);
+            }
+            assert(args.size() == fields_desc.size());
+
             auto rid = table_manager->insertRecord(args);
             // insert failed
             if (!rid) return 6;

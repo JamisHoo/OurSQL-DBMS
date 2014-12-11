@@ -322,7 +322,6 @@ private:
 
 
 // parser of "INSERT INTO <table name> VALUES (<value> [, <value>]*);
-//                                         [, (<value> [, <value>]*)];"
 struct InsertRecordStatementParser: qi::grammar<std::string::const_iterator, InsertRecordStatement(), qi::space_type> {
     InsertRecordStatementParser(): InsertRecordStatementParser::base_type(start) {
         start = qi::no_case["insert"] >>

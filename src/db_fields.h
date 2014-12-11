@@ -51,19 +51,24 @@ public:
 
     
     struct LiteralParser {
-        // parse string(data) as Type(type), save the result to buff
-        // assert buff is cleared by caller
+        // parse string(data) as Type(type), save the result to buffer
+        // result contains null flag
+        // ASSERT buff is cleared by caller
         // returns 0 if parse succeed.
         // returns 1 if parse failed
         // returns 2 if out of range
-        int operator()(const std::string& data, const uint64 type, const uint64 length, void* buff, bool& isnull) const {
-            isnull = 0;
+        int operator()(const std::string& data, const uint64 type, const uint64 length, void* buffer) const {
             std::string str;
             std::transform(data.begin(), data.end(), std::back_inserter(str), ::tolower);
             if (str == "true") str = "1";
             else if (str == "false") str = "0";
-            else if (str == "null") { isnull = 1; return 0; }
+            else if (str == "null") return 0; 
             else str = data;
+
+            char* buff = pointer_convert<char*>(buffer);
+            // not null flag
+            buff[0] = '\xff';
+            ++buff;
 
             switch (type) {
                 case TYPE_INT8:
