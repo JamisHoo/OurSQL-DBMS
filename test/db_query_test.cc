@@ -57,13 +57,19 @@ int main() {
 
     cout << query.execute("create database student;");
     cout << query.execute("use  student;");
-    cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
+    // cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
+    cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool);");
     // cout << query.execute("show tables;");
     cout << query.execute("create index on student(student_name);");
     cout << query.execute("drop index on student(student_name);");
     cout << query.execute("desc student;");
 
-    cout << query.execute("insert into student values(100, 'name1', true), (101, 'name2', false);");
+    cout << query.execute("insert into student values(100, 'name1', true);");
+    cout << query.execute("insert into student values (101, 'name1', false);");
+    cout << query.execute("insert into student values (101, 'name3', false);");
+    cout << query.execute("insert into student values (102, NULL, false);");
+    cout << query.execute("insert into student values (102, 'name4', NULL);");
+
 
     cout << query.execute("drop table student;");
     // cout << query.execute("show tables;");
