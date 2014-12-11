@@ -54,7 +54,7 @@
 19. SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> CROSS JOIN <table name>;
 
-# outer join
+# outer join, won't support
 20. SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> {LEFT | RIGHT | FULL} [OUTER] JOIN <table name> 
         ON <condition> [WHERE <conditon>];
