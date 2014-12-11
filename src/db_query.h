@@ -395,9 +395,7 @@ private:
                 return 3;
             // open table
             DBTableManager* table_manager = openTable(query.table_name);
-            // bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            // if (rtv) return 4;
             if (!table_manager) return 4;
             
             const DBFields& fields_desc = table_manager->fieldsDesc();
@@ -441,9 +439,7 @@ private:
             if (db_inuse.length() == 0) return 2;
 
             DBTableManager* table_manager = openTable(query.table_name);
-            // bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            // if (rtv) return 3;
             if (!table_manager) return 3;
 
             auto index_field_ite = std::find(
@@ -484,9 +480,7 @@ private:
             if (db_inuse.length() == 0) return 2;
 
             DBTableManager* table_manager = openTable(query.table_name);
-            // bool rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            // if (rtv) return 3;
             if (!table_manager) return 3;
 
             auto index_field_ite = std::find(
@@ -531,9 +525,7 @@ private:
             if (db_inuse.length() == 0) return 2;
 
             DBTableManager* table_manager = openTable(query.table_name);
-            // int rtv = table_manager.open(db_inuse + '/' + query.table_name);
             // open failed
-            // if (rtv) return 3;
             if (!table_manager) return 3;
 
             DBFields fields_desc = table_manager->fieldsDesc();
