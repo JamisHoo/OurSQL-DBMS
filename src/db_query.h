@@ -300,7 +300,6 @@ private:
 
             DBTableManager table_manager;
             // create table
-            // TODO:
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
             if (create_rtv) return 9;
