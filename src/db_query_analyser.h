@@ -140,7 +140,8 @@ struct CreateDBStatementParser: qi::grammar<std::string::const_iterator, CreateD
                 qi::no_case["database"] >> 
                 omit[no_skip[+qi::space]] >> 
                 sql_identifier >> 
-                ';';
+                ';' >>
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, CreateDBStatement(), qi::space_type> start;
@@ -154,7 +155,8 @@ struct DropDBStatementParser: qi::grammar<std::string::const_iterator, DropDBSta
                 qi::no_case["database"] >> 
                 omit[no_skip[+qi::space]] >> 
                 sql_identifier >> 
-                ';';
+                ';' >>
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, DropDBStatement(), qi::space_type> start;
@@ -166,7 +168,8 @@ struct UseDBStatementParser: qi::grammar<std::string::const_iterator, UseDBState
         start = qi::no_case["use"] >>
                 omit[no_skip[+qi::space]] >>
                 sql_identifier >> 
-                ';';
+                ';' >> 
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, UseDBStatement(), qi::space_type> start;
@@ -205,7 +208,8 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                 // possible primary key
                 -(',' >> primary_key) >>
                 ')' >>
-                ';';
+                ';' >> 
+                qi::eoi;
 
         field_desc = 
                      // field name
@@ -248,7 +252,8 @@ struct ShowTablesStatementParser: qi::grammar<std::string::const_iterator, unuse
         start = qi::no_case["show"] >>
                 omit[no_skip[+qi::space]] >>
                 qi::no_case["tables"] >> 
-                ';';
+                ';' >>
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, unused_type, qi::space_type> start;
@@ -262,7 +267,8 @@ struct DropTableStatementParser: qi::grammar<std::string::const_iterator, DropTa
                 qi::no_case["table"] >> 
                 omit[no_skip[+qi::space]] >> 
                 sql_identifier >> 
-                ';';
+                ';' >>
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, DropTableStatement(), qi::space_type> start;
@@ -276,7 +282,8 @@ struct DescTableStatementParser: qi::grammar<std::string::const_iterator, DescTa
                 -omit[no_skip[qi::no_case["ribe"]]] >>
                 omit[no_skip[+qi::space]] >>
                 sql_identifier >> 
-                ';';
+                ';' >> 
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, DescTableStatement(), qi::space_type> start;
@@ -295,7 +302,8 @@ struct CreateIndexStatementParser: qi::grammar<std::string::const_iterator, Crea
                 '(' >>
                 sql_identifier >>
                 ')' >>
-                ';';
+                ';' >>
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, CreateIndexStatement(), qi::space_type> start;
@@ -314,7 +322,8 @@ struct DropIndexStatementParser: qi::grammar<std::string::const_iterator, DropIn
                 '(' >>
                 sql_identifier >>
                 ')' >>
-                ';';
+                ';' >>
+                qi::eoi;
     }
 private:
     qi::rule<std::string::const_iterator, DropIndexStatement(), qi::space_type> start;
@@ -332,7 +341,8 @@ struct InsertRecordStatementParser: qi::grammar<std::string::const_iterator, Ins
                 '(' >>
                 (sql_string | sql_float | sql_null | sql_bool) % ',' >>
                 ')' >>
-                ';';
+                ';' >> 
+                qi::eoi;
 
     }
 private:

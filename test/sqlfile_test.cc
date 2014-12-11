@@ -42,7 +42,6 @@ int main() {
         }
     }
     
-// TODO: add eoi
 /*
 cout << query.execute("CREATE DATABASE orderDB;");
 cout << query.execute("USE orderDB;");
