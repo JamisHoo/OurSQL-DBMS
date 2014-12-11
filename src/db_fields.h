@@ -179,7 +179,8 @@ public:
                 case TYPE_CHAR: 
                 case TYPE_UCHAR:
                     if (str.length() > length + 2) return 2;
-                    memcpy(buff, str.data(), str.length());
+                    // don't copy single quotes
+                    memcpy(buff, str.data() + 1, str.length() - 2);
                     return 0;
                 case TYPE_FLOAT: {
                     float x;
