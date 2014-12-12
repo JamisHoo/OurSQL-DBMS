@@ -122,6 +122,7 @@ struct Operator: qi::symbols<char, std::string> {
     Operator() {
         add("=", "=")
            ("!=", "!=")
+           ("<>", "!=")
            (">", ">")
            ("<", "<")
            (">=", ">=")
@@ -145,7 +146,9 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_i
 
 // definition of numeric, integer and float
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_float  =
-    lexeme[(+qi::digit >> -(qi::char_('.') >> *qi::digit)) | (qi::char_('.') >> +qi::digit)];
+    lexeme[-(qi::char_("+-")) >> 
+        ((+qi::digit >> -(qi::char_('.') >> *qi::digit)) | 
+         (qi::char_('.') >> +qi::digit))];
 
 // definition of string with single quotes
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_string  =

@@ -355,10 +355,6 @@ private:
             std::cout << "Get: drop table [" << query.table_name << "]\n";
 #endif
             if (db_inuse.length() == 0) return 2;
-            // check whether table exists
-            if (!boost::filesystem::exists(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX) || 
-                !boost::filesystem::is_regular_file(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX)) 
-                return 3;
 
             // remove table file and related index file
             DBTableManager* table_manager = openTable(query.table_name);
@@ -389,10 +385,7 @@ private:
             std::cout << "Get: desc table [" << query.table_name << "]\n";
 #endif
             if (db_inuse.length() == 0) return 2;
-            // check whether table exists
-            if (!boost::filesystem::exists(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX) || 
-                !boost::filesystem::is_regular_file(db_inuse + '/' + query.table_name + DBTableManager::TABLE_SUFFIX)) 
-                return 3;
+            
             // open table
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
@@ -537,7 +530,6 @@ private:
             // args with null flags
             std::vector<void*> args;
 
-            DBFields::LiteralParser literalParser;
 
             for (int i = 0; i < query.values.size(); ++i) {
                 int rtv = literalParser(query.values[i],
@@ -606,10 +598,11 @@ private:
             std::set<uint64> check_duplicate_field_id;
             for (const auto& field_name: query.field_names) {
                 if (field_name == "*") { 
-                    for (const auto& field_id: fields_desc.field_id()) {
-                        display_field_ids.push_back(field_id);
-                        check_duplicate_field_id.insert(field_id);
-                    }
+                    for (const auto& field_id: fields_desc.field_id()) 
+                        if (fields_desc.field_name()[field_id].length()) {
+                            display_field_ids.push_back(field_id);
+                            check_duplicate_field_id.insert(field_id);
+                        }
                 } else {
                     auto ite = std::find(fields_desc.field_name().begin(),
                                          fields_desc.field_name().end(),
@@ -625,26 +618,47 @@ private:
             if (display_field_ids.size() != check_duplicate_field_id.size()) 
                 return 5;
 
+
+            // check where clause
+            int constant_condition = 2;
+            std::tuple<int, uint64, std::string, std::string> cond;
             // no where clause, equvalent to conditon is always true
             if (query.condition.left_expr.length() +
                 query.condition.right_expr.length() +
-                query.condition.op.length() == 0)
+                query.condition.op.length() == 0) {
+                constant_condition = 1;
                 std::cout << "Always true" << std::endl;
-            else {
-                auto cond = parseSimpleCondition(query.condition, fields_desc);
+            } else {
+            // else, parse where clause
+                cond = parseSimpleCondition(query.condition, fields_desc);
                 // condition parse failed
                 if (std::get<0>(cond) >= 3) return 6;
-                if (std::get<0>(cond) == 0) std::cout << "Always false" << std::endl;
-                if (std::get<0>(cond) == 1) std::cout << "Always true" << std::endl;
+                if (std::get<0>(cond) == 0) {
+                    constant_condition = 0;
+                    std::cout << "Always false" << std::endl;
+                }
+                if (std::get<0>(cond) == 1) {
+                    constant_condition = 1;
+                    std::cout << "Always true" << std::endl;
+                }
                 if (std::get<0>(cond) == 2) {
                     std::cout << fields_desc.field_name()[std::get<1>(cond)] << std::get<2>(cond);
                     for (int i = 0; i < std::get<3>(cond).length(); ++i)
                         printf("%02x ", int(std::get<3>(cond)[i]) & 0xff);
-                        //std::cout << std::hex << (int(std::get<3>(cond)[i]) & 0xff) << std::dec;
                     std::cout << std::endl;
                 }
             }
 
+            auto rids = selectRID(table_manager, std::get<1>(cond), 
+                                  fields_desc.field_length()[std::get<1>(cond)],
+                                  fields_desc.field_type()[std::get<1>(cond)],
+                                  std::get<2>(cond), std::get<3>(cond),
+                                  constant_condition);
+
+            // for (const auto& rid: rids) 
+                // std::cout << rid << std::endl;
+
+            outputRID(table_manager, fields_desc, display_field_ids, rids);
 
             return 0;
         }
@@ -653,6 +667,86 @@ private:
      
 
 private: 
+
+    void outputRID(const DBTableManager* table_manager,
+                   const DBFields& fields_desc, 
+                   const std::vector<uint64> display_field_ids,
+                   const std::vector<RID> rids) {
+        std::unique_ptr<char[]> buff(new char[fields_desc.recordLength()]);
+
+        std::string output_buff;
+        for (const auto rid: rids) {
+            table_manager->selectRecord(rid, buff.get());
+            for (const auto id: display_field_ids) {
+                literalParser(buff.get() + fields_desc.offset()[id],
+                              fields_desc.field_type()[id],
+                              fields_desc.field_length()[id],
+                              output_buff);
+                std::cout << output_buff << ' ';
+            }
+            std::cout << std::endl;
+        }
+    }
+
+    // select rids meeting conditons
+    // const_condition == 2 -> no constant condition
+    // const_condition == 1 -> constant condition true
+    // const_condition == 0 -> constant condition false
+    std::vector<RID> selectRID(const DBTableManager* table_manager,
+                               const uint64 field_id, const uint64 field_length,
+                               const uint64 field_type, const std::string& op, 
+                               const std::string& right_value, 
+                               const int const_condition) {
+        std::vector<RID> rids;
+        // TODO: optimise: directly output
+        // return all rids
+        if (const_condition == 1) 
+            return table_manager->findRecords(field_id, [](const char*) { return 1; });
+        // return empty rids 
+        if (const_condition == 0)
+            return rids;
+
+        // TODO: use index
+        
+        DBFields::Comparator comp;
+        comp.type = field_type;
+        // if there isn't index on field_id
+        
+        std::string null_value = std::string(field_length, '\x00');
+        rids = table_manager->findRecords(field_id, 
+            [&right_value, &field_length, &op, &comp, &null_value](const char* data)->bool {
+                int comp_result;
+                if (op == "=") 
+                    return comp(data, right_value.data(), field_length) == 0 &&
+                           (comp(right_value.data(), null_value.data(), field_length) == 0 ||
+                           comp(data, null_value.data(), field_length) != 0);
+                if (op == ">")
+                    return comp(data, right_value.data(), field_length) >= 1 &&
+                           (comp(right_value.data(), null_value.data(), field_length) == 0 ||
+                           comp(data, null_value.data(), field_length) != 0);
+                if (op == "<") 
+                    return comp(data, right_value.data(), field_length) <= -1 && 
+                           (comp(right_value.data(), null_value.data(), field_length) == 0 ||
+                           comp(data, null_value.data(), field_length) != 0);
+                if (op == ">=")
+                    return comp(data, right_value.data(), field_length) >= 0 &&
+                           (comp(right_value.data(), null_value.data(), field_length) == 0 ||
+                           comp(data, null_value.data(), field_length) != 0);
+                if (op == "<=")
+                    return comp(data, right_value.data(), field_length) <= 0 &&
+                           (comp(right_value.data(), null_value.data(), field_length) == 0 ||
+                           comp(data, null_value.data(), field_length) != 0);
+                if (op == "!=") 
+                    return comp(data, right_value.data(), field_length) != 0 &&
+                           (comp(right_value.data(), null_value.data(), field_length) == 0 ||
+                           comp(data, null_value.data(), field_length) != 0);
+                assert(0);
+                return 0;
+        });
+
+        return rids;
+    }
+
     // parse simple condition
     // returns 0 if condition is always false
     // returns 1 if condition is always true
@@ -665,8 +759,9 @@ private:
         // TODO: conditon is now very strict
         // left_expr must be field name
         // right_expr and op mustn't be empty
+        // right_expr mustn't be field name
 
-        //convert "not(\blank)*null" to "not null", "null" to "null", "is" to "is"
+        // convert "not(\blank)*null" to "not null", "null" to "null", "is" to "is"
         if (std::regex_match(condition.left_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
             condition.left_expr = condition.left_expr.length() != 4? "not null": "null";
         if (std::regex_match(condition.right_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
@@ -681,8 +776,10 @@ private:
         // invalid field name
         if (ite == fields_desc.field_name().end()) return 10;
         uint64 left_field_id = ite - fields_desc.field_name().begin();
-        // 0 -> =, 1 -> !=, 2 -> >, 3 -> <, 4 -> >=, 5 -> <=
+
         std::string right_value(fields_desc.field_length()[left_field_id], '\x00');
+        // check right value 
+        // something to do with null/not null/is
         if (condition.op != "is" && condition.right_expr == "null") 
             return { 0, left_field_id, condition.op, right_value };
         if (condition.op != "is" && condition.right_expr == "not null") 
@@ -695,27 +792,36 @@ private:
             } else 
                 return { 11, left_field_id, "is", right_value };
         }
-        DBFields::LiteralParser literalParser;
 
+        // parse right value
         std::unique_ptr<char[]> buff(new char[fields_desc.field_length()[left_field_id]]);
+        memset(buff.get(), 0x00, fields_desc.field_length()[left_field_id]);
         if (literalParser(condition.right_expr, fields_desc.field_type()[left_field_id],
-                      fields_desc.field_length()[left_field_id], buff.get()))
+                          fields_desc.field_length()[left_field_id], buff.get()))
             return { 12, left_field_id, condition.op, right_value };
         right_value.assign(buff.get(), fields_desc.field_length()[left_field_id]);
          
         return { 2, left_field_id, condition.op, right_value };
     }
 
-
-
-                             
-
     DBTableManager* openTable(const std::string& table_name) {
         auto ptr = tables_inuse.find(table_name);
         if (ptr != tables_inuse.end()) return ptr->second;
+
+        // check file exists or not
+        if (!boost::filesystem::exists(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX) || 
+            !boost::filesystem::is_regular_file(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX)) 
+            return nullptr;
+
+        // open table
         DBTableManager* table_manager(new DBTableManager);
+        // if failed
         int rtv = table_manager->open(db_inuse + '/' + table_name);
-        if (rtv) return nullptr;
+        if (rtv) {
+            delete table_manager;
+            return nullptr;
+        }
+        // insert to open table map
         tables_inuse.insert({table_name, table_manager});
         return table_manager;
     }
@@ -774,6 +880,9 @@ public:
 
     // tables currently opened
     std::unordered_map<std::string, DBTableManager*> tables_inuse;
+
+    // literal parser
+    DBFields::LiteralParser literalParser;
 
 };
 
