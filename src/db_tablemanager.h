@@ -440,6 +440,31 @@ public:
         return 0;
     }
 
+    // get data of record rid
+    // returns 0 if rid is valid
+    // returns 1 otherwise 
+    bool selectRecord(const RID rid, void* buff) const {
+        if (!isopen()) return 1;
+
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
+        
+        // read in this page
+        _file->readPage(rid.pageID, buffer.get());
+
+        char* record = /* base */
+                       buffer.get() + 
+                       /* page header offset */
+                       PAGE_HEADER_LENGTH + 
+                       /* bitmap offset */
+                       (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
+                       /* record offset */
+                       _record_length * rid.slotID;
+                       /* field offset */
+                       // _fields.offset()[field_id];
+        memcpy(buff, record, _record_length);
+        return 0;
+    }
+
     // modify field field_id of record rid to arg
     // assert file is open
     // returns 0 if succeed, 1 otherwise
@@ -506,7 +531,6 @@ public:
 
     // find records meet the conditions in field_id
     // CONDITION is conditon(const char*)
-    // NULL value will give a null pointer
     // rid of record will be added to vector if condition returns 1
     // return RIDs of the records
     // assert file is open
