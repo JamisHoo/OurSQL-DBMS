@@ -49,6 +49,70 @@ public:
     // <type code> -> <type name>
     static const std::map< uint64, std::string > datatype_name_map;
 
+    struct MinGenerator {
+        // generate minimum value of type type, save to buff
+        // assert buff is cleared by caller
+        void operator()(const uint64 type, void* buff) {
+            // not null flag
+            pointer_convert<char*>(buff)[0] = '\xff';
+            char* data = pointer_convert<char*>(buff) + 1;
+            switch (type) {
+                case TYPE_INT8: {
+                    int8_t x = std::numeric_limits<int8_t>::min();
+                    memcpy(data, &x, sizeof(int8_t));
+                    break;
+                } case TYPE_UINT8: {
+                    uint8_t x = std::numeric_limits<uint8_t>::min();
+                    memcpy(data, &x, sizeof(uint8_t));
+                    break;
+                } case TYPE_INT16: {
+                    int16_t x = std::numeric_limits<int16_t>::min();
+                    memcpy(data, &x, sizeof(int16_t));
+                    break;
+                } case TYPE_UINT16: {
+                    uint16_t x = std::numeric_limits<uint16_t>::min();
+                    memcpy(data, &x, sizeof(uint16_t));
+                    break;
+                } case TYPE_INT32: {
+                    int32_t x = std::numeric_limits<int32_t>::min();
+                    memcpy(data, &x, sizeof(int32_t));
+                    break;
+                } case TYPE_UINT32: {
+                    uint32_t x = std::numeric_limits<uint32_t>::min();
+                    memcpy(data, &x, sizeof(uint32_t));
+                    break;
+                } case TYPE_INT64: {
+                    int64_t x = std::numeric_limits<int64_t>::min();
+                    memcpy(data, &x, sizeof(int64_t));
+                    break;
+                } case TYPE_UINT64: {
+                    uint64_t x = std::numeric_limits<uint64_t>::min();
+                    memcpy(data, &x, sizeof(uint64_t));
+                    break;
+                } case TYPE_BOOL: {
+                    bool x = std::numeric_limits<bool>::min();
+                    memcpy(data, &x, sizeof(bool));
+                    break;
+                } case TYPE_CHAR: {
+                    char x = std::numeric_limits<char>::min();
+                    memcpy(data, &x, sizeof(char));
+                    break;
+                } case TYPE_UCHAR: {
+                    unsigned char x = std::numeric_limits<unsigned char>::min();
+                    memcpy(data, &x, sizeof(unsigned char));
+                    break;
+                } case TYPE_FLOAT: {
+                    float x = std::numeric_limits<float>::min();
+                    memcpy(data, &x, sizeof(float));
+                    break;
+                } case TYPE_DOUBLE: {
+                    double x = std::numeric_limits<double>::min();
+                    memcpy(data, &x, sizeof(double));
+                    break;
+                }
+            }
+        }
+    };
     
     struct LiteralParser {
         // parse string(data) as Type(type), save the result to buffer
@@ -178,6 +242,8 @@ public:
                 }
                 case TYPE_CHAR: 
                 case TYPE_UCHAR:
+                    assert(str.length() >= 2);
+                    if (str.front() != '\'' || str.back() != '\'') return 1;
                     if (str.length() > length + 2) return 2;
                     // don't copy single quotes
                     memcpy(buff, str.data() + 1, str.length() - 2);
@@ -214,8 +280,54 @@ public:
         // convert raw data of type to literal string str
         // returns 0 if succeeded
         // returns 1 if failed
-        int operator()(const void* data, const uint64 type, std::string& str) const {
-            //TODO
+        int operator()(const void* data, const uint64 type, const uint64 length,  std::string& str) const {
+            if (pointer_convert<const char*>(data)[0] == '\x00') {
+                str = "NULL";
+                return 0;
+            }
+            if (pointer_convert<const char*>(data)[0] != '\xff') 
+                return 1;
+            const char* buff = pointer_convert<const char*>(data) + 1;
+            switch (type) {
+                case TYPE_INT8: 
+                    str = std::to_string(*pointer_convert<const int8_t*>(buff));
+                    break;
+                case TYPE_UINT8:
+                    str = std::to_string(*pointer_convert<const uint8_t*>(buff));
+                    break;
+                case TYPE_INT16:
+                    str = std::to_string(*pointer_convert<const int16_t*>(buff));
+                    break;
+                case TYPE_UINT16:
+                    str = std::to_string(*pointer_convert<const uint16_t*>(buff));
+                    break;
+                case TYPE_INT32:
+                    str = std::to_string(*pointer_convert<const int32_t*>(buff));
+                    break;
+                case TYPE_UINT32:
+                    str = std::to_string(*pointer_convert<const uint32_t*>(buff));
+                    break;
+                case TYPE_INT64:
+                    str = std::to_string(*pointer_convert<const int64_t*>(buff));
+                    break;
+                case TYPE_UINT64:
+                    str = std::to_string(*pointer_convert<const uint64_t*>(buff));
+                    break;
+                case TYPE_BOOL:
+                    str = *pointer_convert<const bool*>(buff)? "TRUE": "FALSE";
+                    break;
+                case TYPE_CHAR:
+                case TYPE_UCHAR:
+                    str.assign(buff, length);
+                    str.erase(str.find_last_not_of("\x00" + 1));
+                    break;
+                case TYPE_FLOAT:
+                    str = std::to_string(*pointer_convert<const float*>(buff));
+                    break;
+                case TYPE_DOUBLE:
+                    str = std::to_string(*pointer_convert<const double*>(buff));
+                    break;
+            }
             return 0;
         }
     };
@@ -223,8 +335,8 @@ public:
     struct Comparator {
         uint64 type;
         // return 0 if a == b
-        // return 1 if a > b
-        // return -1 if a < b
+        // return >=1 if a > b
+        // return <=-1 if a < b
         // 1st byte of a(b) is 00 means this is null
         // null value is larger than non-null value
         // null value is equal to null
