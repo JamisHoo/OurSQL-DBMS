@@ -21,6 +21,7 @@
 #include <map>
 #include <unordered_map>
 #include <tuple>
+#include <regex>
 #include <boost/filesystem.hpp>
 #include "db_query_analyser.h"
 #include "db_tablemanager.h"
@@ -527,8 +528,7 @@ private:
             // open failed
             if (!table_manager) return 3;
 
-            // TODO: to const&
-            DBFields fields_desc = table_manager->fieldsDesc();
+            const DBFields& fields_desc = table_manager->fieldsDesc();
             
             std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
             // buffer is asserted to be cleared by caller
@@ -594,6 +594,58 @@ private:
             std::cout << "from [" << query.table_name << "] where " << query.condition.left_expr << ' ' << query.condition.op << ' ' << query.condition.right_expr << std::endl;
 #endif
 
+            if (db_inuse.length() == 0) return 2;
+
+            DBTableManager* table_manager = openTable(query.table_name);
+            // open failed
+            if (!table_manager) return 3;
+
+            const DBFields& fields_desc = table_manager->fieldsDesc();
+            // check field names
+            std::vector<uint64> display_field_ids;
+            std::set<uint64> check_duplicate_field_id;
+            for (const auto& field_name: query.field_names) {
+                if (field_name == "*") { 
+                    for (const auto& field_id: fields_desc.field_id()) {
+                        display_field_ids.push_back(field_id);
+                        check_duplicate_field_id.insert(field_id);
+                    }
+                } else {
+                    auto ite = std::find(fields_desc.field_name().begin(),
+                                         fields_desc.field_name().end(),
+                                         field_name);
+                    // invalid field name
+                    if (ite == fields_desc.field_name().end()) return 4;
+                    uint64 field_id = ite - fields_desc.field_name().begin();
+                    display_field_ids.push_back(field_id);
+                    check_duplicate_field_id.insert(field_id);
+                }
+            }
+            // duplicate field_name
+            if (display_field_ids.size() != check_duplicate_field_id.size()) 
+                return 5;
+
+            // no where clause, equvalent to conditon is always true
+            if (query.condition.left_expr.length() +
+                query.condition.right_expr.length() +
+                query.condition.op.length() == 0)
+                std::cout << "Always true" << std::endl;
+            else {
+                auto cond = parseSimpleCondition(query.condition, fields_desc);
+                // condition parse failed
+                if (std::get<0>(cond) >= 3) return 6;
+                if (std::get<0>(cond) == 0) std::cout << "Always false" << std::endl;
+                if (std::get<0>(cond) == 1) std::cout << "Always true" << std::endl;
+                if (std::get<0>(cond) == 2) {
+                    std::cout << fields_desc.field_name()[std::get<1>(cond)] << std::get<2>(cond);
+                    for (int i = 0; i < std::get<3>(cond).length(); ++i)
+                        printf("%02x ", int(std::get<3>(cond)[i]) & 0xff);
+                        //std::cout << std::hex << (int(std::get<3>(cond)[i]) & 0xff) << std::dec;
+                    std::cout << std::endl;
+                }
+            }
+
+
             return 0;
         }
         return 1;
@@ -601,6 +653,63 @@ private:
      
 
 private: 
+    // parse simple condition
+    // returns 0 if condition is always false
+    // returns 1 if condition is always true
+    // else
+    // returns 2 if parse succeed
+    //     uint64 is left field id, string is op, string is right value
+    // returns >= 3 if parse failed
+    std::tuple<int, uint64, std::string, std::string> parseSimpleCondition(
+        QueryProcess::SimpleCondition& condition, const DBFields& fields_desc) {
+        // TODO: conditon is now very strict
+        // left_expr must be field name
+        // right_expr and op mustn't be empty
+
+        //convert "not(\blank)*null" to "not null", "null" to "null", "is" to "is"
+        if (std::regex_match(condition.left_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
+            condition.left_expr = condition.left_expr.length() != 4? "not null": "null";
+        if (std::regex_match(condition.right_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
+            condition.right_expr = condition.right_expr.length() != 4? "not null": "null";
+        if (std::regex_match(condition.op, std::regex("(is)", std::regex_constants::icase)))
+            condition.op = "is";
+
+        // check field name in left expr
+        auto ite = std::find(fields_desc.field_name().begin(),
+                             fields_desc.field_name().end(),
+                             condition.left_expr);
+        // invalid field name
+        if (ite == fields_desc.field_name().end()) return 10;
+        uint64 left_field_id = ite - fields_desc.field_name().begin();
+        // 0 -> =, 1 -> !=, 2 -> >, 3 -> <, 4 -> >=, 5 -> <=
+        std::string right_value(fields_desc.field_length()[left_field_id], '\x00');
+        if (condition.op != "is" && condition.right_expr == "null") 
+            return { 0, left_field_id, condition.op, right_value };
+        if (condition.op != "is" && condition.right_expr == "not null") 
+            return { 0, left_field_id, condition.op, right_value };
+        if (condition.op == "is") {
+            if (condition.right_expr == "null") {
+                return { 2, left_field_id, "=", right_value };
+            } else if (condition.right_expr == "not null") {
+                return { 2, left_field_id, "<", right_value };
+            } else 
+                return { 11, left_field_id, "is", right_value };
+        }
+        DBFields::LiteralParser literalParser;
+
+        std::unique_ptr<char[]> buff(new char[fields_desc.field_length()[left_field_id]]);
+        if (literalParser(condition.right_expr, fields_desc.field_type()[left_field_id],
+                      fields_desc.field_length()[left_field_id], buff.get()))
+            return { 12, left_field_id, condition.op, right_value };
+        right_value.assign(buff.get(), fields_desc.field_length()[left_field_id]);
+         
+        return { 2, left_field_id, condition.op, right_value };
+    }
+
+
+
+                             
+
     DBTableManager* openTable(const std::string& table_name) {
         auto ptr = tables_inuse.find(table_name);
         if (ptr != tables_inuse.end()) return ptr->second;
