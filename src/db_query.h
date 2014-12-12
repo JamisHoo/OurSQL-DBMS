@@ -655,8 +655,6 @@ private:
                                   std::get<2>(cond), std::get<3>(cond),
                                   constant_condition);
 
-            // for (const auto& rid: rids) 
-                // std::cout << rid << std::endl;
 
             outputRID(table_manager, fields_desc, display_field_ids, rids);
 
