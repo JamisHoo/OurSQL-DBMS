@@ -57,12 +57,13 @@ int main() {
 
     cout << query.execute("create database student;");
     cout << query.execute("use  student;");
-    cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool, primary key(student_id));");
+    cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(4), clever bool, primary key(student_id));");
     // cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool);");
     // cout << query.execute("show tables;");
     // cout << query.execute("create index on student(student_name);");
     // cout << query.execute("drop index on student(student_name);");
     // cout << query.execute("desc student;");
+    // cout << query.execute("desc stu;");
 
     cout << query.execute("insert intostudent values(100, 'name1', true);");
     cout << query.execute("insert into student values (101, 'name1', false);");
@@ -70,6 +71,7 @@ int main() {
     cout << query.execute("insert into student values (102, NULL, false);");
     cout << query.execute("insert into student values (102, 'name4', NULL);");
 
+    /*
     cout << query.execute("select student_id from student where '12132' =  1;");
     cout << query.execute("select student_id, student_name from student where 1.3232=  \tstudent_name;");
     cout << query.execute("select student_id, student_name from student where student_id=student_name ;");
@@ -77,10 +79,11 @@ int main() {
     cout << query.execute("select *, student_name from student where student_id = 100000;");
     cout << query.execute("select *  from student where student__id = 100000;");
     cout << query.execute("select student_id from student where student_id is 1000;");
+    */
 
     cout << query.execute("select student_id, student_name from student where student_id =1;");
     cout << query.execute("select student_id, student_name from student where student_id>= 10320;");
-    cout << query.execute("select student_id, student_name from student ;");
+    cout << query.execute("select student_id, student_name, clever from student ;");
     cout << query.execute("select * from student ;");
     cout << query.execute("select student_id from student where student_id is null;");
     cout << query.execute("select student_id from student where student_id is not null;");
