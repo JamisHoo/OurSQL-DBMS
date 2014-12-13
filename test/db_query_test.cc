@@ -22,7 +22,7 @@ int main() {
     DBQuery query;
 
     
-    /* 
+    /*
     query.execute("create database fuck;");
     query.execute("use fuck;");
     // query.execute("Create table chedan (id smallint, primary key(id) );");
@@ -75,44 +75,47 @@ int main() {
     // cout << query.execute("Create TabLE ints (student_id int unsigned not null, student_name varchar(100) not nUll, clever bool);");
     // cout << query.execute("Create TabLE ints (student_id int unsigned not null, student_name varchar(100) unsigned not nUll, clever bool);");
 
-    cout << query.execute("create database student;");
-    cout << query.execute("use  student;");
-    cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(4), clever bool, primary key(student_id));");
-    // cout << query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool);");
-    // cout << query.execute("show tables;");
-    // cout << query.execute("create index on student(student_name);");
-    // cout << query.execute("drop index on student(student_name);");
-    // cout << query.execute("desc student;");
-    // cout << query.execute("desc stu;");
+    query.execute("create database student;");
+    query.execute("use  student;");
+    query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(7), clever bool, primary key(student_id));");
+    // query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool);");
+    query.execute("show tables;");
+    // query.execute("create index on student(student_name);");
+    // query.execute("drop index on student(student_name);");
+    query.execute("desc student;");
+    // query.execute("desc stu;");
 
-    cout << query.execute("insert intostudent values(100, 'name1', true);");
-    cout << query.execute("insert into student values (101, 'name1', false);");
-    cout << query.execute("insert into student values (101, 'name3', false);");
-    cout << query.execute("insert into student values (102, NULL, false);");
-    cout << query.execute("insert into student values (102, 'name4', NULL);");
+    query.execute("insert intostudent values(100, 'name1', true);");
+    query.execute("insert into student values (101, 'name1', false);");
+    query.execute("insert into student values (101, 'name3', false);");
+    query.execute("insert into student values (102, NULL, false);");
+    query.execute("insert into student values (-103, 'name103', false), (-104, NULL, true), (105, 'name105', false);");
+    query.execute("insert into student values (106, 'name103', false), (107, 'name104111111111111111111111', true), (105, 'name105', false);");
+    query.execute("insert into student values (106, 'name103', false), (107, 'name104', true), (105, 'name105', false);");
 
     /*
-    cout << query.execute("select student_id from student where '12132' =  1;");
-    cout << query.execute("select student_id, student_name from student where 1.3232=  \tstudent_name;");
-    cout << query.execute("select student_id, student_name from student where student_id=student_name ;");
-    cout << query.execute("select * from student where student_id = 'chedan';");
-    cout << query.execute("select *, student_name from student where student_id = 100000;");
-    cout << query.execute("select *  from student where student__id = 100000;");
-    cout << query.execute("select student_id from student where student_id is 1000;");
+    query.execute("select student_id from student where '12132' =  1;");
+    query.execute("select student_id, student_name from student where 1.3232=  \tstudent_name;");
+    query.execute("select student_id, student_name from student where student_id=student_name ;");
+    query.execute("select * from student where student_id = 'chedan';");
+    query.execute("select *, student_name from student where student_id = 100000;");
+    query.execute("select *  from student where student__id = 100000;");
+    query.execute("select student_id from student where student_id is 1000;");
     */
 
-    cout << query.execute("select student_id, student_name from student where student_id =1;");
-    cout << query.execute("select student_id, student_name from student where student_id>= 10320;");
-    cout << query.execute("select student_id, student_name, clever from student ;");
-    cout << query.execute("select * from student ;");
-    cout << query.execute("select student_id from student where student_id is null;");
-    cout << query.execute("select student_id from student where student_id is not null;");
+    query.execute("select student_id, student_name from student where student_id =101;");
+    query.execute("select student_id, student_name from student where student_id<= 10320;");
+    query.execute("select student_id, student_name from student where student_id >=103;");
+    query.execute("select student_id, student_name, clever from student ;");
+    query.execute("select * from student ;");
+    query.execute("select student_id from student where student_name is null;");
+    query.execute("select student_id from student where student_id is not null;");
 
 
 
-    cout << query.execute("drop table student;");
-    // cout << query.execute("show tables;");
-    cout << query.execute("drop database student;");
+    query.execute("drop table student;");
+    // query.execute("show tables;");
+    query.execute("drop database student;");
     
 
 
