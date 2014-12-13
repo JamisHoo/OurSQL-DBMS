@@ -23,6 +23,26 @@ int main() {
 
     
     /* 
+    query.execute("create database fuck;");
+    query.execute("use fuck;");
+    // query.execute("Create table chedan (id smallint, primary key(id) );");
+    query.execute("Create table chedan (id smallint);");
+    query.execute("insert into chedan values(100);");
+    query.execute("insert into chedan values(101);");
+    query.execute("insert into chedan values(103);");
+    query.execute("insert into chedan values(103);");
+    query.execute("insert into chedan values(103, 104);");
+    query.execute("insert into chedan values(NULL);");
+    query.execute("select * from chedan where id = 100;");
+    query.execute("select * from chedan where id > 0;");
+    query.execute("select * from chedan where id is not null;");
+    query.execute("select * from chedan where id is null;");
+    query.execute("drop table chedan;");
+    query.execute("drop database fuck;");
+    return 0;
+    */
+    
+    /* 
     assert(query.execute(" \t\r\ncreate\rdatabase\n__fuck123 ;") == 0);
     cout << query.db_inuse << endl;
 
