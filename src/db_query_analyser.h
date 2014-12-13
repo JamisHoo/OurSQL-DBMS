@@ -53,8 +53,11 @@ struct DropIndexStatement {
 
 };
 struct InsertRecordStatement {
+    struct ValueTuple {
+        std::vector<std::string> value_tuple;
+    };
     std::string table_name;
-    std::vector<std::string> values;
+    std::vector<ValueTuple> value_tuples;
 };
 struct SimpleCondition {
     std::string left_expr;
@@ -373,14 +376,17 @@ struct InsertRecordStatementParser: qi::grammar<std::string::const_iterator, Ins
                 omit[no_skip[+qi::space]] >>
                 sql_identifier >>
                 qi::no_case["values"] >>
-                '(' >>
-                (sql_string | sql_float | sql_null | sql_bool) % ',' >>
-                ')' >>
+                (value_tuple % ',') >>
                 ';' >> 
                 qi::eoi;
+        value_tuple = 
+                '(' >>
+                (sql_string | sql_float | sql_null | sql_bool) % ',' >>
+                ')';
 
     }
 private:
+    qi::rule<std::string::const_iterator, InsertRecordStatement::ValueTuple(), qi::space_type> value_tuple;
     qi::rule<std::string::const_iterator, InsertRecordStatement(), qi::space_type> start;
 };
 
@@ -429,7 +435,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::FieldD
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::string, table_name)
-                          (std::vector< ::Database::QueryProcess::CreateTableStatement::FieldDesc >, field_descs)
+                          (std::vector<::Database::QueryProcess::CreateTableStatement::FieldDesc>, field_descs)
                           (std::string, primary_key_name)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
@@ -442,9 +448,11 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateIndexStatement,
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropIndexStatement,
                           (std::string, table_name)
                           (std::string, field_name))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement::ValueTuple,
+                          (std::vector<std::string>, value_tuple))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement,
                           (std::string, table_name)
-                          (std::vector<std::string>, values))
+                          (std::vector<::Database::QueryProcess::InsertRecordStatement::ValueTuple>, value_tuples))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleCondition,
                           (std::string, left_expr)
                           (std::string, op)

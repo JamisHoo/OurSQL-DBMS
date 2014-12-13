@@ -36,10 +36,8 @@ public:
     }
 
     bool execute(const std::string& str, std::ostream& out = std::cout, std::ostream& err = std::cerr) {
-#ifdef DEBUG
         std::cout << "----------------------------\n";
         std::cout << "Stmt: " << str << std::endl;
-#endif
         try {
             // try to parse with different patterns
             for (int i = 0; i < kParseFunctions; ++i) {
@@ -128,6 +126,7 @@ public:
             err << "Error: ";
             err << "Error when removing index on field \"" << error.field_name 
                 << "\" of table \"" << error.table_name << "\"." << std::endl;
+        /*
         } catch (const LiteralParseFailed& error) {
             err << "Error: ";
             err << "Error when parsing literal \"" << error.literal << "\"."
@@ -136,6 +135,7 @@ public:
             err << "Error: ";
             err << "Literal \"" << error.literal << "\" out of range." 
                 << std::endl;
+        */
         } catch (const InsertRecordFailed& error) {
             err << "Error: ";
             err << "Error when inserting tuple (";
@@ -614,12 +614,15 @@ private:
         if (ok) {
 #ifdef DEBUG
             std::cout << "Get: Insert into [" << query.table_name << "] values\n";
-            
-            for (const auto& value: query.values) {
-                std::cout << "\"" << value << "\"" << ' ';
+            for (const auto& value_tuple: query.value_tuples) {
+                for (const auto& value: value_tuple.value_tuple) {
+                    std::cout << "\"" << value << "\"" << ' ';
+                }
+                std::cout << std::endl;
             }
             std::cout << std::endl;
 #endif
+            
             // assert database is opened 
             if (db_inuse.length() == 0) throw DBNotOpened();
             
@@ -632,8 +635,9 @@ private:
             const DBFields& fields_desc = table_manager->fieldsDesc();
             
             std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
-
-            insertRecord(query.table_name, table_manager, query.values, buffer.get());
+            
+            for (const auto& value_tuple: query.value_tuples)
+                insertRecord(query.table_name, table_manager, value_tuple.value_tuple, buffer.get());
             
             return 0;
         }
@@ -703,7 +707,7 @@ private:
                 query.condition.right_expr.length() +
                 query.condition.op.length() == 0) {
                 constant_condition = 1;
-                std::cout << "Always true" << std::endl;
+                // std::cout << "Always true" << std::endl;
             } else {
             // else, parse where clause
                 cond = parseSimpleCondition(query.condition, fields_desc);
@@ -711,17 +715,19 @@ private:
                 if (std::get<0>(cond) >= 3) throw InvalidWhereClause();
                 if (std::get<0>(cond) == 0) {
                     constant_condition = 0;
-                    std::cout << "Always false" << std::endl;
+                    // std::cout << "Always false" << std::endl;
                 }
                 if (std::get<0>(cond) == 1) {
                     constant_condition = 1;
-                    std::cout << "Always true" << std::endl;
+                    // std::cout << "Always true" << std::endl;
                 }
                 if (std::get<0>(cond) == 2) {
+#ifdef DEBUG 
                     std::cout << fields_desc.field_name()[std::get<1>(cond)] << std::get<2>(cond);
                     for (int i = 0; i < std::get<3>(cond).length(); ++i)
                         printf("%02x ", int(std::get<3>(cond)[i]) & 0xff);
                     std::cout << std::endl;
+#endif
                 }
             }
 
@@ -760,16 +766,18 @@ private:
             throw WrongTupleSize(table_name, values, values.size(), expected_size);
 
         for (int i = 0; i < values.size(); ++i) {
+#ifdef DEBUG
             std::cout << values[i] << std::endl;
+#endif
             int rtv = literalParser(values[i],
                                     fields_desc.field_type()[i],
                                     fields_desc.field_length()[i],
                                     buffer + fields_desc.offset()[i]
                                    );
             // parse failed
-            if (rtv == 1) throw LiteralParseFailed(values[i]);
+            if (rtv == 1) throw LiteralParseFailed_Insert(table_name, values, values[i]);
             // out of range
-            if (rtv == 2) throw LiteralOutofrange(values[i]);
+            if (rtv == 2) throw LiteralOutofrange_Insert(table_name, values, values[i]);
             args.push_back(buffer + fields_desc.offset()[i]);
         }
 
@@ -1090,19 +1098,27 @@ public:
         std::string field_name;
         RemoveIndexFailed(const std::string& tn, const std::string& fn): table_name(tn), field_name(fn) { }
     };
-    struct LiteralParseFailed {
-        std::string literal;
-        LiteralParseFailed(const std::string& l): literal(l) { }
-    };
-    struct LiteralOutofrange {
-        std::string literal;
-        LiteralOutofrange(const std::string& l): literal(l) { }
-    };
     struct InsertRecordFailed {
         std::string table_name;
         std::vector<std::string> values;
         InsertRecordFailed(const std::string& tn, const std::vector<std::string>& vs): table_name(tn), values(vs) { }
         virtual std::string getInfo() const { return ""; }
+    };
+    struct LiteralParseFailed_Insert: InsertRecordFailed {
+        std::string literal;
+        LiteralParseFailed_Insert(const std::string& tn, const std::vector<std::string>& vs, const std::string& l): 
+            InsertRecordFailed(tn, vs), literal(l) { }
+        virtual std::string getInfo() const { 
+            return "Error when parsing literal \"" + literal + "\". ";
+        }
+    };
+    struct LiteralOutofrange_Insert: InsertRecordFailed {
+        std::string literal;
+        LiteralOutofrange_Insert(const std::string& tn, const std::vector<std::string>& vs, const std::string& l): 
+            InsertRecordFailed(tn, vs), literal(l) { }
+        virtual std::string getInfo() const {
+            return "Literal \"" + literal + "\" out of range. ";
+        }
     };
     struct WrongTupleSize: InsertRecordFailed {
         uint64 wrong_size;
