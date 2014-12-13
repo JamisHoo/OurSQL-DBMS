@@ -620,63 +620,21 @@ private:
             }
             std::cout << std::endl;
 #endif
+            // assert database is opened 
             if (db_inuse.length() == 0) throw DBNotOpened();
-
+            
+            // open table
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
             if (!table_manager) throw OpenTableFailed(query.table_name);
-
+            
+            // get fileds description
             const DBFields& fields_desc = table_manager->fieldsDesc();
             
             std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
-            // buffer is asserted to be cleared by caller
-            memset(buffer.get(), 0x00, fields_desc.recordLength());
 
-            // args with null flags
-            std::vector<void*> args;
-
-
-            uint64 expected_size = fields_desc.size() - 
-                (fields_desc.field_name()[fields_desc.primary_key_field_id()].length() == 0? 1: 0);
-            if (query.values.size() != expected_size)
-                throw WrongTupleSize(query.table_name, query.values, query.values.size(), expected_size);
-
-            for (int i = 0; i < query.values.size(); ++i) {
-                std::cout << query.values[i] << std::endl;
-                int rtv = literalParser(query.values[i],
-                                        fields_desc.field_type()[i],
-                                        fields_desc.field_length()[i],
-                                        buffer.get() + fields_desc.offset()[i]
-                                       );
-                // parse failed
-                if (rtv == 1) throw LiteralParseFailed(query.values[i]);
-                // out of range
-                if (rtv == 2) throw LiteralOutofrange(query.values[i]);
-                args.push_back(buffer.get() + fields_desc.offset()[i]);
-            }
-
-            // auto created primary key
-            if (fields_desc.field_name()[fields_desc.primary_key_field_id()].length() == 0) {
-                // null flag
-                (buffer.get() + fields_desc.offset()[fields_desc.primary_key_field_id()])[0] = '\xff';
-                uint64 unique_number = uniqueNumber();
-                memcpy(buffer.get() + fields_desc.offset()[fields_desc.primary_key_field_id()] + 1, 
-                       &unique_number, 
-                       fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1);
-                assert(fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1 == sizeof(uint64));
-                args.push_back(buffer.get() + fields_desc.offset()[fields_desc.primary_key_field_id()]);
-            }
-
-            auto rid = table_manager->insertRecord(args);
-            // insert failed
-            if (rid == RID(0, 1)) 
-                throw WrongTupleSize(query.table_name, query.values, args.size(), fields_desc.size());
-            else if (rid == RID(0, 3)) 
-                throw NotNullExpected(query.table_name, query.values);
-            else if (rid == RID(0, 4))
-                throw DuplicatePrimaryKey(query.table_name, query.values);
-            else if (!rid)
-                throw InsertRecordFailed(query.table_name, query.values);
+            insertRecord(query.table_name, table_manager, query.values, buffer.get());
+            
             return 0;
         }
         return 1;
@@ -784,6 +742,62 @@ private:
 
 private: 
 
+
+    void insertRecord(const std::string& table_name, DBTableManager* table_manager, 
+                      const std::vector<std::string>& values, char* buffer) {
+        const DBFields& fields_desc = table_manager->fieldsDesc();
+
+        // buffer is asserted to be cleared by caller
+        memset(buffer, 0x00, fields_desc.recordLength());
+
+        // args with null flags
+        std::vector<void*> args;
+
+        // check fields size
+        uint64 expected_size = fields_desc.size() - 
+            (fields_desc.field_name()[fields_desc.primary_key_field_id()].length() == 0? 1: 0);
+        if (values.size() != expected_size)
+            throw WrongTupleSize(table_name, values, values.size(), expected_size);
+
+        for (int i = 0; i < values.size(); ++i) {
+            std::cout << values[i] << std::endl;
+            int rtv = literalParser(values[i],
+                                    fields_desc.field_type()[i],
+                                    fields_desc.field_length()[i],
+                                    buffer + fields_desc.offset()[i]
+                                   );
+            // parse failed
+            if (rtv == 1) throw LiteralParseFailed(values[i]);
+            // out of range
+            if (rtv == 2) throw LiteralOutofrange(values[i]);
+            args.push_back(buffer + fields_desc.offset()[i]);
+        }
+
+        // auto created primary key
+        if (fields_desc.field_name()[fields_desc.primary_key_field_id()].length() == 0) {
+            // null flag
+            (buffer + fields_desc.offset()[fields_desc.primary_key_field_id()])[0] = '\xff';
+            uint64 unique_number = uniqueNumber();
+            memcpy(buffer + fields_desc.offset()[fields_desc.primary_key_field_id()] + 1, 
+                   &unique_number, 
+                   fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1);
+            assert(fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1 == sizeof(uint64));
+            args.push_back(buffer + fields_desc.offset()[fields_desc.primary_key_field_id()]);
+        }
+
+        auto rid = table_manager->insertRecord(args);
+        // insert failed
+        if (rid == RID(0, 1)) 
+            throw WrongTupleSize(table_name, values, args.size(), fields_desc.size());
+        else if (rid == RID(0, 3)) 
+            throw NotNullExpected(table_name, values);
+        else if (rid == RID(0, 4))
+            throw DuplicatePrimaryKey(table_name, values);
+        else if (!rid)
+            throw InsertRecordFailed(table_name, values);
+    }
+
+    // output a certain record
     void outputRID(const DBTableManager* table_manager,
                    const DBFields& fields_desc, 
                    const std::vector<uint64> display_field_ids,
