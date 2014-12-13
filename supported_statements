@@ -26,7 +26,8 @@
 10. DROP INDEX ON <table name> (<field name>);
 
 # insert record
-11. INSERT INTO <table name> VALUES (<value> [, <value>]*);
+11. INSERT INTO <table name> VALUES (<value> [, <value>]*)
+                                  (, <value> [, <value>]*);
 
 # delete
 12. DELETE FROM <table name> [WHERE <condition>];
