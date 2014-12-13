@@ -111,8 +111,8 @@ public:
                 << "\"." << std::endl;
         } catch (const OpenTableFailed& error) {
             err << "Error: ";
-            err << "Error when opening table \"" << error.name << "\"."
-                << std::endl;
+            err << "Error when opening table \"" << error.name << "\". "
+                << error.getInfo() << std::endl;
         } catch (const RemoveTableFailed& error) {
             err << "Error: ";
             err << "Error when removing table \"" << error.name << "\"."
@@ -928,7 +928,8 @@ private:
         // check file exists or not
         if (!boost::filesystem::exists(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX) || 
             !boost::filesystem::is_regular_file(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX)) 
-            return nullptr;
+            throw TableNotExists(table_name);
+            // return nullptr;
 
         // open table
         DBTableManager* table_manager(new DBTableManager);
@@ -1051,6 +1052,11 @@ public:
     struct OpenTableFailed {
         std::string name;
         OpenTableFailed(const std::string& n): name(n) { }
+        virtual std::string getInfo() const { return ""; }
+    };
+    struct TableNotExists: OpenTableFailed {
+        TableNotExists(const std::string& n): OpenTableFailed(n) { }
+        virtual std::string getInfo() const { return "Table not exists. "; }
     };
     struct RemoveTableFailed {
         std::string name;
