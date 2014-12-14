@@ -1,12 +1,18 @@
-/******************************************************
+/******************************************************************************
  *  Copyright (c) 2014 Terranlee
- *  Author: Terranlee
- *  E_mail: ltrthu@163.com
+ *  Distributed under the MIT license 
+ *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
- *  FileName: db_indexmanager.h
- *  Date:  Oct. 27, 2014 
- *  Time:  19:27:34
- *  *************************************************** */
+ *  Project: Database
+ *  Filename: db_indexmanager.h 
+ *  Version: 1.0
+ *  Author: Terranlee
+ *  E-mail: ltrthu@163.com
+ *  Date: Oct. 27, 2014 
+ *  Time: 19:27:34
+ *  Description: Manage index file of a database.
+                 Data structure: B+Tree
+ *****************************************************************************/
 
 /****************************************
  *  Structure of index file:
@@ -331,7 +337,7 @@ public:
         char buffer[_page_size];
         uint64 numPages = 2;
         uint64 numReocrds = 0;
-        memset(buffer, 0xdd, _page_size);
+        memset(buffer, 0, _page_size);
         memcpy(buffer, &numPages, sizeof(numPages));
         memcpy(buffer + sizeof(numPages), &numReocrds, sizeof(_num_records));
         memcpy(buffer + sizeof(numPages) * 2, &_page_size, sizeof(_page_size));
@@ -342,6 +348,7 @@ public:
         // write page1(root) after create
         BTreeNode root;
         root._data = new char[_page_size];
+        memset(root._data, 0, [_page_size]);
         root._position = 1;
         writeNode(1, &root);
         delete[] root._data;
@@ -639,7 +646,6 @@ private:
 #endif
     // private support of create/open/close the index file
     // initialize during open index
-    // TODO: memory need to be set to 0?
     void initialize() {
         // initialize buffer and root
         initBuffer();
@@ -730,7 +736,6 @@ private:
     }
 
 // private buffer operations
-    // TODO: memory need to be set to 0?
     void initBuffer() {
         for(int i=0; i<BUFFER_SIZE; i++) {
             _buffer[i]._node._data = new char[_page_size];
