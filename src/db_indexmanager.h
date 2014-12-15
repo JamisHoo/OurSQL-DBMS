@@ -348,7 +348,7 @@ public:
         // write page1(root) after create
         BTreeNode root;
         root._data = new char[_page_size];
-        memset(root._data, 0, [_page_size]);
+        memset(root._data, 0, _page_size);
         root._position = 1;
         writeNode(1, &root);
         delete[] root._data;

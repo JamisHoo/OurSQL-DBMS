@@ -36,8 +36,8 @@ public:
     }
 
     bool execute(const std::string& str, std::ostream& out = std::cout, std::ostream& err = std::cerr) {
-        std::cout << "----------------------------\n";
-        std::cout << "Stmt: " << str << std::endl;
+        // std::cout << "----------------------------\n";
+        // std::cout << "Stmt: " << str << std::endl;
         try {
             // try to parse with different patterns
             for (int i = 0; i < kParseFunctions; ++i) {

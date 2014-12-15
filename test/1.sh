@@ -13,9 +13,9 @@
  #  Time: 10:47:08
  #  Description: 
 ###############################################################################
-./a.out < dataset/create.sql | grep 1
-./a.out < dataset/book.sql | grep 1
-./a.out < dataset/customer.sql | grep 1
-./a.out < dataset/orders.sql | grep 1
-./a.out < dataset/publisher.sql | grep 1
+./a.out < dataset/create.sql        | grep 1
+./a.out < dataset/book.sql          | grep 1
+./a.out < dataset/customer.sql      | grep 1
+./a.out < dataset/orders.sql        | grep 1
+./a.out < dataset/publisher.sql     | grep 1
 
