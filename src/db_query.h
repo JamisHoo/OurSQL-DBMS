@@ -636,8 +636,18 @@ private:
             
             std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
             
-            for (const auto& value_tuple: query.value_tuples)
-                insertRecord(query.table_name, table_manager, value_tuple.value_tuple, buffer.get());
+            // store all rids
+            // if one record insert failed, remove all stored rids
+            std::vector<RID> rids;
+            try {
+                for (const auto& value_tuple: query.value_tuples) 
+                    rids.push_back(insertRecord(query.table_name, table_manager, 
+                                                value_tuple.value_tuple, buffer.get()));
+            } catch (...) {
+                for (const auto& rid: rids) 
+                    assert(table_manager->removeRecord(rid) == 0);
+                throw;
+            }
             
             return 0;
         }
@@ -749,7 +759,7 @@ private:
 private: 
 
 
-    void insertRecord(const std::string& table_name, DBTableManager* table_manager, 
+    RID insertRecord(const std::string& table_name, DBTableManager* table_manager, 
                       const std::vector<std::string>& values, char* buffer) {
         const DBFields& fields_desc = table_manager->fieldsDesc();
 
@@ -803,6 +813,7 @@ private:
             throw DuplicatePrimaryKey(table_name, values);
         else if (!rid)
             throw InsertRecordFailed(table_name, values);
+        return rid;
     }
 
     // output a certain record
