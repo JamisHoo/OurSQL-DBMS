@@ -90,8 +90,8 @@ int main() {
     query.execute("insert into student values (101, 'name3', false);");
     query.execute("insert into student values (102, NULL, false);");
     query.execute("insert into student values (-103, 'name103', false), (-104, NULL, true), (105, 'name105', false);");
-    query.execute("insert into student values (106, 'name103', false), (107, 'name104111111111111111111111', true), (105, 'name105', false);");
-    query.execute("insert into student values (106, 'name103', false), (107, 'name104', true), (105, 'name105', false);");
+    // query.execute("insert into student values (106, 'name103', false), (107, 'name104111111111111111111111', true), (105, 'name105', false);");
+    // query.execute("insert into student values (106, 'name103', false), (107, 'name104', true), (105, 'name105', false);");
 
     /*
     query.execute("select student_id from student where '12132' =  1;");
@@ -102,7 +102,8 @@ int main() {
     query.execute("select *  from student where student__id = 100000;");
     query.execute("select student_id from student where student_id is 1000;");
     */
-
+    
+    /*
     query.execute("select student_id, student_name from student where student_id =101;");
     query.execute("select student_id, student_name from student where student_id<= 10320;");
     query.execute("select student_id, student_name from student where student_id >=103;");
@@ -110,6 +111,17 @@ int main() {
     query.execute("select * from student ;");
     query.execute("select student_id from student where student_name is null;");
     query.execute("select student_id from student where student_id is not null;");
+
+    query.execute("Delete from student where student_id > 101;");
+    */
+    query.execute("select * from student;");
+
+    query.execute("update student set student_id = 100, student_name = 'shabi' where student_id > 101;");
+    query.execute("select * from student;");
+    query.execute("update student set student_id = nulL, student_name = 'shabi' where student_id = 105;");
+    query.execute("select * from student;");
+    query.execute("update student set clever = null, student_name = 'saaabbb' where student_name is null;");
+    query.execute("select * from student;");
 
 
 

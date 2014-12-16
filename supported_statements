@@ -8,55 +8,60 @@
 # fundamental:
 
 # database manipulation
- 1. CREAETE DATABASE <database name>;
- 2. SHOW DATABASES;
- 3. USE <database name>;
- 4. DROP DATABASE <database name>;
+# FINISHED
+CREAETE DATABASE <database name>;
+SHOW DATABASES;
+USE <database name>;
+DROP DATABASE <database name>;
 
 # table manipulation
- 5. CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
-                             [,<filed name> <type>[(<size>)] [NOT NULL]]* 
-                             [, PRIMARY KEY (<field name>)]);
- 6. SHOW TABLES;
- 7. DESC[RIBE] <table name>;
- 8. DROP TABLE <table name>;
+# FINISHED
+CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
+                         [,<filed name> <type>[(<size>)] [NOT NULL]]* 
+                         [, PRIMARY KEY (<field name>)]);
+SHOW TABLES;
+DESC[RIBE] <table name>;
+DROP TABLE <table name>;
 
 # index manipulation
- 9. CREATE INDEX ON <table name> (<field name>);
-10. DROP INDEX ON <table name> (<field name>);
+# FINISHED
+CREATE INDEX ON <table name> (<field name>);
+DROP INDEX ON <table name> (<field name>);
 
 # insert record
-11. INSERT INTO <table name> VALUES (<value> [, <value>]*)
-                                  (, <value> [, <value>]*);
+# FINISHED
+INSERT INTO <table name> VALUES (<value> [, <value>]*)
+                              (, <value> [, <value>]*);
 
 # delete
-12. DELETE FROM <table name> [WHERE <condition>];
-13. DELETE * FROM <table name>;
+# FINISHED
+DELETE FROM <table name> [WHERE <condition>];
 
 # update
-14. UPDATE <table name> SET <field name> = <new value> 
-                         [, <field name> = <new value>]* 
+# FINISHED
+UPDATE <table name> SET <field name> = <new value> 
+                     [, <field name> = <new value>]* 
         WHERE <field name> = <some value>;
 
 # select
-15. SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
-16. SELECT * FROM <table name> [WHERE <condition>];
+SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
+SELECT * FROM <table name> [WHERE <condition>];
 
 # extention
 
 # inner join
-17. SELECT <table name>.<field name> [, <table name>.<field name>] 
+SELECT <table name>.<field name> [, <table name>.<field name>] 
         FROM <table name> [, <table name>] WHERE <condition>;
 # In inner join, on clause and where clause are the same.
-18. SELECT <table name>.<field name> [, <table name>.<field name>]* 
+SELECT <table name>.<field name> [, <table name>.<field name>]* 
         FROM <table name> [INNER] JOIN <table name> {ON | WHERE} <condition>;
 # Cross join is the same as inner join with condition clause always equivalent to true.
 # So it will be implemented as inner join.
-19. SELECT <table name>.<field name> [, <table name>.<field name>]*
-        FROM <table name> CROSS JOIN <table name>;
+SELECT <table name>.<field name> [, <table name>.<field name>]*
+       FROM <table name> CROSS JOIN <table name>;
 
 # outer join, won't support
-20. SELECT <table name>.<field name> [, <table name>.<field name>]*
+SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> {LEFT | RIGHT | FULL} [OUTER] JOIN <table name> 
         ON <condition> [WHERE <conditon>];
 
