@@ -714,7 +714,7 @@ private:
 
             // check where clause
             int constant_condition = 2;
-            std::tuple<int, uint64, std::string, std::string> cond;
+            std::tuple<int, uint64, std::string, std::string, uint64> cond;
             // no where clause, equvalent to conditon is always true
             if (query.condition.left_expr.length() +
                 query.condition.right_expr.length() +
@@ -782,7 +782,7 @@ private:
 
             // check where clause
             int constant_condition = 2;
-            std::tuple<int, uint64, std::string, std::string> cond;
+            std::tuple<int, uint64, std::string, std::string, uint64> cond;
             // no where clause, equvalent to conditon is always true
             if (query.condition.left_expr.length() +
                 query.condition.right_expr.length() +
@@ -889,7 +889,7 @@ private:
 
             // check where clause
             int constant_condition = 2;
-            std::tuple<int, uint64, std::string, std::string> cond;
+            std::tuple<int, uint64, std::string, std::string, uint64> cond;
             // no where clause, equvalent to conditon is always true
             if (query.condition.left_expr.length() +
                 query.condition.right_expr.length() +
@@ -1053,7 +1053,6 @@ private:
                                const std::string& right_value, 
                                const int const_condition) {
         std::vector<RID> rids;
-        // TODO: optimise: directly output
         // return all rids
         if (const_condition == 1) 
             return table_manager->findRecords(field_id, [](const char*) { return 1; });
@@ -1070,7 +1069,6 @@ private:
         std::string null_value = std::string(field_length, '\x00');
         rids = table_manager->findRecords(field_id, 
             [&right_value, &field_length, &op, &comp, &null_value](const char* data)->bool {
-                int comp_result;
                 if (op == "=") 
                     return comp(data, right_value.data(), field_length) == 0 &&
                            (comp(right_value.data(), null_value.data(), field_length) == 0 ||
@@ -1106,15 +1104,17 @@ private:
     // returns 0 if condition is always false
     // returns 1 if condition is always true
     // else
-    // returns 2 if parse succeed
-    //     uint64 is left field id, string is op, string is right value
-    // returns >= 3 if parse failed
-    std::tuple<int, uint64, std::string, std::string> parseSimpleCondition(
+    // left value must be field id
+    // returns 2 if right value is literal
+    // returns 3 if right value is field id
+    //     uint64 is left field id, string is op, string is right value, uint64 is right field id
+    // returns >= 4 if parse failed
+    std::tuple<int, uint64, std::string, std::string, uint64> parseSimpleCondition(
         QueryProcess::SimpleCondition& condition, const DBFields& fields_desc) {
-        // TODO: conditon is now very strict
+        // TODO: conditon is now relatively strict
         // left_expr must be field name
         // right_expr and op mustn't be empty
-        // right_expr mustn't be field name
+        // right_expr can be field name or literal
 
         // convert "not(\blank)*null" to "not null", "null" to "null", "is" to "is"
         if (std::regex_match(condition.left_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
@@ -1137,19 +1137,29 @@ private:
         // check right value 
         // something to do with null/not null/is
         if (condition.op != "is" && condition.right_expr == "null") 
-            return { 0, left_field_id, condition.op, right_value };
+            return { 0, left_field_id, condition.op, right_value, 0 };
         if (condition.op != "is" && condition.right_expr == "not null") 
-            return { 0, left_field_id, condition.op, right_value };
+            return { 0, left_field_id, condition.op, right_value, 0 };
         if (condition.op == "is") {
             if (condition.right_expr == "null") {
-                return { 2, left_field_id, "=", right_value };
+                return { 2, left_field_id, "=", right_value, 0 };
             } else if (condition.right_expr == "not null") {
-                return { 2, left_field_id, "<", right_value };
+                return { 2, left_field_id, "<", right_value, 0 };
             } else 
                 throw InvalidExpr_WhereClause(condition.op);
         }
 
-        // parse right value
+        // try to parse right value as field name
+        ite = std::find(fields_desc.field_name().begin(),
+                        fields_desc.field_name().end(),
+                        condition.right_expr);
+        if (ite != fields_desc.field_name().end()) {
+            uint64 right_field_id = ite - fields_desc.field_name().begin();
+            return { 3, left_field_id, condition.op, right_value, right_field_id };
+        }
+
+
+        // parse right value as literal
         std::unique_ptr<char[]> buff(new char[fields_desc.field_length()[left_field_id]]);
         memset(buff.get(), 0x00, fields_desc.field_length()[left_field_id]);
         if (literalParser(condition.right_expr, fields_desc.field_type()[left_field_id],
@@ -1157,7 +1167,7 @@ private:
             throw InvalidExpr_WhereClause(condition.right_expr);
         right_value.assign(buff.get(), fields_desc.field_length()[left_field_id]);
          
-        return { 2, left_field_id, condition.op, right_value };
+        return { 2, left_field_id, condition.op, right_value, 0 };
     }
 
     DBTableManager* openTable(const std::string& table_name) {
