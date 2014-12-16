@@ -126,7 +126,6 @@ public:
             err << "Error: ";
             err << "Error when removing index on field \"" << error.field_name 
                 << "\" of table \"" << error.table_name << "\"." << std::endl;
-        /*
         } catch (const LiteralParseFailed& error) {
             err << "Error: ";
             err << "Error when parsing literal \"" << error.literal << "\"."
@@ -135,7 +134,6 @@ public:
             err << "Error: ";
             err << "Literal \"" << error.literal << "\" out of range." 
                 << std::endl;
-        */
         } catch (const InsertRecordFailed& error) {
             err << "Error: ";
             err << "Error when inserting tuple (";
@@ -152,6 +150,11 @@ public:
             err << "Invalid where clause. ";
             if (error.getInfo().length())
                 err << "Error near \"" << error.getInfo() << "\". ";
+            err << std::endl;
+        } catch(const UpdateRecordFailed& error) {
+            err << "Error: ";
+            err << "Update record failed. ";
+            err << error.getInfo();
             err << std::endl;
         }
 
@@ -717,7 +720,6 @@ private:
                 query.condition.right_expr.length() +
                 query.condition.op.length() == 0) {
                 constant_condition = 1;
-                // std::cout << "Always true" << std::endl;
             } else {
             // else, parse where clause
                 cond = parseSimpleCondition(query.condition, fields_desc);
@@ -725,11 +727,9 @@ private:
                 if (std::get<0>(cond) >= 3) throw InvalidWhereClause();
                 if (std::get<0>(cond) == 0) {
                     constant_condition = 0;
-                    // std::cout << "Always false" << std::endl;
                 }
                 if (std::get<0>(cond) == 1) {
                     constant_condition = 1;
-                    // std::cout << "Always true" << std::endl;
                 }
                 if (std::get<0>(cond) == 2) {
 #ifdef DEBUG 
@@ -754,6 +754,214 @@ private:
         }
         return 1;
     }
+
+    // parse as statement "DELETE FROM <table name> [WHERE <simple condition>];"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsSimpleDeleteStatement(const std::string& str) {
+        QueryProcess::SimpleDeleteStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  simpleDeleteStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: delete ";
+            std::cout << "from [" << query.table_name << "] where " << query.condition.left_expr << ' ' << query.condition.op << ' ' << query.condition.right_expr << std::endl;
+#endif
+
+            if (db_inuse.length() == 0) throw DBNotOpened();
+
+            DBTableManager* table_manager = openTable(query.table_name);
+            // open failed
+            if (!table_manager) throw OpenTableFailed(query.table_name);
+
+            const DBFields& fields_desc = table_manager->fieldsDesc();
+
+            // check where clause
+            int constant_condition = 2;
+            std::tuple<int, uint64, std::string, std::string> cond;
+            // no where clause, equvalent to conditon is always true
+            if (query.condition.left_expr.length() +
+                query.condition.right_expr.length() +
+                query.condition.op.length() == 0) {
+                // condition always true
+                constant_condition = 1;
+            } else {
+                // else, parse where clause
+                cond = parseSimpleCondition(query.condition, fields_desc);
+                // condition parse failed
+                if (std::get<0>(cond) >= 3) throw InvalidWhereClause();
+                if (std::get<0>(cond) == 0) {
+                    // condition always false
+                    constant_condition = 0;
+                }
+                if (std::get<0>(cond) == 1) {
+                    // condition always true
+                    constant_condition = 1;
+                }
+                if (std::get<0>(cond) == 2) {
+#ifdef DEBUG 
+                    std::cout << fields_desc.field_name()[std::get<1>(cond)] << std::get<2>(cond);
+                    for (int i = 0; i < std::get<3>(cond).length(); ++i)
+                        printf("%02x ", int(std::get<3>(cond)[i]) & 0xff);
+                    std::cout << std::endl;
+#endif
+                }
+            }
+
+            auto rids = selectRID(table_manager, std::get<1>(cond), 
+                                  fields_desc.field_length()[std::get<1>(cond)],
+                                  fields_desc.field_type()[std::get<1>(cond)],
+                                  std::get<2>(cond), std::get<3>(cond),
+                                  constant_condition);
+
+            for (const auto& rid: rids)
+                assert(table_manager->removeRecord(rid) == 0);
+
+            return 0;
+        }
+        return 1;
+    }
+
+    // parse as statement "UPDATE <table name> SET <field name> = <new value> 
+    //                                          [, <field name> = <new value>]* 
+    //                     WHERE <field name> = <some value>;"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsSimpleUpdateStatement(const std::string& str) {
+        QueryProcess::SimpleUpdateStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  simpleUpdateStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: update [" << query.table_name << "] ";
+            for (const auto& n: query.new_values)
+                std::cout << '['<< n.field_name << ' ' << n.value << "] ";
+            std::cout << " where " << query.condition.left_expr << ' ' << query.condition.op << ' ' << query.condition.right_expr << std::endl;
+#endif
+
+            if (db_inuse.length() == 0) throw DBNotOpened();
+
+            DBTableManager* table_manager = openTable(query.table_name);
+            // open failed
+            if (!table_manager) throw OpenTableFailed(query.table_name);
+
+            const DBFields& fields_desc = table_manager->fieldsDesc();
+            // check new values
+            std::vector<uint64> modify_field_ids;
+            std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
+            memset(buffer.get(), 0x00, fields_desc.recordLength());
+            std::vector<void*> args;
+            std::set<uint64> check_duplicate_field_id;
+            for (const auto& new_value: query.new_values) {
+                auto ite = std::find(fields_desc.field_name().begin(),
+                                     fields_desc.field_name().end(),
+                                     new_value.field_name);
+                // invalid field name
+                if (ite == fields_desc.field_name().end()) 
+                    throw InvalidFieldName(new_value.field_name);
+                uint64 field_id = ite - fields_desc.field_name().begin();
+                modify_field_ids.push_back(field_id);
+                check_duplicate_field_id.insert(field_id);
+
+                // parse new value
+                int rtv = literalParser(new_value.value,
+                                        fields_desc.field_type()[field_id],
+                                        fields_desc.field_length()[field_id],
+                                        buffer.get() + fields_desc.offset()[field_id]
+                                       );
+                // parse failed
+                if (rtv == 1) throw LiteralParseFailed(new_value.value);
+                if (rtv == 2) throw LiteralOutofrange(new_value.value);
+                args.push_back(buffer.get() + fields_desc.offset()[field_id]);
+            }
+            // duplicate field_name
+            if (modify_field_ids.size() != check_duplicate_field_id.size()) 
+                throw DuplicateFieldName("");
+
+
+            // check where clause
+            int constant_condition = 2;
+            std::tuple<int, uint64, std::string, std::string> cond;
+            // no where clause, equvalent to conditon is always true
+            if (query.condition.left_expr.length() +
+                query.condition.right_expr.length() +
+                query.condition.op.length() == 0) {
+                constant_condition = 1;
+            } else {
+            // else, parse where clause
+                cond = parseSimpleCondition(query.condition, fields_desc);
+                // condition parse failed
+                if (std::get<0>(cond) >= 3) throw InvalidWhereClause();
+                if (std::get<0>(cond) == 0) {
+                    constant_condition = 0;
+                }
+                if (std::get<0>(cond) == 1) {
+                    constant_condition = 1;
+                }
+                if (std::get<0>(cond) == 2) {
+#ifdef DEBUG 
+                    std::cout << fields_desc.field_name()[std::get<1>(cond)] << std::get<2>(cond);
+                    for (int i = 0; i < std::get<3>(cond).length(); ++i)
+                        printf("%02x ", int(std::get<3>(cond)[i]) & 0xff);
+                    std::cout << std::endl;
+#endif
+                }
+            }
+
+            auto rids = selectRID(table_manager, std::get<1>(cond), 
+                                  fields_desc.field_length()[std::get<1>(cond)],
+                                  fields_desc.field_type()[std::get<1>(cond)],
+                                  std::get<2>(cond), std::get<3>(cond),
+                                  constant_condition);
+
+            // modify records
+            outputRID(table_manager, fields_desc, modify_field_ids, rids);
+
+            std::unique_ptr<char[]> old_args_buffer(new char[fields_desc.recordLength() * rids.size()]);
+            memset(old_args_buffer.get(), 0x00, fields_desc.recordLength() * rids.size());
+            
+            // record operations, roll back if error occurs
+            std::vector< std::tuple<RID, uint64, void*> > rollback_info;
+            for (uint64 i = 0; i < rids.size(); ++i) 
+                for (uint64 j = 0; j <  modify_field_ids.size(); ++j) {
+                    char* old_arg_pos = old_args_buffer.get() + i * fields_desc.recordLength() + fields_desc.offset()[modify_field_ids[j]];
+                    int rtv = table_manager->modifyRecord(rids[i], modify_field_ids[j], args[j], old_arg_pos);
+                    // modify succeed
+                    if (rtv == 0) 
+                        rollback_info.push_back({ rids[i], modify_field_ids[j], old_arg_pos });
+                    // error occurs
+                    else {
+                        // rollback
+                        while (rollback_info.size()) {
+                            int rtv = table_manager->modifyRecord(std::get<0>(rollback_info.back()), 
+                                                                  std::get<1>(rollback_info.back()),
+                                                                  std::get<2>(rollback_info.back()),
+                                                                  nullptr);
+                            // assert roll back always succeed
+                            assert(rtv == 0);
+                            rollback_info.pop_back();
+                        }
+                        if (rtv == 2) 
+                            throw UpdateNotNullExpected(fields_desc.field_name()[modify_field_ids[j]]);
+                        if (rtv == 3) 
+                            throw UpdateDuplicatePrimaryKey();
+                        throw UpdateRecordFailed();
+                    }
+                }
+
+            return 0;
+        }
+        return 1;
+    }
+
      
 
 private: 
@@ -785,9 +993,9 @@ private:
                                     buffer + fields_desc.offset()[i]
                                    );
             // parse failed
-            if (rtv == 1) throw LiteralParseFailed_Insert(table_name, values, values[i]);
+            if (rtv == 1) throw LiteralParseFailed(values[i]);
             // out of range
-            if (rtv == 2) throw LiteralOutofrange_Insert(table_name, values, values[i]);
+            if (rtv == 2) throw LiteralOutofrange(values[i]);
             args.push_back(buffer + fields_desc.offset()[i]);
         }
 
@@ -994,7 +1202,7 @@ private:
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 12;
+    constexpr static int kParseFunctions = 14;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -1007,7 +1215,9 @@ private:
         &DBQuery::parseAsCreateIndexStatement,
         &DBQuery::parseAsDropIndexStatement,
         &DBQuery::parseAsInsertRecordStatement,
-        &DBQuery::parseAsSimpleSelectStatement
+        &DBQuery::parseAsSimpleSelectStatement,
+        &DBQuery::parseAsSimpleDeleteStatement,
+        &DBQuery::parseAsSimpleUpdateStatement
     };
 
     // parsers
@@ -1023,6 +1233,8 @@ private:
     QueryProcess::DropIndexStatementParser dropIndexStatementParser;
     QueryProcess::InsertRecordStatementParser insertRecordStatementParser;
     QueryProcess::SimpleSelectStatementParser simpleSelectStatementParser;
+    QueryProcess::SimpleDeleteStatementParser simpleDeleteStatementParser;
+    QueryProcess::SimpleUpdateStatementParser simpleUpdateStatementParser;
 #ifdef DEBUG
 public:
 #endif
@@ -1115,6 +1327,15 @@ public:
         InsertRecordFailed(const std::string& tn, const std::vector<std::string>& vs): table_name(tn), values(vs) { }
         virtual std::string getInfo() const { return ""; }
     };
+    struct LiteralParseFailed {
+        std::string literal;
+        LiteralParseFailed(const std::string& l): literal(l) { }
+    };
+    struct LiteralOutofrange {
+        std::string literal;
+        LiteralOutofrange(const std::string& l): literal(l) { }
+    };
+    /*
     struct LiteralParseFailed_Insert: InsertRecordFailed {
         std::string literal;
         LiteralParseFailed_Insert(const std::string& tn, const std::vector<std::string>& vs, const std::string& l): 
@@ -1131,6 +1352,7 @@ public:
             return "Literal \"" + literal + "\" out of range. ";
         }
     };
+    */
     struct WrongTupleSize: InsertRecordFailed {
         uint64 wrong_size;
         uint64 right_size;
@@ -1164,8 +1386,21 @@ public:
         virtual std::string getInfo() const { return expr; }
         InvalidExpr_WhereClause(const std::string& l): expr(l) { }
     };
-
-
+    struct UpdateRecordFailed {
+        virtual std::string getInfo() const { return ""; }
+    };
+    struct UpdateDuplicatePrimaryKey: UpdateRecordFailed {
+        virtual std::string getInfo() const {
+            return "Duplicate primary key. ";
+        }
+    };
+    struct UpdateNotNullExpected: UpdateRecordFailed {
+        UpdateNotNullExpected(const std::string& fn): field_name(fn) { }
+        std::string field_name;
+        virtual std::string getInfo() const {
+            return "Field \"" + field_name + "\" expects a not-null-value. ";
+        }
+    };
 };
 
 #endif /* DB_QUERY_H_ */

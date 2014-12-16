@@ -467,14 +467,15 @@ public:
 
     // modify field field_id of record rid to arg
     // assert file is open
-    // returns 0 if succeed, 1 otherwise
-    bool modifyRecord(const RID rid, const uint64 field_id, const void* arg) {
+    // old value will be saved into old_arg is old_arg is not null
+    // returns 0 if succeed, non-zero otherwise
+    int modifyRecord(const RID rid, const uint64 field_id, const void* arg, void* old_arg) {
         if (!isopen()) return 1;
 
         // check null
         if (_fields.notnull()[field_id] == 1 && 
             pointer_convert<const char*>(arg)[0] == '\x00')
-            return 1;
+            return 2;
 
 
         // INDEX MANIPULATE
@@ -483,7 +484,7 @@ public:
             auto rtv = _index[_fields.primary_key_field_id()]->
                 searchRecord(pointer_convert<const char*>(arg));
             // if exist already
-            if (rtv) return 1;
+            if (rtv) return 3;
         } // else not exist, continue modifying
     
 
@@ -506,6 +507,10 @@ public:
                           _record_length * rid.slotID +
                           /* field offset */
                           _fields.offset()[field_id];
+
+        // store old value
+        if (old_arg) 
+            memcpy(old_arg, oldRecord, _fields.field_length()[field_id]);
 
         // INDEX MANIPULATE
         // remove old, insert new in index

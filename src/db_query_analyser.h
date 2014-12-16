@@ -69,38 +69,56 @@ struct SimpleSelectStatement {
     std::string table_name;
     SimpleCondition condition;
 };
+struct SimpleDeleteStatement {
+    std::string table_name;
+    SimpleCondition condition;
+};
+struct SimpleUpdateStatement {
+    struct NewValue {
+        std::string field_name;
+        std::string value;
+    };
+    std::string table_name;
+    std::vector<NewValue> new_values;
+    SimpleCondition condition;
+};
+
 
 
 // keyword symbols set
 struct Keyword_symbols: qi::symbols<> {
     Keyword_symbols() {
-        add("create")
+        add
+           ("create")
            ("database")
-           ("drop")
-           ("show")
-           ("use")
            ("databases")
-           ("table")
-           ("tables")
-           ("index")
-           ("on")
-           ("signed")
-           ("unsigned")
-           ("not")
-           ("null")
-           ("primary")
-           ("key")
+           ("delete")
            ("desc")
            ("describe")
+           ("drop")
+           ("false")
+           ("from")
+           ("index")
            ("insert")
            ("into")
-           ("values")
-           ("true")
-           ("false")
-           ("select")
-           ("from")
-           ("where")
            ("is")
+           ("key")
+           ("not")
+           ("null")
+           ("on")
+           ("primary")
+           ("select")
+           ("set")
+           ("show")
+           ("signed")
+           ("table")
+           ("tables")
+           ("true")
+           ("unsigned")
+           ("update")
+           ("use")
+           ("values")
+           ("where")
         ;
     }
 };
@@ -414,6 +432,56 @@ private:
     qi::rule<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> start;
 };
 
+// parser of DELETE FROM <table name> [WHERE <simple conditoon>];
+struct SimpleDeleteStatementParser: qi::grammar<std::string::const_iterator, SimpleDeleteStatement(), qi::space_type> {
+    SimpleDeleteStatementParser(): SimpleDeleteStatementParser::base_type(start) {
+        start = qi::no_case["delete"] >>
+                omit[no_skip[+qi::space]] >>
+                qi::no_case["from"] >>
+                omit[no_skip[+qi::space]] >>
+                sql_identifier >>
+                -(qi::no_case["where"] >> omit[no_skip[+qi::space]] >> simple_condition) >>
+                ';' >>
+                qi::eoi;
+        simple_condition = 
+                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
+                           sql_operators >>
+                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool);
+    }
+private:
+    qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
+    qi::rule<std::string::const_iterator, SimpleDeleteStatement(), qi::space_type> start;
+};
+
+// parser of UPDATE <table name> SET <field name> = <new value> 
+//                                [, <field name> = <new value>]* 
+//           WHERE <simple condition>;
+struct SimpleUpdateStatementParser: qi::grammar<std::string::const_iterator, SimpleUpdateStatement(), qi::space_type> {
+    SimpleUpdateStatementParser(): SimpleUpdateStatementParser::base_type(start) {
+        start = qi::no_case["update"] >>
+                omit[no_skip[+qi::space]] >>
+                sql_identifier >>
+                qi::no_case["set"] >>
+                (new_value % ',') >>
+                qi::no_case["where"] >>
+                omit[no_skip[+qi::space]] >>
+                simple_condition >>
+                ';' >>
+                qi::eoi;
+        new_value = sql_identifier >> 
+                    '=' >>
+                    (sql_string | sql_float | sql_null | sql_notnull | sql_bool);
+        simple_condition = 
+                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
+                           sql_operators >>
+                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool);
+    }
+private:
+    qi::rule<std::string::const_iterator, SimpleUpdateStatement::NewValue(), qi::space_type> new_value;
+    qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
+    qi::rule<std::string::const_iterator, SimpleUpdateStatement(), qi::space_type> start;
+};
+
 
 } // namespace QueryProcess
 } // namespace Database
@@ -462,5 +530,16 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
                           (std::vector<std::string>, field_names)
                           (std::string, table_name)
                           (::Database::QueryProcess::SimpleCondition, condition))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleDeleteStatement,
+                          (std::string, table_name)
+                          (::Database::QueryProcess::SimpleCondition, condition))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleUpdateStatement::NewValue,
+                          (std::string, field_name)
+                          (std::string, value))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleUpdateStatement,
+                          (std::string, table_name)
+                          (std::vector<::Database::QueryProcess::SimpleUpdateStatement::NewValue>, new_values)
+                          (::Database::QueryProcess::SimpleCondition, condition))
+
 
 #endif /* DB_QUERY_ANALYSER_H_ */
