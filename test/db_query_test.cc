@@ -120,9 +120,10 @@ int main() {
     query.execute("select * from student;");
     query.execute("update student set student_id = nulL, student_name = 'shabi' where student_id = 105;");
     query.execute("select * from student;");
-    query.execute("update student set clever = null, student_name = 'saaabbb' where student_name is null;");
+    query.execute("update student set clever = null, student_name = 'sab' where student_name is null;");
     query.execute("select * from student;");
-
+    
+    query.execute("select * from student where student_name = 'sab';");
 
 
     query.execute("drop table student;");

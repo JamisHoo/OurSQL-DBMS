@@ -318,8 +318,8 @@ public:
                     break;
                 case TYPE_CHAR:
                 case TYPE_UCHAR:
-                    str.assign(buff, length);
-                    str.erase(str.find_last_not_of("\x00" + 1));
+                    str.assign(buff, length - 1);
+                    str.erase(str.find_last_not_of('\x00') + 1);
                     break;
                 case TYPE_FLOAT:
                     str = std::to_string(*pointer_convert<const float*>(buff));

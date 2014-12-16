@@ -35,7 +35,7 @@ int main() {
     while (getline(cin, tmp)) {
         str += tmp + ' ';
         if (trim(tmp).back() == ';') {
-            cout << query.execute(str) << endl;
+            query.execute(str);
             str.clear();
             ++count;
             if (count == -1) break;

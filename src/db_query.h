@@ -922,8 +922,6 @@ private:
                                   std::get<2>(cond), std::get<3>(cond),
                                   constant_condition);
 
-            // modify records
-            outputRID(table_manager, fields_desc, modify_field_ids, rids);
 
             std::unique_ptr<char[]> old_args_buffer(new char[fields_desc.recordLength() * rids.size()]);
             memset(old_args_buffer.get(), 0x00, fields_desc.recordLength() * rids.size());
