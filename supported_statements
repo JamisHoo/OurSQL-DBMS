@@ -43,10 +43,12 @@ UPDATE <table name> SET <field name> = <new value>
                      [, <field name> = <new value>]* 
         WHERE <field name> = <some value>;
 
-# select
+# simple select
 SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];
 SELECT * FROM <table name> [WHERE <simple condition>];
 # simple condition excludes table name
+
+# complex select
 SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> WHERE <complex condition>;
 
@@ -71,8 +73,8 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
 
 
 # TODO
-# consider join three tables or above
+# like
+# check
 # foreign key
 # select aggregate function, count, avg, max, min, sum...
-# check
-# like
+# consider join three tables or above
