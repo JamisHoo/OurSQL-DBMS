@@ -21,116 +21,36 @@ int main() {
     
     DBQuery query;
 
-    
-    /*
-    query.execute("create database fuck;");
-    query.execute("use fuck;");
-    // query.execute("Create table chedan (id smallint, primary key(id) );");
-    query.execute("Create table chedan (id smallint);");
-    query.execute("insert into chedan values(100);");
-    query.execute("insert into chedan values(101);");
-    query.execute("insert into chedan values(103);");
-    query.execute("insert into chedan values(103);");
-    query.execute("insert into chedan values(103, 104);");
-    query.execute("insert into chedan values(NULL);");
-    query.execute("select * from chedan where id = 100;");
-    query.execute("select * from chedan where id > 0;");
-    query.execute("select * from chedan where id is not null;");
-    query.execute("select * from chedan where id is null;");
-    query.execute("drop table chedan;");
-    query.execute("drop database fuck;");
-    return 0;
-    */
-    
-    /* 
-    assert(query.execute(" \t\r\ncreate\rdatabase\n__fuck123 ;") == 0);
-    cout << query.db_inuse << endl;
-
-    assert(query.execute("use __fuck123;") == 0);
-    cout << query.db_inuse << endl;
-    assert(query.execute("show databases;") == 0);
-    assert(query.execute("DROP dataBAse     __fuck123;") == 0);
-    cout << query.db_inuse << endl;
-    */
-    
-    /*
-    // this should pass
-    query.execute("create table fuck ( shit smallint (12), shit3 varchar Not nuLL, shit5 char(0), priMary key(chedan));");
-    // test minus filed length
-    query.execute("create table createx ( shit tinyint (12), shit3 bigint Not nuLL, shit5 char( -3));");
-    // test primary location
-    query.execute("create table fuck ( shit bool (12), shit3 varchar Not nuLL, pRimary key (chedan \n), shit5 int( -3));");
-    // test no field description
-    query.execute("Create table fuck( primary key (_ad));");
-    // this illegal table name
-    query.execute("Create table create ( shit int );");
-    // test illegal field name
-    query.execute("CREATE TABLE fuck (table int , primary key (chedan));");
-    // this should pass
-    query.execute("CREATE TABLE createx (tablex int , primary key (chedan));");
-    */
-    
-    // cout << query.execute("Create TabLE ints (student_id int unsigned signed not null, student_name varchar(100) not nUll, clever bool);");
-    // cout << query.execute("Create TabLE ints (student_id int signed not null, student_name varchar(100) not nUll, clever bool);");
-    // cout << query.execute("Create TabLE ints (student_id int unsigned not null, student_name varchar(100) not nUll, clever bool);");
-    // cout << query.execute("Create TabLE ints (student_id int unsigned not null, student_name varchar(100) unsigned not nUll, clever bool);");
-
     query.execute("create database student;");
     query.execute("use  student;");
-    query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(7), clever bool, primary key(student_id));");
-    // query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(100), clever bool);");
+    // query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(7), IQ int, primary key(student_id));");
+    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int);");
     query.execute("show tables;");
-    // query.execute("create index on student(student_name);");
-    // query.execute("drop index on student(student_name);");
     query.execute("desc student;");
-    // query.execute("desc stu;");
 
-    query.execute("insert intostudent values(100, 'name1', true);");
-    query.execute("insert into student values (101, 'name1', false);");
-    query.execute("insert into student values (101, 'name3', false);");
-    query.execute("insert into student values (102, NULL, false);");
-    query.execute("insert into student values (-103, 'name103', false), (-104, NULL, true), (105, 'name105', false);");
-    // query.execute("insert into student values (106, 'name103', false), (107, 'name104111111111111111111111', true), (105, 'name105', false);");
-    // query.execute("insert into student values (106, 'name103', false), (107, 'name104', true), (105, 'name105', false);");
-
-    /*
-    query.execute("select student_id from student where '12132' =  1;");
-    query.execute("select student_id, student_name from student where 1.3232=  \tstudent_name;");
-    query.execute("select student_id, student_name from student where student_id=student_name ;");
-    query.execute("select * from student where student_id = 'chedan';");
-    query.execute("select *, student_name from student where student_id = 100000;");
-    query.execute("select *  from student where student__id = 100000;");
-    query.execute("select student_id from student where student_id is 1000;");
-    */
+    query.execute("insert into student values (null, null, null), (null, 'namex', null), (null, null, 2000); ");
+    query.execute("insert into student values (106, null, null), (107, 'name7', null), (-108, 'name8', null), (109, null, 109), (110, null, 1000);");
+    query.execute("insert into student values (101, 'name1', 1000), (-102, 'name2', -102), (-103, 'name3', -300), (104, 'name4', true), (105, 'name5', 105);");
     
     /*
-    query.execute("select student_id, student_name from student where student_id =101;");
-    query.execute("select student_id, student_name from student where student_id<= 10320;");
-    query.execute("select student_id, student_name from student where student_id >=103;");
-    query.execute("select student_id, student_name, clever from student ;");
     query.execute("select * from student ;");
-    query.execute("select student_id from student where student_name is null;");
-    query.execute("select student_id from student where student_id is not null;");
-
-    query.execute("Delete from student where student_id > 101;");
+    query.execute("select student_id, student_name from student where student_id =101 and student_name = 'name1';");
+    query.execute("select * from student where true;");
+    query.execute("select student_id, student_name from student where false;");
+    query.execute("select * from student where student_id = IQ;");
+    query.execute("select * from student where student_id >= IQ;");
+    query.execute("select * from student where student_id < IQ;");
+    query.execute("select * from student where student_id != IQ;");
+    query.execute("select * from student where student_id is null;");
+    query.execute("select * from student where IQ is not null;");
     */
-    query.execute("select * from student;");
-
-    query.execute("update student set student_id = 100, student_name = 'shabi' where student_id > 101;");
-    query.execute("select * from student;");
-    query.execute("update student set student_id = nulL, student_name = 'shabi' where student_id = 105;");
-    query.execute("select * from student;");
-    query.execute("update student set clever = null, student_name = 'sab' where student_name is null;");
-    query.execute("select * from student;");
     
-    query.execute("select * from student where student_name = 'sab';");
-
+    query.execute("select * from student; ");
+    query.execute("select * from student where student_id is null and IQ is not null;");
+    query.execute("select * from student where student_id > 0 and student_name is not null and IQ >= student_id;");
 
     query.execute("drop table student;");
-    // query.execute("show tables;");
     query.execute("drop database student;");
-    
-
 
     std::cout << std::endl;
 } 

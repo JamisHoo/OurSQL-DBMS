@@ -67,8 +67,9 @@ struct SimpleCondition {
 struct SimpleSelectStatement {
     std::vector<std::string> field_names;
     std::string table_name;
-    SimpleCondition condition;
+    std::vector<SimpleCondition> conditions;
 };
+
 struct SimpleDeleteStatement {
     std::string table_name;
     SimpleCondition condition;
@@ -89,6 +90,7 @@ struct SimpleUpdateStatement {
 struct Keyword_symbols: qi::symbols<> {
     Keyword_symbols() {
         add
+           ("and")
            ("create")
            ("database")
            ("databases")
@@ -409,8 +411,8 @@ private:
     qi::rule<std::string::const_iterator, InsertRecordStatement(), qi::space_type> start;
 };
 
-// parser of SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];
-//           SELECT * FROM <table name> [WHERE <simple condition>];
+// parser of SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
+//           SELECT * FROM <table name> [WHERE <condition>];
 struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> {
     SimpleSelectStatementParser(): SimpleSelectStatementParser::base_type(start) {
         start = qi::no_case["select"] >>
@@ -419,13 +421,18 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
                 qi::no_case["from"] >>
                 omit[no_skip[+qi::space]] >>
                 sql_identifier >>
-                -(qi::no_case["where"] >> omit[no_skip[+qi::space]] >> simple_condition) >>
+                -(qi::no_case["where"] >> 
+                  omit[no_skip[+qi::space]] >> 
+                  (simple_condition % 
+                   (omit[no_skip[+qi::space]] >> 
+                    qi::no_case["and"] >> 
+                    omit[no_skip[+qi::space]]))) >>
                 ';' >>
                 qi::eoi;
-        simple_condition = 
-                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
-                           sql_operators >>
-                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool);
+        simple_condition = (sql_bool >> qi::attr(std::string()) >> qi::attr(std::string())) |
+                           ((sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
+                            sql_operators >>
+                            (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool));
     }
 private:
     qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
@@ -529,7 +536,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleCondition,
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
                           (std::vector<std::string>, field_names)
                           (std::string, table_name)
-                          (::Database::QueryProcess::SimpleCondition, condition))
+                          (std::vector<::Database::QueryProcess::SimpleCondition>, conditions))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleDeleteStatement,
                           (std::string, table_name)
                           (::Database::QueryProcess::SimpleCondition, condition))
