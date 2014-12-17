@@ -35,7 +35,7 @@ INSERT INTO <table name> VALUES (<value> [, <value>]*)
 
 # delete
 # FINISHED
-DELETE FROM <table name> [WHERE <condition>];
+DELETE FROM <table name> [WHERE <simple condition>];
 
 # update
 # FINISHED
@@ -44,17 +44,20 @@ UPDATE <table name> SET <field name> = <new value>
         WHERE <field name> = <some value>;
 
 # select
-SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];
-SELECT * FROM <table name> [WHERE <condition>];
+SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];
+SELECT * FROM <table name> [WHERE <simple condition>];
+# simple condition excludes table name
+SELECT <table name>.<field name> [, <table name>.<field name>]*
+        FROM <table name> WHERE <complex condition>;
 
 # extention
 
 # inner join
-SELECT <table name>.<field name> [, <table name>.<field name>] 
-        FROM <table name> [, <table name>] WHERE <condition>;
+SELECT <table name>.<field name> [, <table name>.<field name>]*
+        FROM <table name> [, <table name>]* WHERE <complex condition>;
 # In inner join, on clause and where clause are the same.
 SELECT <table name>.<field name> [, <table name>.<field name>]* 
-        FROM <table name> [INNER] JOIN <table name> {ON | WHERE} <condition>;
+        FROM <table name> [INNER] JOIN <table name> {ON | WHERE} <complex condition>;
 # Cross join is the same as inner join with condition clause always equivalent to true.
 # So it will be implemented as inner join.
 SELECT <table name>.<field name> [, <table name>.<field name>]*
@@ -63,7 +66,7 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
 # outer join, won't support
 SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> {LEFT | RIGHT | FULL} [OUTER] JOIN <table name> 
-        ON <condition> [WHERE <conditon>];
+        ON <complex condition> [WHERE <complex condition>];
 
 
 
