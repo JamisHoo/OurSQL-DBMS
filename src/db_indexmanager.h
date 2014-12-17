@@ -602,7 +602,7 @@ public:
     bool remove() {
         // close before remove
         this->close();
-        return std::remove(_file.data());
+        return std::remove(_file.c_str());
     }
 
     // traverse all records
