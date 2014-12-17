@@ -534,6 +534,39 @@ public:
         return 0;
     }
 
+    // traverse all records
+    // callback function is: func(const char* record buffer, RID)
+    // record buffer get invalid after func returns
+    template<class CALLBACKFUNC>
+    void traverseRecords(CALLBACKFUNC func) const {
+        assert(isopen());
+        
+        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
+
+        // current page id
+        uint64 pageID = FIRST_RECORD_PAGE;
+
+        // while page id != 0
+        while (pageID) {
+            _file->readPage(pageID, buffer.get());
+            
+            char* bitmap_offset = buffer.get() + PAGE_HEADER_LENGTH;
+            char* record_offset = buffer.get() + PAGE_HEADER_LENGTH + 
+                (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64);
+
+            // traverse each slot
+            for (uint64 i = 0; i < _num_records_each_page; ++i) 
+                // if slot is not empty
+                if ((bitmap_offset[i / 8] & ('\x01' << i % 8)) == 0) 
+                    // callback
+                    func(record_offset + _record_length * i, RID(pageID, i));
+
+            // next page id
+            pageID = *pointer_convert<uint64*>(buffer.get() + sizeof(uint64) * 2);
+        }
+    }
+ 
+
     // find records meet the conditions in field_id
     // CONDITION is conditon(const char*)
     // rid of record will be added to vector if condition returns 1
@@ -1093,39 +1126,7 @@ public:
         assert(num_records2 % num_records == 0);
     }
 #endif
-    
-    // traverse all records
-    // callback function is: func(const char* record buffer, RID)
-    // record buffer get invalid after func returns
-    template<class CALLBACKFUNC>
-    void traverseRecords(CALLBACKFUNC func) const {
-        assert(isopen());
-        
-        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
-
-        // current page id
-        uint64 pageID = FIRST_RECORD_PAGE;
-
-        // while page id != 0
-        while (pageID) {
-            _file->readPage(pageID, buffer.get());
-            
-            char* bitmap_offset = buffer.get() + PAGE_HEADER_LENGTH;
-            char* record_offset = buffer.get() + PAGE_HEADER_LENGTH + 
-                (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64);
-
-            // traverse each slot
-            for (uint64 i = 0; i < _num_records_each_page; ++i) 
-                // if slot is not empty
-                if ((bitmap_offset[i / 8] & ('\x01' << i % 8)) == 0) 
-                    // callback
-                    func(record_offset + _record_length * i, RID(pageID, i));
-
-            // next page id
-            pageID = *pointer_convert<uint64*>(buffer.get() + sizeof(uint64) * 2);
-        }
-    }
-    
+   
 private:
 #ifdef DEBUG
 public:
