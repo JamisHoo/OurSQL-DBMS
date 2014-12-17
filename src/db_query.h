@@ -593,8 +593,8 @@ private:
 
     }
 
-    // parse as statement "SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];"
-    //                  or "SELECT * FROM <table name> [WHERE <simple condition>];"
+    // parse as statement "SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];"
+    //                  or "SELECT * FROM <table name> [WHERE <condition>];"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
     // returns other values if parse succeed but execute failed.
@@ -666,21 +666,11 @@ private:
             }
             std::cout << "--------------------" << std::endl;
 #endif
-
-            auto rids = selectRID(table_manager, conditions);
-            outputRID(table_manager, fields_desc, display_field_ids, rids);
             // select records
-
-            /*
-            auto rids = selectRID(table_manager, std::get<1>(cond), 
-                                  fields_desc.field_length()[std::get<1>(cond)],
-                                  fields_desc.field_type()[std::get<1>(cond)],
-                                  std::get<2>(cond), std::get<3>(cond),
-                                  constant_condition);
-
-
+            auto rids = selectRID(table_manager, conditions);
+            // output
             outputRID(table_manager, fields_desc, display_field_ids, rids);
-            */
+
             return 0;
         }
         return 1;
