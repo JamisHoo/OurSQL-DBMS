@@ -153,6 +153,9 @@ public:
             if (error.getInfo().length())
                 err << "Error near \"" << error.getInfo() << "\". ";
             err << std::endl;
+        } catch (const UpdateFailed& error) {
+            err << "Error: ";
+            err << error.getInfo() << std::endl;
         }
 
         return 1;
@@ -676,6 +679,160 @@ private:
         return 1;
     }
 
+    // parse as statement "DELETE FROM <table name> [WHERE <condition>];"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsDeleteStatement(const std::string& str) {
+        QueryProcess::DeleteStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  deleteStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: delete ";
+            std::cout << "from [" << query.table_name << "] where " << std::endl; 
+            for (const auto& c: query.conditions) 
+                std::cout << c.left_expr << ' ' << c.op << ' ' << c.right_expr << " and " << std::endl;
+#endif
+            if (db_inuse.length() == 0) throw DBNotOpened();
+
+            DBTableManager* table_manager = openTable(query.table_name);
+            // open failed
+            if (!table_manager) throw OpenTableFailed(query.table_name);
+
+            const DBFields& fields_desc = table_manager->fieldsDesc();
+
+            // check where clause
+            std::vector<Condition> conditions;
+            for (const auto& cond: query.conditions)
+                conditions.push_back(parseSimpleCondition(cond, fields_desc));
+
+            // select records
+            auto rids = selectRID(table_manager, conditions);
+
+            // remove rids
+            for (const auto& rid: rids)
+                assert(table_manager->removeRecord(rid) == 0);
+
+            return 0;
+        }
+        return 1;
+    }
+
+    // parse as statement "UPDATE <table name> SET <field name> = <new value> 
+    //                                          [, <field name> = <new value>]* 
+    //                     [WHERE <condition>];"
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    // returns other values if parse succeed but execute failed.
+    int parseAsUpdateStatement(const std::string& str) {
+        QueryProcess::UpdateStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  updateStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Get: update [" << query.table_name << "] ";
+            for (const auto& n: query.new_values)
+                std::cout << '['<< n.field_name << ' ' << n.value << "] ";
+            std::cout << " where " << std::endl;
+            for (const auto& c: query.conditions) 
+                std::cout << c.left_expr << ' ' << c.op << ' ' << c.right_expr << " and " << std::endl;
+#endif
+
+            if (db_inuse.length() == 0) throw DBNotOpened();
+
+            DBTableManager* table_manager = openTable(query.table_name);
+            // open failed
+            if (!table_manager) throw OpenTableFailed(query.table_name);
+
+            const DBFields& fields_desc = table_manager->fieldsDesc();
+            // check new values
+            std::vector<uint64> modify_field_ids;
+            std::unique_ptr<char[]> buffer(new char[fields_desc.recordLength()]);
+            memset(buffer.get(), 0x00, fields_desc.recordLength());
+            std::vector<void*> args;
+            std::set<uint64> check_duplicate_field_id;
+            for (const auto& new_value: query.new_values) {
+                auto ite = std::find(fields_desc.field_name().begin(),
+                                     fields_desc.field_name().end(),
+                                     new_value.field_name);
+                // invalid field name
+                if (ite == fields_desc.field_name().end()) 
+                    throw InvalidFieldName(new_value.field_name);
+                uint64 field_id = ite - fields_desc.field_name().begin();
+                modify_field_ids.push_back(field_id);
+                check_duplicate_field_id.insert(field_id);
+
+                // parse new value
+                int rtv = literalParser(new_value.value,
+                                        fields_desc.field_type()[field_id],
+                                        fields_desc.field_length()[field_id],
+                                        buffer.get() + fields_desc.offset()[field_id]
+                                       );
+                // parse failed
+                if (rtv == 1) throw LiteralParseFailed(new_value.value);
+                if (rtv == 2) throw LiteralOutofrange(new_value.value);
+                args.push_back(buffer.get() + fields_desc.offset()[field_id]);
+            }
+            // duplicate field_name
+            if (modify_field_ids.size() != check_duplicate_field_id.size()) 
+                throw DuplicateFieldName("");
+
+            // check where clause
+            std::vector<Condition> conditions;
+            for (const auto& cond: query.conditions)
+                conditions.push_back(parseSimpleCondition(cond, fields_desc));
+
+            // select records
+            auto rids = selectRID(table_manager, conditions);
+
+#ifdef DEBUG
+            // modify records
+            outputRID(table_manager, fields_desc, modify_field_ids, rids);
+#endif
+
+            std::unique_ptr<char[]> old_args_buffer(new char[fields_desc.recordLength() * rids.size()]);
+            memset(old_args_buffer.get(), 0x00, fields_desc.recordLength() * rids.size());
+            
+            // record operations, roll back if error occurs
+            std::vector< std::tuple<RID, uint64, void*> > rollback_info;
+            for (uint64 i = 0; i < rids.size(); ++i) 
+                for (uint64 j = 0; j <  modify_field_ids.size(); ++j) {
+                    char* old_arg_pos = old_args_buffer.get() + i * fields_desc.recordLength() + fields_desc.offset()[modify_field_ids[j]];
+                    int rtv = table_manager->modifyRecord(rids[i], modify_field_ids[j], args[j], old_arg_pos);
+                    // modify succeed
+                    if (rtv == 0) 
+                        rollback_info.push_back({ rids[i], modify_field_ids[j], old_arg_pos });
+                    // error occurs
+                    else {
+                        // rollback
+                        while (rollback_info.size()) {
+                            int rtv = table_manager->modifyRecord(std::get<0>(rollback_info.back()), 
+                                                                  std::get<1>(rollback_info.back()),
+                                                                  std::get<2>(rollback_info.back()),
+                                                                  nullptr);
+                            // assert roll back always succeed
+                            assert(rtv == 0);
+                            rollback_info.pop_back();
+                        }
+                        if (rtv == 2) 
+                            throw NotNullExpected_Update(fields_desc.field_name()[modify_field_ids[j]]);
+                        if (rtv == 3) 
+                            throw DuplicatePrimaryKey_Update();
+                        throw UpdateFailed();
+                    }
+                }
+
+            return 0;
+        }
+        return 1;
+    }
 
 private: 
     // output a certain record
@@ -925,9 +1082,9 @@ private:
         if (rid == RID(0, 1)) 
             throw WrongTupleSize(table_name, values, args.size(), fields_desc.size());
         else if (rid == RID(0, 3)) 
-            throw NotNullExpected(table_name, values);
+            throw NotNullExpected_Insert(table_name, values);
         else if (rid == RID(0, 4))
-            throw DuplicatePrimaryKey(table_name, values);
+            throw DuplicatePrimaryKey_Insert(table_name, values);
         else if (!rid)
             throw InsertRecordFailed(table_name, values);
         return rid;
@@ -977,7 +1134,7 @@ private:
 
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 12;
+    constexpr static int kParseFunctions = 14;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -990,7 +1147,9 @@ private:
         &DBQuery::parseAsCreateIndexStatement,
         &DBQuery::parseAsDropIndexStatement,
         &DBQuery::parseAsInsertRecordStatement,
-        &DBQuery::parseAsSimpleSelectStatement
+        &DBQuery::parseAsSimpleSelectStatement,
+        &DBQuery::parseAsDeleteStatement,
+        &DBQuery::parseAsUpdateStatement
     };
 
     // parsers
@@ -1006,6 +1165,8 @@ private:
     QueryProcess::DropIndexStatementParser dropIndexStatementParser;
     QueryProcess::InsertRecordStatementParser insertRecordStatementParser;
     QueryProcess::SimpleSelectStatementParser simpleSelectStatementParser;
+    QueryProcess::DeleteStatementParser deleteStatementParser;
+    QueryProcess::UpdateStatementParser updateStatementParser;
 #ifdef DEBUG
 public:
 #endif
@@ -1118,15 +1279,15 @@ public:
                    std::to_string(wrong_size) + " provided. "; 
         }
     };
-    struct NotNullExpected: InsertRecordFailed {
-        NotNullExpected(const std::string& tn, const std::vector<std::string>& vs):
+    struct NotNullExpected_Insert: InsertRecordFailed {
+        NotNullExpected_Insert(const std::string& tn, const std::vector<std::string>& vs):
             InsertRecordFailed(tn, vs) { }
         virtual std::string getInfo() const {
             return "Not null expected. ";
         }
     };
-    struct DuplicatePrimaryKey: InsertRecordFailed {
-        DuplicatePrimaryKey(const std::string& tn, const std::vector<std::string>& vs):
+    struct DuplicatePrimaryKey_Insert: InsertRecordFailed {
+        DuplicatePrimaryKey_Insert(const std::string& tn, const std::vector<std::string>& vs):
             InsertRecordFailed(tn, vs) { }
         virtual std::string getInfo() const {
             return "Duplicate primary key. ";
@@ -1139,6 +1300,21 @@ public:
         std::string expr;
         virtual std::string getInfo() const { return expr; }
         InvalidExpr_WhereClause(const std::string& l): expr(l) { }
+    };
+    struct UpdateFailed { 
+        virtual std::string getInfo() const { return ""; }
+    };
+    struct NotNullExpected_Update: UpdateFailed {
+        std::string field_name;
+        NotNullExpected_Update(const std::string& fn): field_name(fn) { }
+        virtual std::string getInfo() const {
+            return "Field \"" + field_name + "\" expected a non-null value. ";
+        }
+    };
+    struct DuplicatePrimaryKey_Update: UpdateFailed {
+        virtual std::string getInfo() const { 
+            return "Duplicate primary key. ";
+        }
     };
 };
 

@@ -23,8 +23,7 @@ int main() {
 
     query.execute("create database student;");
     query.execute("use  student;");
-    // query.execute("Create TabLE student (student_id int(10) not null, student_name varchar(7), IQ int, primary key(student_id));");
-    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int);");
+    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int, primary key(student_id));");
     query.execute("show tables;");
     query.execute("desc student;");
 
@@ -43,11 +42,24 @@ int main() {
     query.execute("select * from student where student_id != IQ;");
     query.execute("select * from student where student_id is null;");
     query.execute("select * from student where IQ is not null;");
-    */
     
     query.execute("select * from student; ");
     query.execute("select * from student where student_id is null and IQ is not null;");
     query.execute("select * from student where student_id > 0 and student_name is not null and IQ >= student_id;");
+    */
+
+    /*
+    query.execute("delete from student where student_id is null and IQ is not null; ");
+    query.execute("delete  from student where student_id = student_id; ");
+    */
+
+    query.execute("select * from student; ");
+    query.execute("update student set student_id = 3000 where student_id = 101;");
+    query.execute("select * from student; ");
+    query.execute("update student set student_id = 1000 where student_id > 103;");
+    query.execute("select * from student; ");
+    query.execute("update student set student_id = NULL where student_id > 103;");
+    query.execute("select * from student; ");
 
     query.execute("drop table student;");
     query.execute("drop database student;");
