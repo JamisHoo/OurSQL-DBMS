@@ -270,8 +270,10 @@ public:
         // convert raw data of type to literal string str
         // returns 0 if succeeded
         // returns 1 if failed
-        int operator()(const void* data, const uint64 type, const uint64 length,  std::string& str) const {
+        int operator()(const void* data, const uint64 type, const uint64 length,  std::string& str, bool* isnull = nullptr) const {
+            if (isnull) *isnull = false;
             if (pointer_convert<const char*>(data)[0] == '\x00') {
+                if (isnull) *isnull = true;
                 str = "NULL";
                 return 0;
             }
