@@ -53,6 +53,10 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> WHERE <complex condition>;
 
 # extention
+# like in condition
+<left expr> [NOT] LIKE <EMACScript regex>
+
+
 
 # inner join
 SELECT <table name>.<field name> [, <table name>.<field name>]*
@@ -73,7 +77,6 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
 
 
 # TODO
-# like
 # check
 # foreign key
 # select aggregate function, count, avg, max, min, sum...

@@ -29,6 +29,8 @@
 
 class Database::DBQuery {
 public:
+    static constexpr char* CHECK_CONSTRAIN_SUFFIX = (char*)".chk";
+
     DBQuery() { }
 
     ~DBQuery() {
@@ -147,9 +149,9 @@ public:
             if (error.getInfo().length())
                 err << error.getInfo();
             err << std::endl;
-        } catch (const InvalidWhereClause& error) {
+        } catch (const InvalidCriteria& error) {
             err << "Error: ";
-            err << "Invalid where clause. ";
+            err << "Invalid criteria. ";
             if (error.getInfo().length())
                 err << "Error near \"" << error.getInfo() << "\". ";
             err << std::endl;
@@ -174,6 +176,7 @@ private:
         std::string right_literal;
         Condition(const int t, const uint64 li, const uint64 ri, const std::string& o, const std::string& rl):
             type(t), left_id(li), op(o), right_id(ri), right_literal(rl) { }
+        Condition() { }
     };
 
     // parse as statement "CREATE DATABASE <database name>"
@@ -300,6 +303,7 @@ private:
                                                  );
         
         if (ok) {
+            // check field descriptions and primary key constrain
             std::set<std::string> field_names;
             bool primary_key_exist = 0;
             // field name, field type, field length, is primary key, indexed, not null
@@ -318,7 +322,6 @@ private:
                     std::make_tuple(field.field_type, 
                                     field.field_type_unsigned,
                                     field.field_type_signed));
-
 
                 // unsupported type.
                 // this is usually because of redundant "unsigned" and "signed"
@@ -355,17 +358,45 @@ private:
             if (query.primary_key_name.length() != 0 && primary_key_exist == 0) 
                 throw InvalidPrimaryKey(query.primary_key_name);
 
+            // construct DBFields
             DBFields dbfields;
             for (const auto& desc: field_descs) 
-                dbfields.insert(std::get<1>(desc),
-                                std::get<2>(desc),
-                                std::get<3>(desc),
-                                std::get<4>(desc),
-                                std::get<5>(desc),
-                                std::get<0>(desc));
-
-
+                dbfields.insert(std::get<1>(desc), std::get<2>(desc),
+                                std::get<3>(desc), std::get<4>(desc),
+                                std::get<5>(desc), std::get<0>(desc));
             dbfields.addPrimaryKey();
+
+            // check "check constrain"
+            std::vector<Condition> conditions;
+            for (const auto& cond: query.check) {
+                // parse condition
+                auto parsed_cond = parseSimpleCondition(cond, dbfields);
+                // if this condition is always false
+                if (parsed_cond.type == 0) {
+                    // ignore all other conditions
+                    conditions.clear();
+                    conditions.push_back(parsed_cond);
+                    break;
+                // ignore constant true condition
+                // record other conditions
+                } else if (parsed_cond.type != 1) 
+                    conditions.push_back(parseSimpleCondition(cond, dbfields));
+            }
+
+
+#ifdef DEBUG
+            std::cout << "Constrain: " << std::endl;
+            for (const auto& cond: query.check)
+                std::cout << cond.left_expr << ' ' << cond.op << ' ' << cond.right_expr << std::endl;
+            std::cout << "Conditions after parsing: " << std::endl;
+            for (const auto& cond: conditions) 
+                std::cout << cond.type << ',' << cond.left_id << ',' 
+                          << cond.right_id << ','
+                          << cond.op << ',' << cond.right_literal << std::endl;
+            
+            std::cout << "--------------------" << std::endl;
+#endif
+
             
             // an open database is required.
             if (db_inuse.length() == 0) throw DBNotOpened();
@@ -375,6 +406,11 @@ private:
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
             if (create_rtv) throw CreateTableFailed(query.table_name);
+            
+            // save check conditions
+            if (conditions.size())
+                saveConditions(conditions, 
+                               db_inuse + '/' + query.table_name + CHECK_CONSTRAIN_SUFFIX);
             
             return 0;
         }
@@ -839,7 +875,7 @@ private:
     void outputRID(const DBTableManager* table_manager,
                    const DBFields& fields_desc, 
                    const std::vector<uint64> display_field_ids,
-                   const std::vector<RID> rids) {
+                   const std::vector<RID> rids) const {
         std::unique_ptr<char[]> buff(new char[fields_desc.recordLength()]);
 
         std::string output_buff;
@@ -856,9 +892,86 @@ private:
         }
     }
 
+    // check whether data meets all conditions
+    bool meetConditions(const char* data, 
+                        const std::vector<Condition>& conditions,
+                        const DBTableManager* table_manager) const {
+        const auto& fields_desc = table_manager->fieldsDesc();
+        std::string null_value = std::string(fields_desc.recordLength(), '\x00');
+        DBFields::Comparator comp;
+        
+        bool comp_result = true;
+        for (const auto& cond: conditions) {
+            comp.type = fields_desc.field_type()[cond.left_id];
+            assert(cond.type == 2 || cond.type == 3);
+            assert(!(cond.type == 3 && fields_desc.field_type()[cond.left_id] != fields_desc.field_type()[cond.right_id]));
+            // process like or not like operators
+            if (cond.op == "like" || cond.op == "not like") {
+                std::string literal;
+                bool isnull;
+                literalParser(data + fields_desc.offset()[cond.left_id], 
+                              fields_desc.field_type()[cond.left_id],
+                              fields_desc.field_length()[cond.left_id],
+                              literal, &isnull);
+                // if left values is null, result is always false
+                if (isnull) { comp_result &= 0; return false; }
+
+                // match with EMACScript regex grammar, case insensive
+                bool match_result = std::regex_match(literal, std::regex(cond.right_literal, std::regex::icase));
+                comp_result &= cond.op == "like" == match_result;
+                if (!comp_result) return false;
+                continue;
+            }
+            
+            // process other operators
+            const char* right_value = cond.type == 2? 
+                cond.right_literal.data(): 
+                data + fields_desc.offset()[cond.right_id]; 
+            // comp left and right
+            int tmp_result  = comp(data + fields_desc.offset()[cond.left_id],
+                                   right_value,
+                                   fields_desc.field_length()[cond.left_id]);
+            // comp left and null
+            int tmp_result2 = comp(data + fields_desc.offset()[cond.left_id],
+                                   null_value.data(),
+                                   fields_desc.field_length()[cond.left_id]);
+            // comp right and null
+            int tmp_result3 = comp(right_value,
+                                   null_value.data(),
+                                   fields_desc.field_length()[cond.left_id]);
+// DEBUG
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wlogical-op-parentheses"
+            // magic, DONOT touch
+            if (cond.op == "=")
+                comp_result &= tmp_result ==  0 && 
+                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+            else if (cond.op == ">")
+                comp_result &= tmp_result >=  1 && 
+                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+            else if (cond.op == "<")
+                comp_result &= tmp_result <= -1 && 
+                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+            else if (cond.op == ">=")
+                comp_result &= tmp_result >=  0 && 
+                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+            else if (cond.op == "<=")
+                comp_result &= tmp_result <=  0 && 
+                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+            else if (cond.op == "!=")
+                comp_result &= tmp_result !=  0 && 
+                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+            else assert(0);
+#pragma GCC diagnostic pop
+            if (!comp_result) return false;
+        }
+        if (comp_result) return true;
+        else return false;
+    }
+
     // select rids meeting all conditions
     std::vector<RID> selectRID(const DBTableManager* table_manager,
-                               const std::vector<Condition>& conditions) {
+                               const std::vector<Condition>& conditions) const {
         std::vector<RID> rids;
         // conditions with right value is literal
         std::vector<Condition> condition_right_literal;
@@ -898,75 +1011,9 @@ private:
             all_conditions.insert(all_conditions.end(), condition_right_literal.begin(), condition_right_literal.end());
             all_conditions.insert(all_conditions.end(), condition_right_fieldID.begin(), condition_right_fieldID.end());
 
-            auto comp_rule = [&comp, &table_manager, &null_value, &fields_desc,
-                              &all_conditions, &rids, this](const char* data, 
-                                                      const RID rid) {
-                bool comp_result = true;
-                for (const auto& cond: all_conditions) {
-                    comp.type = fields_desc.field_type()[cond.left_id];
-                    assert(cond.type == 2 || cond.type == 3);
-                    assert(!(cond.type == 3 && fields_desc.field_type()[cond.left_id] != fields_desc.field_type()[cond.right_id]));
-                    // process like or not like operators
-                    if (cond.op == "like" || cond.op == "not like") {
-                        std::string literal;
-                        bool isnull;
-                        literalParser(data + fields_desc.offset()[cond.left_id], 
-                                      fields_desc.field_type()[cond.left_id],
-                                      fields_desc.field_length()[cond.left_id],
-                                      literal, &isnull);
-                        // if left values is null, result is always false
-                        if (isnull) { comp_result &= 0; return; }
-
-                        // match with EMACScript regex grammar, case insensive
-                        bool match_result = std::regex_match(literal, std::regex(cond.right_literal, std::regex::icase));
-                        comp_result &= cond.op == "like" == match_result;
-                        if (!comp_result) return;
-                        continue;
-                    }
-                    
-                    // process other operators
-                    const char* right_value = cond.type == 2? 
-                        cond.right_literal.data(): 
-                        data + fields_desc.offset()[cond.right_id]; 
-                    // comp left and right
-                    int tmp_result  = comp(data + fields_desc.offset()[cond.left_id],
-                                           right_value,
-                                           fields_desc.field_length()[cond.left_id]);
-                    // comp left and null
-                    int tmp_result2 = comp(data + fields_desc.offset()[cond.left_id],
-                                           null_value.data(),
-                                           fields_desc.field_length()[cond.left_id]);
-                    // comp right and null
-                    int tmp_result3 = comp(right_value,
-                                           null_value.data(),
-                                           fields_desc.field_length()[cond.left_id]);
-// DEBUG
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wlogical-op-parentheses"
-                    // magic, DONOT touch
-                    if (cond.op == "=")
-                        comp_result &= tmp_result ==  0 && 
-                            (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
-                    else if (cond.op == ">")
-                        comp_result &= tmp_result >=  1 && 
-                            (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
-                    else if (cond.op == "<")
-                        comp_result &= tmp_result <= -1 && 
-                            (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
-                    else if (cond.op == ">=")
-                        comp_result &= tmp_result >=  0 && 
-                            (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
-                    else if (cond.op == "<=")
-                        comp_result &= tmp_result <=  0 && 
-                            (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
-                    else if (cond.op == "!=")
-                        comp_result &= tmp_result !=  0 && 
-                            (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
-                    else assert(0);
-#pragma GCC diagnostic pop
-                    if (!comp_result) return;
-                }
-                if (comp_result) rids.push_back(rid);
+            auto comp_rule = [this, &rids, &all_conditions, &table_manager](const char* data, const RID rid) {
+                if (meetConditions(data, all_conditions, table_manager))
+                    rids.push_back(rid);
             };
             table_manager->traverseRecords(comp_rule);
         }
@@ -983,8 +1030,10 @@ private:
     //     condition.left_expr is true or false
     //     condition.op and condition.right_expr is empty
     Condition parseSimpleCondition(QueryProcess::SimpleCondition condition, 
-                                   const DBFields& fields_desc) {
-        // convert "not(\blank)*null" to "not null", "null" to "null", "is" to "is"
+                                   const DBFields& fields_desc) const {
+        // convert "nOt(\blank)+nULl" to "not null", "nULl" to "null", "iS" to "is"
+        // convert "Not(\black)+ lIKE" to "not like", "lIKE" to "like"
+        // i.e. convert all to lower case and remove redundant blank chars
         if (std::regex_match(condition.left_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
             condition.left_expr = condition.left_expr.length() != 4? "not null": "null";
         if (std::regex_match(condition.right_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
@@ -994,7 +1043,7 @@ private:
         if (std::regex_match(condition.op, std::regex("((not)(\\s+))?(like)", std::regex_constants::icase)))
             condition.op = condition.op.length() != 4? "not like": "like";
 
-        // convert "true" to "true", "false" to "false"
+        // convert "tRuE" to "true", "FaLse" to "false"
         if (std::regex_match(condition.left_expr, std::regex("(ture)", std::regex_constants::icase)))
             condition.left_expr = "true";
         if (std::regex_match(condition.left_expr, std::regex("(false)", std::regex_constants::icase)))
@@ -1002,9 +1051,9 @@ private:
         
         if (condition.left_expr == "true" || condition.left_expr == "false") {
             if (condition.op.length())
-                throw InvalidExpr_WhereClause(condition.op);
+                throw InvalidExpr_Criteria(condition.op);
             if (condition.right_expr.length())
-                throw InvalidExpr_WhereClause(condition.right_expr);
+                throw InvalidExpr_Criteria(condition.right_expr);
             return { condition.left_expr == "true"? 1: 0, 0, 0, "", "" };
         }
 
@@ -1014,7 +1063,7 @@ private:
                              condition.left_expr);
         // invalid field name
         if (ite == fields_desc.field_name().end()) 
-            throw InvalidExpr_WhereClause(condition.left_expr);
+            throw InvalidExpr_Criteria(condition.left_expr);
         uint64 left_field_id = ite - fields_desc.field_name().begin();
         uint64 right_field_id = std::numeric_limits<uint64>::max();
 
@@ -1031,7 +1080,7 @@ private:
             else if (condition.right_expr == "not null") 
                 return { 2, left_field_id, right_field_id, "<", right_value };
             else 
-                throw InvalidExpr_WhereClause(condition.op);
+                throw InvalidExpr_Criteria(condition.op);
         }
 
         // if operator is "like" or "not like", right value must be string literal
@@ -1039,7 +1088,7 @@ private:
             if (condition.right_expr.length() < 2 || 
                 condition.right_expr.front() != '\'' || 
                 condition.right_expr.back() != '\'')
-                throw InvalidExpr_WhereClause(condition.right_expr);
+                throw InvalidExpr_Criteria(condition.right_expr);
             right_value = condition.right_expr.substr(1, condition.right_expr.length() - 2);
             return { 2, left_field_id, right_field_id, condition.op, right_value };
         }
@@ -1052,24 +1101,23 @@ private:
             right_field_id = ite - fields_desc.field_name().begin();
             // comparands types not match
             if (fields_desc.field_type()[left_field_id] != fields_desc.field_type()[right_field_id])
-                throw InvalidExpr_WhereClause(condition.right_expr);
+                throw InvalidExpr_Criteria(condition.right_expr);
             return { 3, left_field_id, right_field_id, condition.op, right_value };
         }
-
 
         std::unique_ptr<char[]> buff(new char[fields_desc.field_length()[left_field_id]]);
         memset(buff.get(), 0x00, fields_desc.field_length()[left_field_id]);
         // parse right value as literal
         if (literalParser(condition.right_expr, fields_desc.field_type()[left_field_id],
                           fields_desc.field_length()[left_field_id], buff.get()))
-            throw InvalidExpr_WhereClause(condition.right_expr);
+            throw InvalidExpr_Criteria(condition.right_expr);
         right_value.assign(buff.get(), fields_desc.field_length()[left_field_id]);
          
         return { 2, left_field_id, right_field_id, condition.op, right_value };
     }
 
     RID insertRecord(const std::string& table_name, DBTableManager* table_manager, 
-                      const std::vector<std::string>& values, char* buffer) {
+                     const std::vector<std::string>& values, char* buffer) {
         const DBFields& fields_desc = table_manager->fieldsDesc();
 
         // buffer is asserted to be cleared by caller
@@ -1161,6 +1209,44 @@ private:
         db_inuse.clear();
     }
 
+    void saveConditions(const std::vector<Condition>& conditions, const std::string& filename) const {
+        std::ofstream fout(filename, std::fstream::out | std::fstream::binary);
+        for (const auto& cond: conditions) {
+            fout.write(pointer_convert<const char*>(&cond.type), sizeof(cond.type));
+            fout.write(pointer_convert<const char*>(&cond.left_id), sizeof(cond.left_id));
+            fout.write(pointer_convert<const char*>(&cond.right_id), sizeof(cond.right_id));
+            uint64 length = cond.op.length();
+            fout.write(pointer_convert<const char*>(&length), sizeof(length));
+            fout.write(cond.op.data(), length);
+            length = cond.right_literal.length();
+            fout.write(pointer_convert<const char*>(&length), sizeof(length));
+            fout.write(cond.right_literal.data(), length);
+        }
+    }
+
+    std::vector<Condition> loadConditions(const std::string& filename) const {
+        std::ifstream fin(filename, std::fstream::in | std::fstream::binary);
+        std::vector<Condition> conditions;
+        while (1) {
+            Condition cond;
+            if (!fin.read(pointer_convert<char*>(&cond.type), sizeof(cond.type)))
+                break;
+            fin.read(pointer_convert<char*>(&cond.left_id), sizeof(cond.left_id));
+            fin.read(pointer_convert<char*>(&cond.right_id), sizeof(cond.right_id));
+            uint64 length;
+            fin.read(pointer_convert<char*>(&length), sizeof(length));
+            std::unique_ptr<char[]> buff(new char[length]);
+            fin.read(buff.get(), length);
+            cond.op.assign(buff.get(), length);
+            fin.read(pointer_convert<char*>(&length), sizeof(length));
+            buff.reset(new char[length]);
+            fin.read(buff.get(), length);
+            cond.right_literal.assign(buff.get(), length);
+            conditions.push_back(cond);
+        }
+        return conditions;
+    }
+
 private:
     
 
@@ -1207,10 +1293,10 @@ public:
 
     // tables currently opened
     std::unordered_map<std::string, DBTableManager*> tables_inuse;
+    std::unordered_map< std::string, std::vector<Condition> > tables_check_constrains;
 
     // literal parser
     DBFields::LiteralParser literalParser;
-    DBFields::MinGenerator minGenerator;
 
     // error classes:
     struct ParseFailed { };
@@ -1325,13 +1411,13 @@ public:
             return "Duplicate primary key. ";
         }
     };
-    struct InvalidWhereClause {
+    struct InvalidCriteria {
         virtual std::string getInfo() const { return ""; }
     };
-    struct InvalidExpr_WhereClause: InvalidWhereClause {
+    struct InvalidExpr_Criteria: InvalidCriteria {
         std::string expr;
         virtual std::string getInfo() const { return expr; }
-        InvalidExpr_WhereClause(const std::string& l): expr(l) { }
+        InvalidExpr_Criteria(const std::string& l): expr(l) { }
     };
     struct UpdateFailed { 
         virtual std::string getInfo() const { return ""; }

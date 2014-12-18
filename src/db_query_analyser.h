@@ -28,6 +28,11 @@ using namespace boost::spirit;
 struct CreateDBStatement { std::string db_name; };
 struct DropDBStatement { std::string db_name; };
 struct UseDBStatement { std::string db_name; };
+struct SimpleCondition {
+    std::string left_expr;
+    std::string op;
+    std::string right_expr;
+};
 struct CreateTableStatement {
     struct FieldDesc {
         std::string field_name;
@@ -40,6 +45,7 @@ struct CreateTableStatement {
     std::string table_name;
     std::vector<FieldDesc> field_descs;
     std::string primary_key_name;
+    std::vector<SimpleCondition> check;
 };
 struct DropTableStatement { std::string table_name; };
 struct DescTableStatement { std::string table_name; };
@@ -58,11 +64,6 @@ struct InsertRecordStatement {
     };
     std::string table_name;
     std::vector<ValueTuple> value_tuples;
-};
-struct SimpleCondition {
-    std::string left_expr;
-    std::string op;
-    std::string right_expr;
 };
 struct SimpleSelectStatement {
     std::vector<std::string> field_names;
@@ -88,6 +89,7 @@ struct Keyword_symbols: qi::symbols<> {
     Keyword_symbols() {
         add
            ("and")
+           ("check")
            ("create")
            ("database")
            ("databases")
@@ -281,6 +283,7 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                 (field_desc % ',') >>
                 // possible primary key
                 -(',' >> primary_key) >>
+                -(',' >> check_constrain) >>
                 ')' >>
                 ';' >> 
                 qi::eoi;
@@ -312,9 +315,17 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                       sql_identifier >>
                       ')'
                       ;
+
+        check_constrain = qi::no_case["check"] >> 
+                          '(' >>
+                          (simple_condition % (omit[no_skip[+qi::space]] >> 
+                                               qi::no_case["and"] >>
+                                               omit[no_skip[+qi::space]])) >>
+                          ')';
     }
 
 private:
+    qi::rule<std::string::const_iterator, std::vector<SimpleCondition>(), qi::space_type> check_constrain;
     qi::rule<std::string::const_iterator, std::string(), qi::space_type> primary_key;
     qi::rule<std::string::const_iterator, CreateTableStatement::FieldDesc(), qi::space_type> field_desc;
     qi::rule<std::string::const_iterator, CreateTableStatement(), qi::space_type> start;
@@ -523,6 +534,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::string, table_name)
                           (std::vector<::Database::QueryProcess::CreateTableStatement::FieldDesc>, field_descs)
                           (std::string, primary_key_name)
+                          (std::vector<::Database::QueryProcess::SimpleCondition>, check)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
                           (std::string, table_name))
