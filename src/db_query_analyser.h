@@ -102,6 +102,7 @@ struct Keyword_symbols: qi::symbols<> {
            ("into")
            ("is")
            ("key")
+           ("like")
            ("not")
            ("null")
            ("on")
@@ -150,7 +151,7 @@ struct Operator: qi::symbols<char, std::string> {
            ("is", "is")
           ;
     }
-} sql_operators;
+};
 
 // definition of datatype
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> datatypes =
@@ -182,9 +183,28 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_n
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_notnull = 
     sql_not >> qi::no_skip[+qi::space] >> sql_null;
 
+// definition of like and not like 
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_like = 
+    qi::as_string[qi::no_case["like"]];
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_notlike = 
+    sql_not >> qi::no_skip[+qi::space] >> sql_like;
+
 // definition of bool, true and false
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_bool = 
     qi::as_string[qi::no_case["false"]] | qi::as_string[qi::no_case["true"]];
+
+// definition of sql operators
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_operators = 
+    qi::no_case[Operator()] | sql_like | sql_notlike;
+
+// simple condition
+// left_expr operator right_expr
+// OR true(false)
+const qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition =
+    (sql_bool >> qi::attr(std::string()) >> qi::attr(std::string())) |
+    ((sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
+     sql_operators >>
+     (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool));
 
 // parser of "CREATE DATABASE <database name>"
 struct CreateDBStatementParser: qi::grammar<std::string::const_iterator, CreateDBStatement(), qi::space_type> {
@@ -426,13 +446,8 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
                     omit[no_skip[+qi::space]]))) >>
                 ';' >>
                 qi::eoi;
-        simple_condition = (sql_bool >> qi::attr(std::string()) >> qi::attr(std::string())) |
-                           ((sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
-                            sql_operators >>
-                            (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool));
     }
 private:
-    qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
     qi::rule<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> start;
 };
 
@@ -452,13 +467,8 @@ struct DeleteStatementParser: qi::grammar<std::string::const_iterator, DeleteSta
                     omit[no_skip[+qi::space]]))) >>
                 ';' >>
                 qi::eoi;
-        simple_condition = (sql_bool >> qi::attr(std::string()) >> qi::attr(std::string())) |
-                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
-                           sql_operators >>
-                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool);
     }
 private:
-    qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
     qi::rule<std::string::const_iterator, DeleteStatement(), qi::space_type> start;
 };
 
@@ -483,14 +493,9 @@ struct UpdateStatementParser: qi::grammar<std::string::const_iterator, UpdateSta
         new_value = sql_identifier >> 
                     '=' >>
                     (sql_string | sql_float | sql_null | sql_notnull | sql_bool);
-        simple_condition = (sql_bool >> qi::attr(std::string()) >> qi::attr(std::string())) |
-                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
-                           sql_operators >>
-                           (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool);
     }
 private:
     qi::rule<std::string::const_iterator, UpdateStatement::NewValue(), qi::space_type> new_value;
-    qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition;
     qi::rule<std::string::const_iterator, UpdateStatement(), qi::space_type> start;
 };
 

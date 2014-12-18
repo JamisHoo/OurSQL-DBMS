@@ -23,7 +23,7 @@ int main() {
 
     query.execute("create database student;");
     query.execute("use  student;");
-    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int, primary key(student_id));");
+    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int);");
     query.execute("show tables;");
     query.execute("desc student;");
 
@@ -31,7 +31,10 @@ int main() {
     query.execute("insert into student values (106, null, null), (107, 'name7', null), (-108, 'name8', null), (109, null, 109), (110, null, 1000);");
     query.execute("insert into student values (101, 'name1', 1000), (-102, 'name2', -102), (-103, 'name3', -300), (104, 'name4', true), (105, 'name5', 105);");
     
-    /*
+    // query.execute("select * from student where student_id nOt \t\flIke '-.*' and IQ > 100;");
+    // query.execute("select * from student where student_id like '10.';");
+    
+    
     query.execute("select * from student ;");
     query.execute("select student_id, student_name from student where student_id =101 and student_name = 'name1';");
     query.execute("select * from student where true;");
@@ -46,13 +49,10 @@ int main() {
     query.execute("select * from student; ");
     query.execute("select * from student where student_id is null and IQ is not null;");
     query.execute("select * from student where student_id > 0 and student_name is not null and IQ >= student_id;");
-    */
-
-    /*
+    
     query.execute("delete from student where student_id is null and IQ is not null; ");
     query.execute("delete  from student where student_id = student_id; ");
-    */
-
+    
     query.execute("select * from student; ");
     query.execute("update student set student_id = 3000 where student_id = 101;");
     query.execute("select * from student; ");
@@ -60,6 +60,9 @@ int main() {
     query.execute("select * from student; ");
     query.execute("update student set student_id = NULL where student_id > 103;");
     query.execute("select * from student; ");
+    
+
+
 
     query.execute("drop table student;");
     query.execute("drop database student;");

@@ -899,13 +899,32 @@ private:
             all_conditions.insert(all_conditions.end(), condition_right_fieldID.begin(), condition_right_fieldID.end());
 
             auto comp_rule = [&comp, &table_manager, &null_value, &fields_desc,
-                              &all_conditions, &rids](const char* data, 
+                              &all_conditions, &rids, this](const char* data, 
                                                       const RID rid) {
                 bool comp_result = true;
                 for (const auto& cond: all_conditions) {
                     comp.type = fields_desc.field_type()[cond.left_id];
                     assert(cond.type == 2 || cond.type == 3);
                     assert(!(cond.type == 3 && fields_desc.field_type()[cond.left_id] != fields_desc.field_type()[cond.right_id]));
+                    // process like or not like operators
+                    if (cond.op == "like" || cond.op == "not like") {
+                        std::string literal;
+                        bool isnull;
+                        literalParser(data + fields_desc.offset()[cond.left_id], 
+                                      fields_desc.field_type()[cond.left_id],
+                                      fields_desc.field_length()[cond.left_id],
+                                      literal, &isnull);
+                        // if left values is null, result is always false
+                        if (isnull) { comp_result &= 0; return; }
+
+                        // match with EMACScript regex grammar, case insensive
+                        bool match_result = std::regex_match(literal, std::regex(cond.right_literal, std::regex::icase));
+                        comp_result &= cond.op == "like" == match_result;
+                        if (!comp_result) return;
+                        continue;
+                    }
+                    
+                    // process other operators
                     const char* right_value = cond.type == 2? 
                         cond.right_literal.data(): 
                         data + fields_desc.offset()[cond.right_id]; 
@@ -924,7 +943,7 @@ private:
 // DEBUG
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wlogical-op-parentheses"
-                    // magic, don't touch
+                    // magic, DONOT touch
                     if (cond.op == "=")
                         comp_result &= tmp_result ==  0 && 
                             (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
@@ -972,6 +991,9 @@ private:
             condition.right_expr = condition.right_expr.length() != 4? "not null": "null";
         if (std::regex_match(condition.op, std::regex("(is)", std::regex_constants::icase)))
             condition.op = "is";
+        if (std::regex_match(condition.op, std::regex("((not)(\\s+))?(like)", std::regex_constants::icase)))
+            condition.op = condition.op.length() != 4? "not like": "like";
+
         // convert "true" to "true", "false" to "false"
         if (std::regex_match(condition.left_expr, std::regex("(ture)", std::regex_constants::icase)))
             condition.left_expr = "true";
@@ -1012,6 +1034,16 @@ private:
                 throw InvalidExpr_WhereClause(condition.op);
         }
 
+        // if operator is "like" or "not like", right value must be string literal
+        if (condition.op == "like" || condition.op == "not like") {
+            if (condition.right_expr.length() < 2 || 
+                condition.right_expr.front() != '\'' || 
+                condition.right_expr.back() != '\'')
+                throw InvalidExpr_WhereClause(condition.right_expr);
+            right_value = condition.right_expr.substr(1, condition.right_expr.length() - 2);
+            return { 2, left_field_id, right_field_id, condition.op, right_value };
+        }
+
         // try to parse right value as field name
         ite = std::find(fields_desc.field_name().begin(),
                         fields_desc.field_name().end(),
@@ -1025,9 +1057,9 @@ private:
         }
 
 
-        // parse right value as literal
         std::unique_ptr<char[]> buff(new char[fields_desc.field_length()[left_field_id]]);
         memset(buff.get(), 0x00, fields_desc.field_length()[left_field_id]);
+        // parse right value as literal
         if (literalParser(condition.right_expr, fields_desc.field_type()[left_field_id],
                           fields_desc.field_length()[left_field_id], buff.get()))
             throw InvalidExpr_WhereClause(condition.right_expr);
