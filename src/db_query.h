@@ -918,6 +918,10 @@ private:
         
         bool comp_result = true;
         for (const auto& cond: conditions) {
+            // condition is constantly true or false
+            if (cond.type == 1) continue;
+            if (cond.type == 0) return false;
+
             comp.type = fields_desc.field_type()[cond.left_id];
             assert(cond.type == 2 || cond.type == 3);
             assert(!(cond.type == 3 && fields_desc.field_type()[cond.left_id] != fields_desc.field_type()[cond.right_id]));
