@@ -23,7 +23,7 @@ int main() {
 
     query.execute("create database student;");
     query.execute("use  student;");
-    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int ,                                                      check (true and student_id > 0 and student_id < 10000 and student_name like 'name.*' )) ;"
+    query.execute("Create TabLE student (student_id int(10) , student_name varchar(7), IQ int ,                                                      check (true and student_id > -1000 and student_id < 10000 and student_name like 'name.*' )) ;"
     );
     query.execute("show tables;");
     query.execute("desc student;");
@@ -31,6 +31,9 @@ int main() {
     query.execute("insert into student values (null, null, null), (null, 'namex', null), (null, null, 2000); ");
     query.execute("insert into student values (106, null, null), (107, 'name7', null), (-108, 'name8', null), (109, null, 109), (110, null, 1000);");
     query.execute("insert into student values (101, 'name1', 1000), (-102, 'name2', -102), (-103, 'name3', -300), (104, 'name4', true), (105, 'name5', 105);");
+
+    
+    query.execute("select * from student ;");
     
     // query.execute("select * from student where student_id nOt \t\flIke '-.*' and IQ > 100;");
     // query.execute("select * from student where student_id like '101|-102';");

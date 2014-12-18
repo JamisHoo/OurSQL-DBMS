@@ -304,7 +304,7 @@ private:
                                                  );
         
         if (ok) {
-            // check field descriptions and primary key constrain
+            // check field descriptions and primary key constraint
             std::set<std::string> field_names;
             bool primary_key_exist = 0;
             // field name, field type, field length, is primary key, indexed, not null
@@ -367,7 +367,7 @@ private:
                                 std::get<5>(desc), std::get<0>(desc));
             dbfields.addPrimaryKey();
 
-            // check "check constrain"
+            // check "check constraint"
             std::vector<Condition> conditions;
             for (const auto& cond: query.check) {
                 // parse condition
@@ -473,7 +473,7 @@ private:
             if (rtv) throw RemoveTableFailed(query.table_name);
             closeTable(query.table_name);
 
-            // remove check constrain file if exists
+            // remove check constraint file if exists
             std::remove((db_inuse + '/' + query.table_name + CHECK_CONSTRAIN_SUFFIX).c_str());
 
             return 0;
@@ -628,14 +628,14 @@ private:
             // if one record insert failed, remove all stored rids
             std::vector<RID> rids;
             try {
-                auto ite = tables_check_constrains.find(query.table_name);
-                std::vector<Condition>* check_constrain = ite == tables_check_constrains.end()? nullptr: &ite->second;
+                auto ite = tables_check_constraints.find(query.table_name);
+                std::vector<Condition>* check_constraint = ite == tables_check_constraints.end()? nullptr: &ite->second;
 
                 for (const auto& value_tuple: query.value_tuples) 
                     rids.push_back(insertRecord(query.table_name, table_manager, 
                                                 value_tuple.value_tuple, 
                                                 buffer.get(),
-                                                check_constrain));
+                                                check_constraint));
             } catch (...) {
                 for (const auto& rid: rids) 
                     assert(table_manager->removeRecord(rid) == 0);
@@ -845,7 +845,6 @@ private:
             auto rids = selectRID(table_manager, conditions);
 
 #ifdef DEBUG
-            // modify records
             outputRID(table_manager, fields_desc, modify_field_ids, rids);
 #endif
 
@@ -1138,7 +1137,7 @@ private:
 
     RID insertRecord(const std::string& table_name, DBTableManager* table_manager, 
                      const std::vector<std::string>& values, char* buffer,
-                     const std::vector<Condition>* check_constrain) {
+                     const std::vector<Condition>* check_constraint) {
         const DBFields& fields_desc = table_manager->fieldsDesc();
 
         // buffer is asserted to be cleared by callee
@@ -1178,8 +1177,8 @@ private:
             args.push_back(buffer + fields_desc.offset()[fields_desc.primary_key_field_id()]);
         }
 
-        // check constrain
-        if (check_constrain && !meetConditions(buffer, *check_constrain, table_manager)) 
+        // check constraint
+        if (check_constraint && !meetConditions(buffer, *check_constraint, table_manager)) 
             throw AgainstCheckConstrain_Insert(table_name, values);
 
         auto rid = table_manager->insertRecord(args);
@@ -1214,10 +1213,10 @@ private:
         }
         // insert to open table map
         tables_inuse.insert({ table_name, table_manager });
-        // load constrains if exists
+        // load constraints if exists
         if (boost::filesystem::exists(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) &&
             boost::filesystem::is_regular_file(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX))
-            tables_check_constrains.insert({ table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) });
+            tables_check_constraints.insert({ table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) });
         return table_manager;
     }
 
@@ -1226,14 +1225,14 @@ private:
         assert(ptr!= tables_inuse.end());
         delete ptr->second;
         tables_inuse.erase(ptr);
-        tables_check_constrains.erase(table_name);
+        tables_check_constraints.erase(table_name);
     }
 
     void closeDBInUse() {
         for (auto& ptr: tables_inuse) 
             delete ptr.second;
         tables_inuse.clear();
-        tables_check_constrains.clear();
+        tables_check_constraints.clear();
         db_inuse.clear();
     }
 
@@ -1321,7 +1320,7 @@ public:
 
     // tables currently opened
     std::unordered_map<std::string, DBTableManager*> tables_inuse;
-    std::unordered_map< std::string, std::vector<Condition> > tables_check_constrains;
+    std::unordered_map< std::string, std::vector<Condition> > tables_check_constraints;
 
     // literal parser
     DBFields::LiteralParser literalParser;
@@ -1443,7 +1442,7 @@ public:
         AgainstCheckConstrain_Insert(const std::string& tn, const std::vector<std::string>& vs):
             InsertRecordFailed(tn, vs) { }
         virtual std::string getInfo() const {
-            return "Against check constrain. ";
+            return "Against check constraint. ";
         }
     };
     struct InvalidCriteria {
