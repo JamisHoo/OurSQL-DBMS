@@ -390,12 +390,19 @@ private:
             for (const auto& cond: query.check)
                 std::cout << cond.left_expr << ' ' << cond.op << ' ' << cond.right_expr << std::endl;
             std::cout << "Conditions after parsing: " << std::endl;
-            for (const auto& cond: conditions) 
+            for (const auto& cond: conditions) {
+                std::string output_buff;
+                literalParser(cond.right_literal.data(), 
+                              dbfields.field_type()[cond.left_id],
+                              dbfields.field_length()[cond.left_id],
+                              output_buff);
                 std::cout << cond.type << ',' << cond.left_id << ',' 
                           << cond.right_id << ','
-                          << cond.op << ',' << cond.right_literal << std::endl;
-            
+                          << cond.op << ',' << output_buff << ',' 
+                          << cond.right_literal<< std::endl;
+            }
             std::cout << "--------------------" << std::endl;
+
 #endif
 
             
@@ -621,9 +628,14 @@ private:
             // if one record insert failed, remove all stored rids
             std::vector<RID> rids;
             try {
+                auto ite = tables_check_constrains.find(query.table_name);
+                std::vector<Condition>* check_constrain = ite == tables_check_constrains.end()? nullptr: &ite->second;
+
                 for (const auto& value_tuple: query.value_tuples) 
                     rids.push_back(insertRecord(query.table_name, table_manager, 
-                                                value_tuple.value_tuple, buffer.get()));
+                                                value_tuple.value_tuple, 
+                                                buffer.get(),
+                                                check_constrain));
             } catch (...) {
                 for (const auto& rid: rids) 
                     assert(table_manager->removeRecord(rid) == 0);
@@ -921,7 +933,7 @@ private:
                 if (isnull) { comp_result &= 0; return false; }
 
                 // match with EMACScript regex grammar, case insensive
-                bool match_result = std::regex_match(literal, std::regex(cond.right_literal, std::regex::icase));
+                bool match_result = std::regex_match(literal, std::regex(cond.right_literal.substr(2, cond.right_literal.length() - 3), std::regex::icase));
                 comp_result &= cond.op == "like" == match_result;
                 if (!comp_result) return false;
                 continue;
@@ -1093,7 +1105,7 @@ private:
                 condition.right_expr.front() != '\'' || 
                 condition.right_expr.back() != '\'')
                 throw InvalidExpr_Criteria(condition.right_expr);
-            right_value = condition.right_expr.substr(1, condition.right_expr.length() - 2);
+            right_value = "\xff" + condition.right_expr; // .substr(1, condition.right_expr.length() - 2);
             return { 2, left_field_id, right_field_id, condition.op, right_value };
         }
 
@@ -1121,10 +1133,11 @@ private:
     }
 
     RID insertRecord(const std::string& table_name, DBTableManager* table_manager, 
-                     const std::vector<std::string>& values, char* buffer) {
+                     const std::vector<std::string>& values, char* buffer,
+                     const std::vector<Condition>* check_constrain) {
         const DBFields& fields_desc = table_manager->fieldsDesc();
 
-        // buffer is asserted to be cleared by caller
+        // buffer is asserted to be cleared by callee
         memset(buffer, 0x00, fields_desc.recordLength());
 
         // args with null flags
@@ -1160,6 +1173,10 @@ private:
             assert(fields_desc.field_length()[fields_desc.primary_key_field_id()] - 1 == sizeof(uint64));
             args.push_back(buffer + fields_desc.offset()[fields_desc.primary_key_field_id()]);
         }
+
+        // check constrain
+        if (check_constrain && !meetConditions(buffer, *check_constrain, table_manager)) 
+            throw AgainstCheckConstrain_Insert(table_name, values);
 
         auto rid = table_manager->insertRecord(args);
         // insert failed
@@ -1416,6 +1433,13 @@ public:
             InsertRecordFailed(tn, vs) { }
         virtual std::string getInfo() const {
             return "Duplicate primary key. ";
+        }
+    };
+    struct AgainstCheckConstrain_Insert: InsertRecordFailed {
+        AgainstCheckConstrain_Insert(const std::string& tn, const std::vector<std::string>& vs):
+            InsertRecordFailed(tn, vs) { }
+        virtual std::string getInfo() const {
+            return "Against check constrain. ";
         }
     };
     struct InvalidCriteria {
