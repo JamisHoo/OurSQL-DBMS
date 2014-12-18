@@ -16,6 +16,7 @@
 #ifndef DB_QUERY_H_
 #define DB_QUERY_H_
 
+#include <cstdio>
 #include <cstdlib>
 #include <set>
 #include <map>
@@ -464,6 +465,9 @@ private:
             bool rtv = table_manager->remove();
             if (rtv) throw RemoveTableFailed(query.table_name);
             closeTable(query.table_name);
+
+            // remove check constrain file if exists
+            std::remove((db_inuse + '/' + query.table_name + CHECK_CONSTRAIN_SUFFIX).c_str());
 
             return 0;
         }
@@ -1170,8 +1174,6 @@ private:
         return rid;
     }
 
-    
-
     DBTableManager* openTable(const std::string& table_name) {
         auto ptr = tables_inuse.find(table_name);
         if (ptr != tables_inuse.end()) return ptr->second;
@@ -1180,7 +1182,6 @@ private:
         if (!boost::filesystem::exists(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX) || 
             !boost::filesystem::is_regular_file(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX)) 
             throw TableNotExists(table_name);
-            // return nullptr;
 
         // open table
         DBTableManager* table_manager(new DBTableManager);
@@ -1191,7 +1192,11 @@ private:
             return nullptr;
         }
         // insert to open table map
-        tables_inuse.insert({table_name, table_manager});
+        tables_inuse.insert({ table_name, table_manager });
+        // load constrains if exists
+        if (boost::filesystem::exists(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) &&
+            boost::filesystem::is_regular_file(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX))
+            tables_check_constrains.insert({ table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) });
         return table_manager;
     }
 
@@ -1200,12 +1205,14 @@ private:
         assert(ptr!= tables_inuse.end());
         delete ptr->second;
         tables_inuse.erase(ptr);
+        tables_check_constrains.erase(table_name);
     }
 
     void closeDBInUse() {
         for (auto& ptr: tables_inuse) 
             delete ptr.second;
         tables_inuse.clear();
+        tables_check_constrains.clear();
         db_inuse.clear();
     }
 
