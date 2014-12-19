@@ -338,8 +338,10 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                                  qi::no_case["references"] >>
                                  omit[no_skip[+qi::space]] >>
                                  sql_identifier >> 
-                                 no_skip['.'] >> 
-                                 sql_identifier;
+                                 '(' >> 
+                                 sql_identifier >>
+                                 ')';
+
     }
 
 private:

@@ -31,6 +31,9 @@
 class Database::DBQuery {
 public:
     static constexpr char* CHECK_CONSTRAINT_SUFFIX = (char*)".chk";
+    static constexpr char* REFERENCED_CONSTRAINT_SUFFIX = (char*)".refed";
+    static constexpr char* REFERENCING_CONSTRAINT_SUFFIX = (char*)".refing";
+
 
     DBQuery() { }
 
@@ -112,6 +115,24 @@ public:
             err << "Error: ";
             err << "Error when creating table \"" << error.name
                 << "\"." << std::endl;
+        } catch (const PrimaryKeyRequiredByForeignKeyConstraint& error) {
+            err << "Error: ";
+            err << error.table_name << '.' << error.field_name
+                << " is not primary key. " << std::endl;
+        } catch (const PrimaryKeyTypeDismatch& error) {
+            err << "Error: ";
+            err << "Type of " << error.field_name << " dismatchs with " 
+                << error.foreign_table_name << '.' << error.foreign_field_name 
+                << ". " << std::endl;
+        } catch (const PrimaryKeyLengthDismatch& error) {
+            err << "Error: ";
+            err << "Length of " << error.field_name << " dismatchs with " 
+                << error.foreign_table_name << '.' << error.foreign_field_name 
+                << ". " << std::endl;
+        } catch (const TableReferenced& error) {
+            err << "Error: ";
+            err << "Table \"" << error.refed_name << "\" is referenced by table \""
+                << error.refing_name << "\". " << std::endl;
         } catch (const OpenTableFailed& error) {
             err << "Error: ";
             err << "Error when opening table \"" << error.name << "\". "
@@ -232,7 +253,6 @@ private:
             } catch (...) {
                 throw RemoveFailed(query.db_name);
             }
-            // if a databse in use is dropped, close it.
             return 0;
         }
         return 1;
@@ -261,6 +281,16 @@ private:
                 closeDBInUse();
 
             db_inuse = query.db_name;
+
+            // if existing foreign key reference configuration files
+            bool refed_exists = boost::filesystem::exists(db_inuse + '/' + db_inuse + REFERENCED_CONSTRAINT_SUFFIX) &&
+                                boost::filesystem::is_regular_file(db_inuse + '/' + db_inuse + REFERENCED_CONSTRAINT_SUFFIX);
+            bool refing_exists = boost::filesystem::exists(db_inuse + '/' + db_inuse + REFERENCING_CONSTRAINT_SUFFIX) &&
+                                 boost::filesystem::is_regular_file(db_inuse + '/' + db_inuse + REFERENCING_CONSTRAINT_SUFFIX);
+            assert(refed_exists == refing_exists);
+            // load them
+            loadForeignKeyConstraints(referenced_tables, db_inuse + '/' + db_inuse + REFERENCED_CONSTRAINT_SUFFIX);
+            loadForeignKeyConstraints(referencing_tables, db_inuse + '/' + db_inuse + REFERENCING_CONSTRAINT_SUFFIX);
 
             return 0;
         }
@@ -304,11 +334,6 @@ private:
                                                  );
         
         if (ok) {
-#ifdef DEBUG
-            for (const auto& fk: query.foreignkeys)
-                std::cout << fk.field_name << ' ' << fk.foreign_table_name << ' ' << fk.foreign_field_name << std::endl;
-#endif
-
             // check field descriptions and primary key constraint
             std::set<std::string> field_names;
             bool primary_key_exist = 0;
@@ -389,6 +414,49 @@ private:
                     conditions.push_back(parseSimpleCondition(cond, dbfields));
             }
 
+            std::map< std::tuple< std::string, uint64>, std::tuple<std::string, uint64> > foreign_keys;
+            // check foreign key constraints
+            for (const auto& fk: query.foreignkeys) {
+                // DEBUG
+                // std::cout << fk.field_name << ' ' << fk.foreign_table_name << ' ' << fk.foreign_field_name << std::endl;
+                // get referencing field id
+                auto ite = std::find(dbfields.field_name().begin(), dbfields.field_name().end(), fk.field_name);
+                if (ite == dbfields.field_name().end()) 
+                    throw InvalidFieldName(fk.field_name);
+                uint64 field_id = ite - dbfields.field_name().begin();
+                // open referenced table
+                DBTableManager* referenced_table = openTable(fk.foreign_table_name);
+                if (!referenced_table) throw OpenTableFailed(fk.foreign_table_name);
+                // get referenced field id
+                auto ite1 = std::find(referenced_table->fieldsDesc().field_name().begin(), 
+                                      referenced_table->fieldsDesc().field_name().end(), 
+                                      fk.foreign_field_name);
+                if (ite1 == referenced_table->fieldsDesc().field_name().end())
+                    throw InvalidFieldName(fk.foreign_field_name);
+                uint64 field_id1 = ite1 - referenced_table->fieldsDesc().field_name().begin();
+
+                // check referenced field is primary field
+                if (field_id1 != referenced_table->fieldsDesc().primary_key_field_id())
+                    throw PrimaryKeyRequiredByForeignKeyConstraint(fk.foreign_table_name, fk.foreign_field_name);
+
+                // check type match
+                if (dbfields.field_type()[field_id] != referenced_table->fieldsDesc().field_type()[field_id1])
+                    throw PrimaryKeyTypeDismatch(fk.field_name, fk.foreign_table_name, fk.foreign_field_name);
+                
+                // check length match
+                if (dbfields.field_length()[field_id] != referenced_table->fieldsDesc().field_length()[field_id1])
+                    throw PrimaryKeyLengthDismatch(fk.field_name, fk.foreign_table_name, fk.foreign_field_name);
+
+                // check duplicate referencing field ids
+                if (foreign_keys.insert(
+                    std::make_pair(std::make_tuple(query.table_name,
+                                                   ite - dbfields.field_name().begin()),
+                                   std::make_tuple(fk.foreign_table_name,
+                                                   ite1 - referenced_table->fieldsDesc().field_name().begin()))).second == 0)
+                    throw DuplicateFieldName(fk.field_name);
+            }
+            assert(foreign_keys.size() == query.foreignkeys.size());
+            
             // an open database is required.
             if (db_inuse.length() == 0) throw DBNotOpened();
 
@@ -402,6 +470,20 @@ private:
             if (conditions.size())
                 saveConditions(conditions, 
                                db_inuse + '/' + query.table_name + CHECK_CONSTRAINT_SUFFIX);
+
+            // save foreign key constraints
+            if (foreign_keys.size()) {
+                for (auto f: foreign_keys) {
+                    referencing_tables.emplace(std::get<0>(f.first), std::make_tuple(std::get<1>(f.first), 
+                                                                                    std::get<0>(f.second), 
+                                                                                    std::get<1>(f.second)));
+                    referenced_tables.emplace(std::get<0>(f.second), std::make_tuple(std::get<1>(f.second),
+                                                                                      std::get<0>(f.first),
+                                                                                      std::get<1>(f.first)));
+                }
+                saveForeignKeyConstraints(referenced_tables, db_inuse + '/' + db_inuse + REFERENCED_CONSTRAINT_SUFFIX);
+                saveForeignKeyConstraints(referencing_tables, db_inuse + '/' + db_inuse + REFERENCING_CONSTRAINT_SUFFIX);
+            }
             
             return 0;
         }
@@ -448,6 +530,11 @@ private:
         if (ok) {
             if (db_inuse.length() == 0) throw DBNotOpened();
 
+            
+            auto eqr = referenced_tables.equal_range(query.table_name);
+            if (eqr.first != eqr.second) 
+                throw TableReferenced(query.table_name, std::get<1>(eqr.first->second));
+
             // remove table file and related index file
             DBTableManager* table_manager = openTable(query.table_name);
             if (!table_manager) throw OpenTableFailed(query.table_name);
@@ -459,6 +546,21 @@ private:
             // remove check constraint file if exists
             std::remove((db_inuse + '/' + query.table_name + CHECK_CONSTRAINT_SUFFIX).c_str());
 
+            // remove foreign constraints
+            eqr = referencing_tables.equal_range(query.table_name);
+            for (auto ite = eqr.first; ite != eqr.second;) {
+                auto eqr2 = referenced_tables.equal_range(std::get<1>(ite->second));
+                for (auto ite2 = eqr2.first; ite2 != eqr2.second;) 
+                    if (std::get<1>(ite2->second) == query.table_name) 
+                        referenced_tables.erase(ite2++);
+                    else ++ite2;
+                referencing_tables.erase(ite++);
+            }
+            if (eqr.first != eqr.second) {
+                saveForeignKeyConstraints(referenced_tables, db_inuse + '/' + db_inuse + REFERENCED_CONSTRAINT_SUFFIX);
+                saveForeignKeyConstraints(referencing_tables, db_inuse + '/' + db_inuse + REFERENCING_CONSTRAINT_SUFFIX);
+            }
+            
             return 0;
         }
         return 1;
@@ -593,7 +695,6 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            
             // assert database is opened 
             if (db_inuse.length() == 0) throw DBNotOpened();
             
@@ -1147,6 +1248,21 @@ private:
         if (check_constraint && !meetConditions(buffer, *check_constraint, table_manager)) 
             throw AgainstCheckConstraint_Insert(table_name, values);
 
+        // check foreign key constraint
+        auto eqr = referencing_tables.equal_range(table_name);
+        for (auto ite = eqr.first; ite != eqr.second; ++ite) {
+            // null value is permited
+            if (pointer_convert<const char*>(args[std::get<0>(ite->second)])[0] == '\x00')
+                continue;
+            DBTableManager* foreign_table_manager = openTable(std::get<1>(ite->second));
+            Condition cond(2, std::get<2>(ite->second), 
+                           std::numeric_limits<uint64>::max(), "=", 
+                           std::string(pointer_convert<const char*>(args[std::get<0>(ite->second)]), 
+                                       fields_desc.field_length()[std::get<0>(ite->second)]));
+            if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size() == 0)
+                throw AgainstForeignKeyConstraint_Insert(table_name, values);
+        }
+
         auto rid = table_manager->insertRecord(args);
         // insert failed
         if (rid == RID(0, 1)) 
@@ -1198,6 +1314,8 @@ private:
         for (auto& ptr: tables_inuse) 
             delete ptr.second;
         tables_inuse.clear();
+        referenced_tables.clear();
+        referencing_tables.clear();
         tables_check_constraints.clear();
         db_inuse.clear();
     }
@@ -1217,6 +1335,7 @@ private:
         }
     }
 
+    // TODO: rewrite this
     std::vector<Condition> loadConditions(const std::string& filename) const {
         std::ifstream fin(filename, std::fstream::in | std::fstream::binary);
         std::vector<Condition> conditions;
@@ -1240,9 +1359,68 @@ private:
         return conditions;
     }
 
-private:
-    
+    void saveForeignKeyConstraints(
+        const std::unordered_multimap< std::string, std::tuple<uint64, std::string, uint64> >& tables, 
+        const std::string& filename) const {
+        if (!tables.size()) {
+            std::remove(filename.c_str());
+            return;
+        }
+        std::ofstream fout(filename, std::fstream::binary);
+        for (const auto& r: tables) {
+            uint64 length = r.first.length();
+            fout.write(pointer_convert<const char*>(&length), sizeof(uint64));
+            fout.write(r.first.data(), length);
+            fout.write(pointer_convert<const char*>(&std::get<0>(r.second)), sizeof(uint64));
+            length = std::get<1>(r.second).length();
+            fout.write(pointer_convert<const char*>(&length), sizeof(uint64));
+            fout.write(std::get<1>(r.second).data(), length);
+            fout.write(pointer_convert<const char*>(&std::get<2>(r.second)), sizeof(uint64));
+        }
+    }
 
+    void loadForeignKeyConstraints(
+        std::unordered_multimap< std::string, std::tuple<uint64, std::string, uint64> >& tables, 
+        const std::string& filename) const {
+        std::ifstream fin(filename, std::fstream::binary);
+        std::string buff((std::istreambuf_iterator<char>(fin)),
+                          std::istreambuf_iterator<char>());
+        const char* pos = buff.data();
+        while (pos != buff.data() + buff.length()) {
+            uint64 name1_length = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(uint64);
+            std::string name1(pos, name1_length);
+            pos += name1_length;
+            uint64 field1_id = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(uint64);
+            uint64 name2_length = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(uint64);
+            std::string name2(pos, name2_length);
+            pos += name2_length;
+            uint64 field2_id = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(uint64);
+            tables.emplace(name1, std::make_tuple(field1_id, name2, field2_id));
+        }
+    }
+
+#ifdef DEBUG
+    void displayForeignKey() const {
+        std::cout << "----------------------------------" << std::endl;
+        std::cout << "Referenced tables: " << std::endl;
+        for (auto t: referenced_tables)
+            std::cout << t.first << ' ' << std::get<0>(t.second) << ' ' 
+                                        << std::get<1>(t.second) << ' '
+                                        << std::get<2>(t.second) << std::endl;
+        std::cout << "Referencing tables : " << std::endl;
+        for (auto t: referencing_tables) 
+            std::cout << t.first << ' ' << std::get<0>(t.second) << ' ' 
+                                        << std::get<1>(t.second) << ' '
+                                        << std::get<2>(t.second) << std::endl;
+        std::cout << "----------------------------------" << std::endl;
+    }
+#endif
+
+private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
     constexpr static int kParseFunctions = 14;
@@ -1287,6 +1465,10 @@ public:
     // tables currently opened
     std::unordered_map<std::string, DBTableManager*> tables_inuse;
     std::unordered_map< std::string, std::vector<Condition> > tables_check_constraints;
+    // referencing table name -> referencing field id, referenced table name, referenced field id
+    std::unordered_multimap< std::string, std::tuple<uint64, std::string, uint64> > referencing_tables;
+    // referenced table name -> referenced field id, referencing table name, referenced field id
+    std::unordered_multimap< std::string, std::tuple<uint64, std::string, uint64> > referenced_tables;
 
     // literal parser
     DBFields::LiteralParser literalParser;
@@ -1304,6 +1486,23 @@ public:
     struct CreateDBFailed { 
         std::string name; 
         CreateDBFailed(const std::string& n): name(n) { }
+    };
+    struct PrimaryKeyRequiredByForeignKeyConstraint {
+        std::string field_name;
+        std::string table_name;
+        PrimaryKeyRequiredByForeignKeyConstraint(const std::string& tn, const std::string& fn): field_name(fn), table_name(tn) { }
+    };
+    struct PrimaryKeyTypeDismatch {
+        std::string field_name, foreign_table_name, foreign_field_name;
+        PrimaryKeyTypeDismatch(const std::string& fn, const std::string& ftn, const std::string& ffn): field_name(fn), foreign_table_name(ftn), foreign_field_name(ffn) { }
+    };
+    struct PrimaryKeyLengthDismatch {
+        std::string field_name, foreign_table_name, foreign_field_name;
+        PrimaryKeyLengthDismatch(const std::string& fn, const std::string& ftn, const std::string& ffn): field_name(fn), foreign_table_name(ftn), foreign_field_name(ffn) { }
+    };
+    struct TableReferenced {
+        std::string refed_name, refing_name;
+        TableReferenced(const std::string& n1, const std::string& n2): refed_name(n1), refing_name(n2) { }
     };
     struct RemoveFailed {
         std::string name;
@@ -1409,6 +1608,13 @@ public:
             InsertRecordFailed(tn, vs) { }
         virtual std::string getInfo() const {
             return "Against check constraint. ";
+        }
+    };
+    struct AgainstForeignKeyConstraint_Insert: InsertRecordFailed {
+        AgainstForeignKeyConstraint_Insert(const std::string& tn, const std::vector<std::string>& vs):
+            InsertRecordFailed(tn, vs) { }
+        virtual std::string getInfo() const {
+            return "Against foreign key constraint. ";
         }
     };
     struct InvalidCriteria {
