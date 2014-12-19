@@ -33,6 +33,7 @@ int main() {
     string tmp;
     int count = 0;
     while (getline(cin, tmp)) {
+        if (trim(tmp).front() == '#') continue;
         str += tmp + ' ';
         if (trim(tmp).back() == ';') {
             query.execute(str);

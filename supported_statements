@@ -80,6 +80,5 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
 
 
 # TODO
-# foreign key
 # select aggregate function, count, avg, max, min, sum...
 # consider join three tables or above
