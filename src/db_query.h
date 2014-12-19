@@ -944,17 +944,23 @@ private:
             }
 
             // check foreign key constraint, referenced by other tables
-            // ATTENTION: Update action will be rejected as long as 
-            //            primary key field is to be modified and 
-            //            there's one primary key is referenced more than once.
-            //            Even if the action may not really modify the primary key.
             // only check when primary key is to be modified
-            if (std::find(modify_field_ids.begin(), modify_field_ids.end(), 
-                          fields_desc.primary_key_field_id()) != modify_field_ids.end()) {
+            std::size_t primary_field_id = std::find(
+                modify_field_ids.begin(), modify_field_ids.end(),
+                fields_desc.primary_key_field_id()) - modify_field_ids.begin();
+            if (primary_field_id != modify_field_ids.size()) {
+                DBFields::Comparator comp;
+                comp.type = fields_desc.field_type()[fields_desc.primary_key_field_id()];
                 std::unique_ptr<char[]> record_buff2(new char[fields_desc.recordLength()]);
                 // read each record
                 for (const auto rid: rids) {
                     assert(table_manager->selectRecord(rid, record_buff2.get()) == 0);
+                    // if primary key won't be modified
+                    if (comp(record_buff2.get() + fields_desc.offset()[fields_desc.primary_key_field_id()],
+                             args[primary_field_id], 
+                             fields_desc.field_length()[fields_desc.primary_key_field_id()]) == 0)
+                        continue;
+                    
                     // check whether this record is referenced by other tables
                     auto eqr = referenced_tables.equal_range(query.table_name);
                     for (auto ite = eqr.first; ite != eqr.second; ++ite) {
