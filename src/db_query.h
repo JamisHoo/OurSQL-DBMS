@@ -304,6 +304,11 @@ private:
                                                  );
         
         if (ok) {
+#ifdef DEBUG
+            for (const auto& fk: query.foreignkeys)
+                std::cout << fk.field_name << ' ' << fk.foreign_table_name << ' ' << fk.foreign_field_name << std::endl;
+#endif
+
             // check field descriptions and primary key constraint
             std::set<std::string> field_names;
             bool primary_key_exist = 0;
@@ -384,28 +389,6 @@ private:
                     conditions.push_back(parseSimpleCondition(cond, dbfields));
             }
 
-
-#ifdef DEBUG
-            std::cout << "Constraint: " << std::endl;
-            for (const auto& cond: query.check)
-                std::cout << cond.left_expr << ' ' << cond.op << ' ' << cond.right_expr << std::endl;
-            std::cout << "Conditions after parsing: " << std::endl;
-            for (const auto& cond: conditions) {
-                std::string output_buff;
-                literalParser(cond.right_literal.data(), 
-                              dbfields.field_type()[cond.left_id],
-                              dbfields.field_length()[cond.left_id],
-                              output_buff);
-                std::cout << cond.type << ',' << cond.left_id << ',' 
-                          << cond.right_id << ','
-                          << cond.op << ',' << output_buff << ',' 
-                          << cond.right_literal<< std::endl;
-            }
-            std::cout << "--------------------" << std::endl;
-
-#endif
-
-            
             // an open database is required.
             if (db_inuse.length() == 0) throw DBNotOpened();
 
@@ -661,15 +644,6 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-#ifdef DEBUG
-            std::cout << "Get: select ";
-            for (const auto& f: query.field_names)
-                std::cout << '['<< f << "] ";
-            std::cout << "from [" << query.table_name << "] where " << std::endl;
-            for (const auto& c: query.conditions) 
-                std::cout << c.left_expr << ' ' << c.op << ' ' << c.right_expr << " and " << std::endl;
-#endif
-
             if (db_inuse.length() == 0) throw DBNotOpened();
 
             DBTableManager* table_manager = openTable(query.table_name);
@@ -707,20 +681,7 @@ private:
             std::vector<Condition> conditions;
             for (const auto& cond: query.conditions)
                 conditions.push_back(parseSimpleCondition(cond, fields_desc));
-#ifdef DEBUG
-            std::cout << "Conditions: " << std::endl;
-            for (const auto& cond: conditions) {
-                std::string output_buff;
-                literalParser(cond.right_literal.data(), 
-                              fields_desc.field_type()[cond.left_id],
-                              fields_desc.field_length()[cond.left_id],
-                              output_buff);
-                std::cout << cond.type << ',' << cond.left_id << ',' 
-                          << cond.right_id << ','
-                          << cond.op << ',' << output_buff << std::endl;
-            }
-            std::cout << "--------------------" << std::endl;
-#endif
+
             // select records
             auto rids = selectRID(table_manager, conditions);
             // output
@@ -743,12 +704,6 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-#ifdef DEBUG
-            std::cout << "Get: delete ";
-            std::cout << "from [" << query.table_name << "] where " << std::endl; 
-            for (const auto& c: query.conditions) 
-                std::cout << c.left_expr << ' ' << c.op << ' ' << c.right_expr << " and " << std::endl;
-#endif
             if (db_inuse.length() == 0) throw DBNotOpened();
 
             DBTableManager* table_manager = openTable(query.table_name);
@@ -788,15 +743,6 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-#ifdef DEBUG
-            std::cout << "Get: update [" << query.table_name << "] ";
-            for (const auto& n: query.new_values)
-                std::cout << '['<< n.field_name << ' ' << n.value << "] ";
-            std::cout << " where " << std::endl;
-            for (const auto& c: query.conditions) 
-                std::cout << c.left_expr << ' ' << c.op << ' ' << c.right_expr << " and " << std::endl;
-#endif
-
             if (db_inuse.length() == 0) throw DBNotOpened();
 
             DBTableManager* table_manager = openTable(query.table_name);
@@ -843,10 +789,6 @@ private:
 
             // select records
             auto rids = selectRID(table_manager, conditions);
-
-#ifdef DEBUG
-            outputRID(table_manager, fields_desc, modify_field_ids, rids);
-#endif
 
             
             // if there's check constraint in this table

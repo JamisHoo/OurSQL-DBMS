@@ -42,10 +42,16 @@ struct CreateTableStatement {
         std::vector<uint64> field_length;
         bool field_not_null;
     };
+    struct ForeignKeyConstraint {
+        std::string field_name;
+        std::string foreign_table_name;
+        std::string foreign_field_name;
+    };
     std::string table_name;
     std::vector<FieldDesc> field_descs;
     std::string primary_key_name;
     std::vector<SimpleCondition> check;
+    std::vector<ForeignKeyConstraint> foreignkeys;
 };
 struct DropTableStatement { std::string table_name; };
 struct DescTableStatement { std::string table_name; };
@@ -283,7 +289,8 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                 (field_desc % ',') >>
                 // possible primary key
                 -(',' >> primary_key) >>
-                -(',' >> check_constrain) >>
+                -(',' >> check_constraint) >>
+                *(',' >> foreign_key_constraint) >> 
                 ')' >>
                 ';' >> 
                 qi::eoi;
@@ -316,16 +323,28 @@ struct CreateTableStatementParser: qi::grammar<std::string::const_iterator, Crea
                       ')'
                       ;
 
-        check_constrain = qi::no_case["check"] >> 
+        check_constraint = qi::no_case["check"] >> 
                           '(' >>
                           (simple_condition % (omit[no_skip[+qi::space]] >> 
                                                qi::no_case["and"] >>
                                                omit[no_skip[+qi::space]])) >>
                           ')';
+        foreign_key_constraint = qi::no_case["foreign"] >>
+                                 omit[no_skip[+qi::space]] >>
+                                 qi::no_case["key"] >>
+                                 '(' >>
+                                 sql_identifier >>
+                                 ')' >>
+                                 qi::no_case["references"] >>
+                                 omit[no_skip[+qi::space]] >>
+                                 sql_identifier >> 
+                                 no_skip['.'] >> 
+                                 sql_identifier;
     }
 
 private:
-    qi::rule<std::string::const_iterator, std::vector<SimpleCondition>(), qi::space_type> check_constrain;
+    qi::rule<std::string::const_iterator, CreateTableStatement::ForeignKeyConstraint(), qi::space_type> foreign_key_constraint;
+    qi::rule<std::string::const_iterator, std::vector<SimpleCondition>(), qi::space_type> check_constraint;
     qi::rule<std::string::const_iterator, std::string(), qi::space_type> primary_key;
     qi::rule<std::string::const_iterator, CreateTableStatement::FieldDesc(), qi::space_type> field_desc;
     qi::rule<std::string::const_iterator, CreateTableStatement(), qi::space_type> start;
@@ -530,11 +549,17 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::FieldD
                           (bool, field_type_signed)
                           (bool, field_not_null)
                          )
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::ForeignKeyConstraint,
+                          (std::string, field_name)
+                          (std::string, foreign_table_name)
+                          (std::string, foreign_field_name)
+                         )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::string, table_name)
                           (std::vector<::Database::QueryProcess::CreateTableStatement::FieldDesc>, field_descs)
                           (std::string, primary_key_name)
                           (std::vector<::Database::QueryProcess::SimpleCondition>, check)
+                          (std::vector<::Database::QueryProcess::CreateTableStatement::ForeignKeyConstraint>, foreignkeys)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
                           (std::string, table_name))
