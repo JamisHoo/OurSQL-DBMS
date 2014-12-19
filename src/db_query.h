@@ -180,6 +180,10 @@ public:
         } catch (const UpdateFailed& error) {
             err << "Error: ";
             err << error.getInfo() << std::endl;
+        } catch (const RecordReferenced& error) {
+            err << "Error: ";
+            err << "Table \"" << error.table_name << "\" references it. "
+                << std::endl;
         }
 
         return 1;
@@ -820,6 +824,25 @@ private:
 
             // select records
             auto rids = selectRID(table_manager, conditions);
+                
+
+            // check foreign key constraint
+            std::unique_ptr<char[]> record_buff(new char[fields_desc.recordLength()]);
+            for (const auto rid: rids) {
+                assert(table_manager->selectRecord(rid, record_buff.get()) == 0);
+                auto eqr = referenced_tables.equal_range(query.table_name);
+                for (auto ite = eqr.first; ite != eqr.second; ++ite) {
+                    DBTableManager* foreign_table_manager = openTable(std::get<1>(ite->second));
+                    assert(foreign_table_manager);
+                    assert(fields_desc.primary_key_field_id() == std::get<0>(ite->second));
+                    Condition cond(2, std::get<2>(ite->second),
+                                   std::numeric_limits<uint64>::max(), "=",
+                                   std::string(record_buff.get() + fields_desc.offset()[std::get<0>(ite->second)],
+                                               fields_desc.field_length()[std::get<0>(ite->second)]));
+                    if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size())
+                        throw RecordReferenced(std::get<1>(ite->second));
+                }
+            }
 
             // remove rids
             for (const auto& rid: rids)
@@ -910,6 +933,7 @@ private:
                     if (pointer_convert<const char*>(args[ite2 - modify_field_ids.begin()])[0] == '\x00')
                         continue;
                     DBTableManager* foreign_table_manager = openTable(std::get<1>(ite->second));
+                    assert(foreign_table_manager);
                     Condition cond(2, std::get<2>(ite->second),
                                    std::numeric_limits<uint64>::max(), "=",
                                    std::string(pointer_convert<const char*>(args[ite2 - modify_field_ids.begin()]),
@@ -1275,6 +1299,7 @@ private:
             if (pointer_convert<const char*>(args[std::get<0>(ite->second)])[0] == '\x00')
                 continue;
             DBTableManager* foreign_table_manager = openTable(std::get<1>(ite->second));
+            assert(foreign_table_manager);
             Condition cond(2, std::get<2>(ite->second), 
                            std::numeric_limits<uint64>::max(), "=", 
                            std::string(pointer_convert<const char*>(args[std::get<0>(ite->second)]), 
@@ -1669,6 +1694,10 @@ public:
         virtual std::string getInfo() const {
             return "Against foreign key constraint. ";
         }
+    };
+    struct RecordReferenced {
+        std::string table_name;
+        RecordReferenced(const std::string& tn): table_name(tn) { }
     };
 };
 
