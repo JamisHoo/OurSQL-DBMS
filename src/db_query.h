@@ -899,6 +899,25 @@ private:
             if (ite != tables_check_constraints.end()) 
                 record_buff.reset(new char[fields_desc.recordLength()]);
 
+            // check foreign key constraints
+            auto eqr = referencing_tables.equal_range(query.table_name);
+            for (auto ite = eqr.first; ite != eqr.second; ++ite) {
+                // if constraint field is updated
+                auto ite2 = std::find(modify_field_ids.begin(), modify_field_ids.end(), 
+                                      std::get<0>(ite->second));
+                if (ite2 != modify_field_ids.end()) {
+                    // null is permitted
+                    if (pointer_convert<const char*>(args[ite2 - modify_field_ids.begin()])[0] == '\x00')
+                        continue;
+                    DBTableManager* foreign_table_manager = openTable(std::get<1>(ite->second));
+                    Condition cond(2, std::get<2>(ite->second),
+                                   std::numeric_limits<uint64>::max(), "=",
+                                   std::string(pointer_convert<const char*>(args[ite2 - modify_field_ids.begin()]),
+                                               fields_desc.field_length()[*ite2]));
+                    if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size() == 0)
+                        throw AgainstForeignKeyConstraint_Update();
+                }
+            }
 
             std::unique_ptr<char[]> old_args_buffer(new char[fields_desc.recordLength() * rids.size()]);
             memset(old_args_buffer.get(), 0x00, fields_desc.recordLength() * rids.size());
@@ -906,6 +925,7 @@ private:
             std::vector< std::tuple<RID, uint64, void*> > rollback_info;
             try {
                 for (uint64 i = 0; i < rids.size(); ++i) {
+                    // check constraint
                     if (record_buff.get()) {
                         int rtv = table_manager->selectRecord(rids[i], record_buff.get());
                         assert(rtv == 0);
@@ -1643,6 +1663,11 @@ public:
     struct AgainstCheckConstraint_Update: UpdateFailed {
         virtual std::string getInfo() const {
             return "Against check constraint. ";
+        }
+    };
+    struct AgainstForeignKeyConstraint_Update: UpdateFailed {
+        virtual std::string getInfo() const {
+            return "Against foreign key constraint. ";
         }
     };
 };
