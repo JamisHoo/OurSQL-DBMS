@@ -18,7 +18,10 @@ DROP DATABASE <database name>;
 # FINISHED
 CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL] 
                          [,<filed name> <type>[(<size>)] [NOT NULL]]* 
-                         [, PRIMARY KEY (<field name>)]);
+                         [, PRIMARY KEY (<field name>)]
+                         [, CHECK (<condition>)]
+                         [, FOREIGN KEY (<field name>) REFERENCES <table name>.<field name>]*
+                         );
 SHOW TABLES;
 DESC[RIBE] <table name>;
 DROP TABLE <table name>;
@@ -77,7 +80,6 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
 
 
 # TODO
-# check
 # foreign key
 # select aggregate function, count, avg, max, min, sum...
 # consider join three tables or above
