@@ -922,7 +922,7 @@ private:
             if (ite != tables_check_constraints.end()) 
                 record_buff.reset(new char[fields_desc.recordLength()]);
 
-            // check foreign key constraints
+            // check foreign key constraints, referencing other tables
             auto eqr = referencing_tables.equal_range(query.table_name);
             for (auto ite = eqr.first; ite != eqr.second; ++ite) {
                 // if constraint field is updated
@@ -940,6 +940,34 @@ private:
                                                fields_desc.field_length()[*ite2]));
                     if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size() == 0)
                         throw AgainstForeignKeyConstraint_Update();
+                }
+            }
+
+            // check foreign key constraint, referenced by other tables
+            // ATTENTION: Update action will be rejected as long as 
+            //            primary key field is to be modified and 
+            //            there's one primary key is referenced more than once.
+            //            Even if the action may not really modify the primary key.
+            // only check when primary key is to be modified
+            if (std::find(modify_field_ids.begin(), modify_field_ids.end(), 
+                          fields_desc.primary_key_field_id()) != modify_field_ids.end()) {
+                std::unique_ptr<char[]> record_buff2(new char[fields_desc.recordLength()]);
+                // read each record
+                for (const auto rid: rids) {
+                    assert(table_manager->selectRecord(rid, record_buff2.get()) == 0);
+                    // check whether this record is referenced by other tables
+                    auto eqr = referenced_tables.equal_range(query.table_name);
+                    for (auto ite = eqr.first; ite != eqr.second; ++ite) {
+                        DBTableManager* foreign_table_manager = openTable(std::get<1>(ite->second));
+                        assert(foreign_table_manager);
+                        assert(fields_desc.primary_key_field_id() == std::get<0>(ite->second));
+                        Condition cond(2, std::get<2>(ite->second),
+                                       std::numeric_limits<uint64>::max(), "=",
+                                       std::string(record_buff2.get() + fields_desc.offset()[std::get<0>(ite->second)],
+                                                   fields_desc.field_length()[std::get<0>(ite->second)]));
+                        if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size())
+                            throw RecordReferenced(std::get<1>(ite->second));
+                    }
                 }
             }
 
