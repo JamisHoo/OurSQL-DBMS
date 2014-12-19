@@ -484,7 +484,7 @@ public:
             auto rtv = _index[_fields.primary_key_field_id()]->
                 searchRecord(pointer_convert<const char*>(arg));
             // if exist already
-            if (rtv) return 3;
+            if (rtv && rtv != rid) return 3;
         } // else not exist, continue modifying
     
 
