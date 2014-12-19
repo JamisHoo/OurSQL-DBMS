@@ -233,7 +233,7 @@ public:
                     return 0;
                 } case TYPE_CHAR: 
                   case TYPE_UCHAR:
-                    assert(str.length() >= 2);
+                    if (str.length() < 2) return 1;
                     if (str.front() != '\'' || str.back() != '\'') return 1;
                     if (str.length() > length + 2) return 2;
                     // don't copy single quotes
