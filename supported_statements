@@ -20,7 +20,7 @@ CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL]
                          [,<filed name> <type>[(<size>)] [NOT NULL]]* 
                          [, PRIMARY KEY (<field name>)]
                          [, CHECK (<condition>)]
-                         [, FOREIGN KEY (<field name>) REFERENCES <table name>.<field name>]*
+                         [, FOREIGN KEY (<field name>) REFERENCES <table name>(<field name>)]*
                          );
 SHOW TABLES;
 DESC[RIBE] <table name>;
