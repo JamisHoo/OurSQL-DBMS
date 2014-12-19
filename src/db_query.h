@@ -30,7 +30,7 @@
 
 class Database::DBQuery {
 public:
-    static constexpr char* CHECK_CONSTRAIN_SUFFIX = (char*)".chk";
+    static constexpr char* CHECK_CONSTRAINT_SUFFIX = (char*)".chk";
 
     DBQuery() { }
 
@@ -386,7 +386,7 @@ private:
 
 
 #ifdef DEBUG
-            std::cout << "Constrain: " << std::endl;
+            std::cout << "Constraint: " << std::endl;
             for (const auto& cond: query.check)
                 std::cout << cond.left_expr << ' ' << cond.op << ' ' << cond.right_expr << std::endl;
             std::cout << "Conditions after parsing: " << std::endl;
@@ -418,7 +418,7 @@ private:
             // save check conditions
             if (conditions.size())
                 saveConditions(conditions, 
-                               db_inuse + '/' + query.table_name + CHECK_CONSTRAIN_SUFFIX);
+                               db_inuse + '/' + query.table_name + CHECK_CONSTRAINT_SUFFIX);
             
             return 0;
         }
@@ -474,7 +474,7 @@ private:
             closeTable(query.table_name);
 
             // remove check constraint file if exists
-            std::remove((db_inuse + '/' + query.table_name + CHECK_CONSTRAIN_SUFFIX).c_str());
+            std::remove((db_inuse + '/' + query.table_name + CHECK_CONSTRAINT_SUFFIX).c_str());
 
             return 0;
         }
@@ -848,38 +848,62 @@ private:
             outputRID(table_manager, fields_desc, modify_field_ids, rids);
 #endif
 
+            
+            // if there's check constraint in this table
+            // read the record to be updated
+            auto ite = tables_check_constraints.find(query.table_name);
+            std::unique_ptr<char[]> record_buff;
+            if (ite != tables_check_constraints.end()) 
+                record_buff.reset(new char[fields_desc.recordLength()]);
+
+
             std::unique_ptr<char[]> old_args_buffer(new char[fields_desc.recordLength() * rids.size()]);
             memset(old_args_buffer.get(), 0x00, fields_desc.recordLength() * rids.size());
-            
             // record operations, roll back if error occurs
             std::vector< std::tuple<RID, uint64, void*> > rollback_info;
-            for (uint64 i = 0; i < rids.size(); ++i) 
-                for (uint64 j = 0; j <  modify_field_ids.size(); ++j) {
-                    char* old_arg_pos = old_args_buffer.get() + i * fields_desc.recordLength() + fields_desc.offset()[modify_field_ids[j]];
-                    int rtv = table_manager->modifyRecord(rids[i], modify_field_ids[j], args[j], old_arg_pos);
-                    // modify succeed
-                    if (rtv == 0) 
-                        rollback_info.push_back({ rids[i], modify_field_ids[j], old_arg_pos });
-                    // error occurs
-                    else {
-                        // rollback
-                        while (rollback_info.size()) {
-                            int rtv = table_manager->modifyRecord(std::get<0>(rollback_info.back()), 
-                                                                  std::get<1>(rollback_info.back()),
-                                                                  std::get<2>(rollback_info.back()),
-                                                                  nullptr);
-                            // assert roll back always succeed
-                            assert(rtv == 0);
-                            rollback_info.pop_back();
+            try {
+                for (uint64 i = 0; i < rids.size(); ++i) {
+                    if (record_buff.get()) {
+                        int rtv = table_manager->selectRecord(rids[i], record_buff.get());
+                        assert(rtv == 0);
+                        for (std::size_t j = 0; j < modify_field_ids.size(); ++j)
+                            memcpy(record_buff.get() + fields_desc.offset()[modify_field_ids[j]], 
+                                   args[j], fields_desc.field_length()[modify_field_ids[j]]);
+                        if (!meetConditions(record_buff.get(), ite->second, table_manager)) 
+                            throw AgainstCheckConstraint_Update(); 
+                    }
+
+                    for (uint64 j = 0; j < modify_field_ids.size(); ++j) {
+                        char* old_arg_pos = old_args_buffer.get() + i * fields_desc.recordLength() + fields_desc.offset()[modify_field_ids[j]];
+                        int rtv = table_manager->modifyRecord(rids[i], modify_field_ids[j], args[j], old_arg_pos);
+                        // modify succeed
+                        if (rtv == 0) 
+                            rollback_info.push_back({ rids[i], modify_field_ids[j], old_arg_pos });
+                        // error occurs
+                        else {
+                            if (rtv == 2) 
+                                throw NotNullExpected_Update(fields_desc.field_name()[modify_field_ids[j]]);
+                            if (rtv == 3) 
+                                throw DuplicatePrimaryKey_Update();
+                            throw UpdateFailed();
                         }
-                        if (rtv == 2) 
-                            throw NotNullExpected_Update(fields_desc.field_name()[modify_field_ids[j]]);
-                        if (rtv == 3) 
-                            throw DuplicatePrimaryKey_Update();
-                        throw UpdateFailed();
                     }
                 }
-
+            } catch (...) {
+                // roll back
+                while (rollback_info.size()) {
+                   int rtv = table_manager->modifyRecord(std::get<0>(rollback_info.back()), 
+                                                         std::get<1>(rollback_info.back()),
+                                                         std::get<2>(rollback_info.back()),
+                                                         nullptr);
+                   // assert roll back always succeed
+                   assert(rtv == 0);
+                   rollback_info.pop_back();
+                }
+                // re-throw the exception
+                throw;
+            }
+            
             return 0;
         }
         return 1;
@@ -1179,7 +1203,7 @@ private:
 
         // check constraint
         if (check_constraint && !meetConditions(buffer, *check_constraint, table_manager)) 
-            throw AgainstCheckConstrain_Insert(table_name, values);
+            throw AgainstCheckConstraint_Insert(table_name, values);
 
         auto rid = table_manager->insertRecord(args);
         // insert failed
@@ -1214,9 +1238,9 @@ private:
         // insert to open table map
         tables_inuse.insert({ table_name, table_manager });
         // load constraints if exists
-        if (boost::filesystem::exists(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) &&
-            boost::filesystem::is_regular_file(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX))
-            tables_check_constraints.insert({ table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAIN_SUFFIX) });
+        if (boost::filesystem::exists(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX) &&
+            boost::filesystem::is_regular_file(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX))
+            tables_check_constraints.insert({ table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX) });
         return table_manager;
     }
 
@@ -1438,8 +1462,8 @@ public:
             return "Duplicate primary key. ";
         }
     };
-    struct AgainstCheckConstrain_Insert: InsertRecordFailed {
-        AgainstCheckConstrain_Insert(const std::string& tn, const std::vector<std::string>& vs):
+    struct AgainstCheckConstraint_Insert: InsertRecordFailed {
+        AgainstCheckConstraint_Insert(const std::string& tn, const std::vector<std::string>& vs):
             InsertRecordFailed(tn, vs) { }
         virtual std::string getInfo() const {
             return "Against check constraint. ";
@@ -1466,6 +1490,11 @@ public:
     struct DuplicatePrimaryKey_Update: UpdateFailed {
         virtual std::string getInfo() const { 
             return "Duplicate primary key. ";
+        }
+    };
+    struct AgainstCheckConstraint_Update: UpdateFailed {
+        virtual std::string getInfo() const {
+            return "Against check constraint. ";
         }
     };
 };
