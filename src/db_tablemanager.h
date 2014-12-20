@@ -596,8 +596,7 @@ public:
     std::vector<RID> findRecords(const uint64 field_id, const char* key) const {
         // INDEX MANIPULATE
         assert(_index[field_id]);
-        auto rids = _index[field_id]->searchRecords(key);
-        return rids;
+        return _index[field_id]->searchRecords(key);
     }
 
     // find record(s) that lb <= field[field_id] < ub
