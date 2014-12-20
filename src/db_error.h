@@ -231,7 +231,7 @@ struct CreateTableFailed: Error {
         std::string field_name;
         uint64 max_length;
         FieldNameTooLong(const std::string& fn, const uint64 max_l, const std::string& tbn): 
-            field_name(fn), max_length(max_l), CreateTableFailed(tbn) { }
+            CreateTableFailed(tbn), field_name(fn), max_length(max_l) { }
         virtual std::string getInfo() const {
             return CreateTableFailed::getInfo() + "Field name " + quoted(field_name) + " of length " + 
                 std::to_string(field_name.length()) + " exceeds length limitation " + std::to_string(max_length) + ". ";
