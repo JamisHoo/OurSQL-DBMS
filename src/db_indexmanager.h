@@ -13,6 +13,7 @@
  *  Description: Manage index file of a database.
                  Data structure: B+Tree
  *****************************************************************************/
+// TODO: use uint64 to replace int in for loop
 
 /****************************************
  *  Structure of index file:
