@@ -151,10 +151,10 @@ class Database::DBIndexManager {
         }
 
         // compare the key and Entry[off], return 0 if they are truely equal
-        int compareKey(const char* key, const uint64 off) {
+        int compareKey(const char* key, const uint64 off, DBFields::Comparator* cmp) {
             char* pointer = _data + sizeof(uint64) * 3;
             pointer += EntrySize * off;
-            return memcmp(pointer, key, DataLength);
+            return (*cmp)(pointer, key, DataLength);
         }
 
         // write key to Entry[off], rewrite if there exist a key
@@ -396,7 +396,7 @@ public:
                     bool answer = findNextNode();
                     if(answer){
                         off = _level.top()._offset;
-                        int answer = _node_tracker->compareKey(key, off);
+                        int answer = _node_tracker->compareKey(key, off, &_comparator);
                         if(answer == 0){
                             uint64 pos = _node_tracker->getPosition(off);
                             ridVector.push_back(decode(pos));
@@ -408,7 +408,7 @@ public:
                 }
 
                 off++;                                  // 
-                int answer = _node_tracker->compareKey(key, off);
+                int answer = _node_tracker->compareKey(key, off, &_comparator);
                 if(answer == 0){
                     uint64 pos = _node_tracker->getPosition(off);
                     ridVector.push_back(decode(pos));
@@ -424,46 +424,51 @@ public:
     // return an empty vector if not found
     std::vector<RID> rangeQuery(const char* lower, const char* upper) {
         std::vector<RID> ridVector;
-        int answer = _comparator(lower, upper, _data_length);
-        if(answer >= 0)
+        int ans = _comparator(lower, upper, _data_length);
+        if(ans >= 0)
             return ridVector;
 
+        /*
         RID first = searchRecord(lower);
         if(first.pageID == 0 && first.slotID == 0){
             return ridVector;
         }
+        */
+        locateRecord(lower);
+        uint64 offFirst = _level.top()._offset;
+        uint64 posFirst = _node_tracker->getPosition(offFirst);
+        char* currentFirst = _node_tracker->getKey(offFirst);
+        int answer = _comparator(currentFirst, upper, _data_length);
+        if(answer < 0)
+            ridVector.push_back(decode(posFirst));
 
-        else{
-            ridVector.push_back(first);
-            // continue push RID with key within range
-            uint64 off = _level.top()._offset;
-            while(true){
-                if(off == _node_tracker->_size - 1){
-                    bool answer = findNextNode();
-                    if(answer){
-                        off = _level.top()._offset;
-                        char* currentKey = _node_tracker->getKey(off);
-                        int answer = _comparator(currentKey, upper, _data_length);
-                        if(answer < 0){
-                            uint64 pos = _node_tracker->getPosition(off);
-                            ridVector.push_back(decode(pos));
-                        }
-                        continue;
+        // continue push RID with key within range
+        uint64 off = _level.top()._offset;
+        while(true){
+            if(off == _node_tracker->_size - 1){
+                bool answer = findNextNode();
+                if(answer){
+                    off = _level.top()._offset;
+                    char* currentKey = _node_tracker->getKey(off);
+                    int answer = _comparator(currentKey, upper, _data_length);
+                    if(answer < 0){
+                        uint64 pos = _node_tracker->getPosition(off);
+                        ridVector.push_back(decode(pos));
                     }
-                    else
-                        break;
-                }
-
-                off++;
-                char* currentKey = _node_tracker->getKey(off);
-                int answer = _comparator(currentKey, upper, _data_length);
-                if(answer < 0){
-                    uint64 pos = _node_tracker->getPosition(off);
-                    ridVector.push_back(decode(pos));
+                    continue;
                 }
                 else
                     break;
             }
+            off++;
+            char* currentKey = _node_tracker->getKey(off);
+            int answer = _comparator(currentKey, upper, _data_length);
+            if(answer < 0){
+                uint64 pos = _node_tracker->getPosition(off);
+                ridVector.push_back(decode(pos));
+            }
+            else
+                break;
         }
         return ridVector;
     }
@@ -550,7 +555,7 @@ public:
             // find the record if index.key == key && index.rid == rid
             while(true){
                 uint64 off = _level.top()._offset;
-                if(_node_tracker->compareKey(key, off) != 0)    // if index.key != key, failed
+                if(_node_tracker->compareKey(key, off, &_comparator) != 0)    // if index.key != key, failed
                     break;
 
                 uint64 pos = _node_tracker->getPosition(off);
@@ -1089,7 +1094,7 @@ private:
         _level.top()._offset = off;
         // check if it is exactly the same to this entry?
         // or it is just a proper position for insertion?
-        if(_node_tracker->compareKey(key, off) == 0)
+        if(_node_tracker->compareKey(key, off, &_comparator) == 0)
             return true;
         else
             return false;
