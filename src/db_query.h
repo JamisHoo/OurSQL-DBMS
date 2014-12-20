@@ -27,6 +27,7 @@
 #include "db_query_analyser.h"
 #include "db_tablemanager.h"
 #include "db_fields.h"
+#include "db_error.h"
 
 class Database::DBQuery {
 public:
@@ -60,132 +61,15 @@ public:
                         continue;
                     // parse sucessful but execute failed
                     default:
-                        std::cout << "Error code: " << rtv << std::endl;
+                        assert(0);
                         return 1;
                 }
             }
             // parse failed
-            throw ParseFailed();
-
-        } catch(const ParseFailed&) {
-            err << "Error: ";
-            err << "Parse failed. " << std::endl;  
-        } catch (const PathExists& error) {
-            err << "Error: ";
-            err << "File or directory \"" << error.name << "\" already exists. " 
-                << std::endl;
-        } catch (const CreateDBFailed& error) {
-            err << "Error: ";
-            err << "Error when creating Database \"" << error.name << "\"." 
-                << std::endl;
-        } catch (const DBNotExists& error) {
-            err << "Error: ";
-            err << "Database \"" << error.name << "\" not exists. " << std::endl;
-        } catch (const RemoveFailed& error) {
-            err << "Error: ";
-            err << "Error when removing \"" << error.name << "\"." << std::endl;
-        } catch (const FieldNameTooLong& error) {
-            err << "Error: ";
-            err << "Field name \"" << error.name << "\" of length " 
-                << error.length << " exceeds length limitation " << 
-                error.max_length << "." << std::endl;
-        } catch (const DuplicateFieldName& error) {
-            err << "Error: ";
-            if (error.name.length()) 
-                err << "Duplicate field name \"" << error.name << "\"." << std::endl;
-            else 
-                err << "Duplicate field name." << std::endl;
-        } catch (const UnsupportedType& error) {
-            err << "Error: ";
-            err << "Unsupported type \"" << (error.is_unsigned? "unsigned ": "") 
-                << (error.is_signed? "signed ": "") 
-                << error.type_name << "\"." << std::endl;
-        } catch (const FieldLengthRequired& error) {
-            err << "Error: ";
-            err << "Field \"" << error.field_name << "\" of type \"" 
-                << error.field_type << "\" required an explicit length." 
-                << std::endl;
-        } catch (const InvalidPrimaryKey& error) {
-            err << "Error: ";
-            err << "Invalid primary key \"" << error.name << "\"." << std::endl;
-        } catch (const DBNotOpened&) {
-            err << "Error: ";
-            err << "No database is opened. " << std::endl;
-        } catch (const CreateTableFailed& error) {
-            err << "Error: ";
-            err << "Error when creating table \"" << error.name
-                << "\"." << std::endl;
-        } catch (const PrimaryKeyRequiredByForeignKeyConstraint& error) {
-            err << "Error: ";
-            err << error.table_name << '.' << error.field_name
-                << " is not primary key. " << std::endl;
-        } catch (const PrimaryKeyTypeDismatch& error) {
-            err << "Error: ";
-            err << "Type of " << error.field_name << " dismatchs with " 
-                << error.foreign_table_name << '.' << error.foreign_field_name 
-                << ". " << std::endl;
-        } catch (const PrimaryKeyLengthDismatch& error) {
-            err << "Error: ";
-            err << "Length of " << error.field_name << " dismatchs with " 
-                << error.foreign_table_name << '.' << error.foreign_field_name 
-                << ". " << std::endl;
-        } catch (const TableReferenced& error) {
-            err << "Error: ";
-            err << "Table \"" << error.refed_name << "\" is referenced by table \""
-                << error.refing_name << "\". " << std::endl;
-        } catch (const OpenTableFailed& error) {
-            err << "Error: ";
-            err << "Error when opening table \"" << error.name << "\". "
-                << error.getInfo() << std::endl;
-        } catch (const RemoveTableFailed& error) {
-            err << "Error: ";
-            err << "Error when removing table \"" << error.name << "\"."
-                << std::endl;
-        } catch (const InvalidFieldName& error) {
-            err << "Error: ";
-            err << "Invalid field name \"" << error.name << "\"." << std::endl;
-        } catch (const CreateIndexFailed& error) {
-            err << "Error: ";
-            err << "Error when creating index on field \"" << error.field_name 
-                << "\" of table \"" << error.table_name << "\"." << std::endl;
-        } catch (const RemoveIndexFailed& error) {
-            err << "Error: ";
-            err << "Error when removing index on field \"" << error.field_name 
-                << "\" of table \"" << error.table_name << "\"." << std::endl;
-        } catch (const LiteralParseFailed& error) {
-            err << "Error: ";
-            err << "Error when parsing literal \"" << error.literal << "\"."
-                << std::endl;
-        } catch (const LiteralOutofrange& error) {
-            err << "Error: ";
-            err << "Literal \"" << error.literal << "\" out of range." 
-                << std::endl;
-        } catch (const InsertRecordFailed& error) {
-            err << "Error: ";
-            err << "Error when inserting tuple (";
-            for (int i = 0; i < error.values.size(); ++i) {
-                if (i) err << ", ";
-                err << error.values[i];
-            }
-            err << ") into table \"" << error.table_name << "\". ";
-            if (error.getInfo().length())
-                err << error.getInfo();
-            err << std::endl;
-        } catch (const InvalidCriteria& error) {
-            err << "Error: ";
-            err << "Invalid criteria. ";
-            if (error.getInfo().length())
-                err << "Error near \"" << error.getInfo() << "\". ";
-            err << std::endl;
-        } catch (const UpdateFailed& error) {
-            err << "Error: ";
+            throw DBError::ParseFailed();
+        } catch (const DBError::Error& error) {
             err << error.getInfo() << std::endl;
-        } catch (const RecordReferenced& error) {
-            err << "Error: ";
-            err << "Table \"" << error.table_name << "\" references it. "
-                << std::endl;
         }
-
         return 1;
     }
 
@@ -220,10 +104,10 @@ private:
         if (ok) {
             // check whether existing file or directory with the same name
             if (boost::filesystem::exists(query.db_name)) 
-                throw PathExists(query.db_name);
+                throw DBError::PathExisted(query.db_name);
             // create directory
             if (!boost::filesystem::create_directory(query.db_name)) 
-                throw CreateDBFailed(query.db_name);
+                throw DBError::CreateDBFailed(query.db_name);
             return 0;
         }
         return 1;
@@ -245,7 +129,7 @@ private:
             // check whether database exists
             if (!boost::filesystem::exists(query.db_name) || 
                 !boost::filesystem::is_directory(query.db_name))
-                throw DBNotExists(query.db_name);
+                throw DBError::DBNotExists<DBError::DropDBFailed>(query.db_name);
 
             // if this database is opened, close it first
             if (db_inuse == query.db_name)
@@ -253,9 +137,9 @@ private:
             // remove directory
             try {
                 if (!boost::filesystem::remove_all(query.db_name)) 
-                    throw RemoveFailed(query.db_name);
+                    throw DBError::RemoveDBFailed(query.db_name);
             } catch (...) {
-                throw RemoveFailed(query.db_name);
+                throw DBError::RemoveDBFailed(query.db_name);
             }
             return 0;
         }
@@ -279,7 +163,7 @@ private:
             // check whether database exists
             if (!boost::filesystem::exists(query.db_name) || 
                 !boost::filesystem::is_directory(query.db_name)) 
-                throw DBNotExists(query.db_name);
+                throw DBError::DBNotExists<DBError::UseDBFailed>(query.db_name);
             // if a database has already been opened, close it first
             if (db_inuse.length())
                 closeDBInUse();
@@ -345,13 +229,13 @@ private:
             std::vector< std::tuple<std::string, uint64, uint64, bool, bool, bool> > field_descs;
             for (const auto& field: query.field_descs) {
                 if (field.field_name.length() > DBFields::FIELD_NAME_LENGTH) 
-                    throw FieldNameTooLong(field.field_name, field.field_name.length(), DBFields::FIELD_NAME_LENGTH);
+                    throw DBError::FieldNameTooLong(field.field_name, DBFields::FIELD_NAME_LENGTH, query.table_name);
                 // insert failed, there're duplicate field names
                 if (field_names.insert(field.field_name).second == 0)
-                    throw DuplicateFieldName(field.field_name);
+                    throw DBError::DuplicateFieldName<DBError::CreateTableFailed>(field.field_name, query.table_name);
                 // check primary key name validity
                 if (field.field_name == query.primary_key_name) 
-                    primary_key_exist = 4;
+                    primary_key_exist = 1;
 
                 auto type_desc = DBFields::datatype_map.find(
                     std::make_tuple(field.field_type, 
@@ -361,13 +245,14 @@ private:
                 // unsupported type.
                 // this is usually because of redundant "unsigned" and "signed"
                 if (type_desc == DBFields::datatype_map.end()) 
-                    throw UnsupportedType(field.field_type, 
-                                          field.field_type_unsigned, 
-                                          field.field_type_signed);
+                    throw DBError::UnsupportedType(field.field_type, 
+                                                   field.field_type_unsigned, 
+                                                   field.field_type_signed,
+                                                   query.table_name);
 
                 // field length should be explicited provided, but not provided
                 if (std::get<2>(type_desc->second) == 1 && field.field_length.size() == 0)
-                    throw FieldLengthRequired(field.field_name, field.field_type);
+                    throw DBError::FieldLengthRequired(field.field_name, field.field_type, query.table_name);
 
                 field_descs.push_back(std::make_tuple(
                     // field name
@@ -391,7 +276,7 @@ private:
             
             // invalid primary key name
             if (query.primary_key_name.length() != 0 && primary_key_exist == 0) 
-                throw InvalidPrimaryKey(query.primary_key_name);
+                throw DBError::InvalidPrimaryKey<DBError::CreateTableFailed>(query.primary_key_name, query.table_name);
 
             // construct DBFields
             DBFields dbfields;
@@ -405,7 +290,7 @@ private:
             std::vector<Condition> conditions;
             for (const auto& cond: query.check) {
                 // parse condition
-                auto parsed_cond = parseSimpleCondition(cond, dbfields);
+                auto parsed_cond = parseSimpleCondition<DBError::CreateTableFailed>(cond, dbfields, query.table_name);
                 // if this condition is always false
                 if (parsed_cond.type == 0) {
                     // ignore all other conditions
@@ -415,7 +300,7 @@ private:
                 // ignore constant true condition
                 // record other conditions
                 } else if (parsed_cond.type != 1) 
-                    conditions.push_back(parseSimpleCondition(cond, dbfields));
+                    conditions.push_back(parseSimpleCondition<DBError::CreateTableFailed>(cond, dbfields, query.table_name));
             }
 
             std::map< std::tuple< std::string, uint64>, std::tuple<std::string, uint64> > foreign_keys;
@@ -426,30 +311,31 @@ private:
                 // get referencing field id
                 auto ite = std::find(dbfields.field_name().begin(), dbfields.field_name().end(), fk.field_name);
                 if (ite == dbfields.field_name().end()) 
-                    throw InvalidFieldName(fk.field_name);
+                    throw DBError::InvalidFieldName< DBError::ForeignKeyFailed<DBError::CreateTableFailed> >(fk.field_name, query.table_name);
                 uint64 field_id = ite - dbfields.field_name().begin();
                 // open referenced table
                 DBTableManager* referenced_table = openTable(fk.foreign_table_name);
-                if (!referenced_table) throw OpenTableFailed(fk.foreign_table_name);
+                if (!referenced_table) 
+                    throw DBError::OpenTableFailed< DBError::ForeignKeyFailed<DBError::CreateTableFailed> >(fk.foreign_table_name, query.table_name);
                 // get referenced field id
                 auto ite1 = std::find(referenced_table->fieldsDesc().field_name().begin(), 
                                       referenced_table->fieldsDesc().field_name().end(), 
                                       fk.foreign_field_name);
                 if (ite1 == referenced_table->fieldsDesc().field_name().end())
-                    throw InvalidFieldName(fk.foreign_field_name);
+                    throw DBError::InvalidFieldName< DBError::ForeignKeyFailed<DBError::CreateTableFailed> >(fk.foreign_field_name, query.table_name);
                 uint64 field_id1 = ite1 - referenced_table->fieldsDesc().field_name().begin();
 
                 // check referenced field is primary field
                 if (field_id1 != referenced_table->fieldsDesc().primary_key_field_id())
-                    throw PrimaryKeyRequiredByForeignKeyConstraint(fk.foreign_table_name, fk.foreign_field_name);
+                    throw DBError::PrimaryKeyRequired(fk.foreign_table_name, fk.foreign_field_name, query.table_name);
 
                 // check type match
                 if (dbfields.field_type()[field_id] != referenced_table->fieldsDesc().field_type()[field_id1])
-                    throw PrimaryKeyTypeDismatch(fk.field_name, fk.foreign_table_name, fk.foreign_field_name);
+                    throw DBError::TypesDismatch(fk.field_name, fk.foreign_table_name, fk.foreign_field_name, query.table_name);
                 
                 // check length match
                 if (dbfields.field_length()[field_id] != referenced_table->fieldsDesc().field_length()[field_id1])
-                    throw PrimaryKeyLengthDismatch(fk.field_name, fk.foreign_table_name, fk.foreign_field_name);
+                    throw DBError::LengthsDismatch(fk.field_name, fk.foreign_table_name, fk.foreign_field_name, query.table_name);
 
                 // check duplicate referencing field ids
                 if (foreign_keys.insert(
@@ -457,18 +343,20 @@ private:
                                                    ite - dbfields.field_name().begin()),
                                    std::make_tuple(fk.foreign_table_name,
                                                    ite1 - referenced_table->fieldsDesc().field_name().begin()))).second == 0)
-                    throw DuplicateFieldName(fk.field_name);
+                    throw DBError::DuplicateFieldName< DBError::ForeignKeyFailed<DBError::CreateTableFailed> >(fk.field_name, query.table_name);
             }
             assert(foreign_keys.size() == query.foreignkeys.size());
             
             // an open database is required.
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::CreateTableFailed>(query.table_name);
 
             DBTableManager table_manager;
             // create table
             bool create_rtv = table_manager.create(db_inuse + '/' + query.table_name, dbfields, 
                                                    DBTableManager::DEFAULT_PAGE_SIZE);
-            if (create_rtv) throw CreateTableFailed(query.table_name);
+            if (create_rtv) 
+                throw DBError::CreateTableFailed(query.table_name);
             
             // save check conditions
             if (conditions.size())
@@ -506,7 +394,8 @@ private:
                                                   );
         if (ok) {
             // no database is opened
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::ShowTablesFailed>();
 
             for (auto f = boost::filesystem::directory_iterator(db_inuse); 
                  f != boost::filesystem::directory_iterator(); ++f) 
@@ -532,19 +421,20 @@ private:
                                                   boost::spirit::qi::space, 
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
-
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::DropTableFailed>(query.table_name);
             
             auto eqr = referenced_tables.equal_range(query.table_name);
             if (eqr.first != eqr.second) 
-                throw TableReferenced(query.table_name, std::get<1>(eqr.first->second));
+                throw DBError::TableReferenced(query.table_name, std::get<1>(eqr.first->second));
 
             // remove table file and related index file
             DBTableManager* table_manager = openTable(query.table_name);
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::DropTableFailed>(query.table_name, query.table_name);
 
             bool rtv = table_manager->remove();
-            if (rtv) throw RemoveTableFailed(query.table_name);
+            if (rtv) throw DBError::RemoveTableFailed(query.table_name);
             closeTable(query.table_name);
 
             // remove check constraint file if exists
@@ -582,12 +472,14 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0)
+                throw DBError::DBNotOpened<DBError::Error>();
             
             // open table
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::Error>(query.table_name);
             
             const DBFields& fields_desc = table_manager->fieldsDesc();
             
@@ -624,11 +516,13 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::CreateIndexFailed>(query.table_name, query.field_name);
 
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::CreateIndexFailed>(query.table_name, query.table_name, query.field_name);
 
             auto index_field_ite = std::find(
                 table_manager->fieldsDesc().field_name().begin(),
@@ -637,14 +531,14 @@ private:
 
             // invalid field name
             if (index_field_ite == table_manager->fieldsDesc().field_name().end())
-                throw InvalidFieldName(query.field_name);
+                throw DBError::InvalidFieldName<DBError::CreateIndexFailed>(query.field_name, query.table_name, query.field_name);
 
             bool rtv = table_manager->createIndex(
                 index_field_ite - table_manager->fieldsDesc().field_name().begin(),
                 "Index name not supported yet");
             
             // create failed
-            if (rtv) throw CreateIndexFailed(query.table_name, query.field_name);
+            if (rtv) throw DBError::CreateIndexFailed(query.table_name, query.field_name);
             return 0;
         }
         return 1;
@@ -662,11 +556,13 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::DropIndexFailed>(query.table_name, query.field_name);
 
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::DropIndexFailed>(query.table_name, query.table_name, query.field_name);
 
             auto index_field_ite = std::find(
                 table_manager->fieldsDesc().field_name().begin(),
@@ -675,13 +571,13 @@ private:
 
             // invalid field name
             if (index_field_ite == table_manager->fieldsDesc().field_name().end())
-                throw InvalidFieldName(query.field_name);
+                throw DBError::InvalidFieldName<DBError::DropIndexFailed>(query.field_name, query.table_name, query.field_name);
 
             bool rtv = table_manager->removeIndex(
                 index_field_ite - table_manager->fieldsDesc().field_name().begin());
             
             // remove failed
-            if (rtv) throw RemoveIndexFailed(query.table_name, query.field_name);
+            if (rtv) throw DBError::DropIndexFailed(query.table_name, query.field_name);
             return 0;
         }
         return 1;
@@ -700,12 +596,14 @@ private:
                                                   query);
         if (ok) {
             // assert database is opened 
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::InsertRecordFailed>(query.table_name, query.value_tuples.front().value_tuple);
             
             // open table
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::InsertRecordFailed>(query.table_name, query.table_name, query.value_tuples.front().value_tuple);
             
             // get fileds description
             const DBFields& fields_desc = table_manager->fieldsDesc();
@@ -749,11 +647,13 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::SimpleSelectFailed>(query.table_name);
 
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::SimpleSelectFailed>(query.table_name, query.table_name);
 
             const DBFields& fields_desc = table_manager->fieldsDesc();
             // check field names
@@ -772,7 +672,7 @@ private:
                                          field_name);
                     // invalid field name
                     if (ite == fields_desc.field_name().end()) 
-                        throw InvalidFieldName(field_name);
+                        throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(field_name, query.table_name);
                     uint64 field_id = ite - fields_desc.field_name().begin();
                     display_field_ids.push_back(field_id);
                     check_duplicate_field_id.insert(field_id);
@@ -780,12 +680,12 @@ private:
             }
             // duplicate field_name
             if (display_field_ids.size() != check_duplicate_field_id.size()) 
-                throw DuplicateFieldName("");
+                throw DBError::DuplicateFieldName<DBError::SimpleSelectFailed>("", query.table_name);
 
             // check where clause
             std::vector<Condition> conditions;
             for (const auto& cond: query.conditions)
-                conditions.push_back(parseSimpleCondition(cond, fields_desc));
+                conditions.push_back(parseSimpleCondition<DBError::SimpleSelectFailed>(cond, fields_desc, query.table_name));
 
             // select records
             auto rids = selectRID(table_manager, conditions);
@@ -809,18 +709,20 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::DeleteRecordFailed>(query.table_name);
 
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::DeleteRecordFailed>(query.table_name, query.table_name);
 
             const DBFields& fields_desc = table_manager->fieldsDesc();
 
             // check where clause
             std::vector<Condition> conditions;
             for (const auto& cond: query.conditions)
-                conditions.push_back(parseSimpleCondition(cond, fields_desc));
+                conditions.push_back(parseSimpleCondition<DBError::DeleteRecordFailed>(cond, fields_desc, query.table_name));
 
             // select records
             auto rids = selectRID(table_manager, conditions);
@@ -840,7 +742,7 @@ private:
                                    std::string(record_buff.get() + fields_desc.offset()[std::get<0>(ite->second)],
                                                fields_desc.field_length()[std::get<0>(ite->second)]));
                     if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size())
-                        throw RecordReferenced(std::get<1>(ite->second));
+                        throw DBError::RecordReferenced<DBError::DeleteRecordFailed>(std::get<1>(ite->second), query.table_name);
                 }
             }
 
@@ -867,11 +769,13 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-            if (db_inuse.length() == 0) throw DBNotOpened();
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::UpdateRecordFailed>(query.table_name);
 
             DBTableManager* table_manager = openTable(query.table_name);
             // open failed
-            if (!table_manager) throw OpenTableFailed(query.table_name);
+            if (!table_manager) 
+                throw DBError::OpenTableFailed<DBError::UpdateRecordFailed>(query.table_name, query.table_name);
 
             const DBFields& fields_desc = table_manager->fieldsDesc();
             // check new values
@@ -886,7 +790,7 @@ private:
                                      new_value.field_name);
                 // invalid field name
                 if (ite == fields_desc.field_name().end()) 
-                    throw InvalidFieldName(new_value.field_name);
+                    throw DBError::InvalidFieldName<DBError::UpdateRecordFailed>(new_value.field_name, query.table_name);
                 uint64 field_id = ite - fields_desc.field_name().begin();
                 modify_field_ids.push_back(field_id);
                 check_duplicate_field_id.insert(field_id);
@@ -898,18 +802,20 @@ private:
                                         buffer.get() + fields_desc.offset()[field_id]
                                        );
                 // parse failed
-                if (rtv == 1) throw LiteralParseFailed(new_value.value);
-                if (rtv == 2) throw LiteralOutofrange(new_value.value);
+                if (rtv == 1) 
+                    throw DBError::LiteralParseFailed<DBError::UpdateRecordFailed>(new_value.value, query.table_name);
+                if (rtv == 2) 
+                    throw DBError::LiteralOutOfRange<DBError::UpdateRecordFailed>(new_value.value, query.table_name);
                 args.push_back(buffer.get() + fields_desc.offset()[field_id]);
             }
             // duplicate field_name
             if (modify_field_ids.size() != check_duplicate_field_id.size()) 
-                throw DuplicateFieldName("");
+                throw DBError::DuplicateFieldName<DBError::UpdateRecordFailed>("", query.table_name);
 
             // check where clause
             std::vector<Condition> conditions;
             for (const auto& cond: query.conditions)
-                conditions.push_back(parseSimpleCondition(cond, fields_desc));
+                conditions.push_back(parseSimpleCondition<DBError::UpdateRecordFailed>(cond, fields_desc, query.table_name));
 
             // select records
             auto rids = selectRID(table_manager, conditions);
@@ -939,7 +845,9 @@ private:
                                    std::string(pointer_convert<const char*>(args[ite2 - modify_field_ids.begin()]),
                                                fields_desc.field_length()[*ite2]));
                     if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size() == 0)
-                        throw AgainstForeignKeyConstraint_Update();
+                        throw DBError::ReferencedNotExists<DBError::UpdateRecordFailed>(
+                            query.new_values[ite2 - modify_field_ids.begin()].value, 
+                            std::get<1>(ite->second), query.table_name);
                 }
             }
 
@@ -972,7 +880,7 @@ private:
                                        std::string(record_buff2.get() + fields_desc.offset()[std::get<0>(ite->second)],
                                                    fields_desc.field_length()[std::get<0>(ite->second)]));
                         if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size())
-                            throw RecordReferenced(std::get<1>(ite->second));
+                            throw DBError::RecordReferenced<DBError::UpdateRecordFailed>(std::get<1>(ite->second), query.table_name);
                     }
                 }
             }
@@ -991,7 +899,7 @@ private:
                             memcpy(record_buff.get() + fields_desc.offset()[modify_field_ids[j]], 
                                    args[j], fields_desc.field_length()[modify_field_ids[j]]);
                         if (!meetConditions(record_buff.get(), ite->second, table_manager)) 
-                            throw AgainstCheckConstraint_Update(); 
+                            throw DBError::CheckConstraintFailed<DBError::UpdateRecordFailed>(query.table_name);
                     }
 
                     for (uint64 j = 0; j < modify_field_ids.size(); ++j) {
@@ -1003,10 +911,10 @@ private:
                         // error occurs
                         else {
                             if (rtv == 2) 
-                                throw NotNullExpected_Update(fields_desc.field_name()[modify_field_ids[j]]);
+                                throw DBError::NotNullExpected<DBError::UpdateRecordFailed>(query.table_name);
                             if (rtv == 3) 
-                                throw DuplicatePrimaryKey_Update();
-                            throw UpdateFailed();
+                                throw DBError::DuplicatePrimaryKey<DBError::UpdateRecordFailed>(query.table_name);
+                            throw DBError::UpdateRecordFailed(query.table_name);
                         }
                     }
                 }
@@ -1193,8 +1101,10 @@ private:
     // OR
     //     condition.left_expr is true or false
     //     condition.op and condition.right_expr is empty
+    template <class ERRORTYPE, class ...ERRORINFO>
     Condition parseSimpleCondition(QueryProcess::SimpleCondition condition, 
-                                   const DBFields& fields_desc) const {
+                                   const DBFields& fields_desc,
+                                   const ERRORINFO&... error_info) const {
         // convert "nOt(\blank)+nULl" to "not null", "nULl" to "null", "iS" to "is"
         // convert "Not(\black)+ lIKE" to "not like", "lIKE" to "like"
         // i.e. convert all to lower case and remove redundant blank chars
@@ -1215,9 +1125,9 @@ private:
         
         if (condition.left_expr == "true" || condition.left_expr == "false") {
             if (condition.op.length())
-                throw InvalidExpr_Criteria(condition.op);
+                throw DBError::InvalidConditionOperator<ERRORTYPE>(condition.op, error_info...);
             if (condition.right_expr.length())
-                throw InvalidExpr_Criteria(condition.right_expr);
+                throw DBError::InvalidConditionOperand<ERRORTYPE>(condition.right_expr, error_info...);
             return { condition.left_expr == "true"? 1: 0, 0, 0, "", "" };
         }
 
@@ -1227,7 +1137,7 @@ private:
                              condition.left_expr);
         // invalid field name
         if (ite == fields_desc.field_name().end()) 
-            throw InvalidExpr_Criteria(condition.left_expr);
+            throw DBError::InvalidConditionOperand<ERRORTYPE>(condition.left_expr, error_info...);
         uint64 left_field_id = ite - fields_desc.field_name().begin();
         uint64 right_field_id = std::numeric_limits<uint64>::max();
 
@@ -1244,7 +1154,7 @@ private:
             else if (condition.right_expr == "not null") 
                 return { 2, left_field_id, right_field_id, "<", right_value };
             else 
-                throw InvalidExpr_Criteria(condition.op);
+                throw DBError::InvalidConditionOperator<ERRORTYPE>(condition.op, error_info...);
         }
 
         // if operator is "like" or "not like", right value must be string literal
@@ -1252,7 +1162,8 @@ private:
             if (condition.right_expr.length() < 2 || 
                 condition.right_expr.front() != '\'' || 
                 condition.right_expr.back() != '\'')
-                throw InvalidExpr_Criteria(condition.right_expr);
+                // throw InvalidExpr_Criteria(condition.right_expr);
+                throw DBError::InvalidConditionOperand<ERRORTYPE>(condition.right_expr, error_info...);
             right_value = "\xff" + condition.right_expr; // .substr(1, condition.right_expr.length() - 2);
             return { 2, left_field_id, right_field_id, condition.op, right_value };
         }
@@ -1265,7 +1176,7 @@ private:
             right_field_id = ite - fields_desc.field_name().begin();
             // comparands types not match
             if (fields_desc.field_type()[left_field_id] != fields_desc.field_type()[right_field_id])
-                throw InvalidExpr_Criteria(condition.right_expr);
+                throw DBError::InvalidConditionOperand<ERRORTYPE>(condition.right_expr, error_info...);
             return { 3, left_field_id, right_field_id, condition.op, right_value };
         }
 
@@ -1274,7 +1185,7 @@ private:
         // parse right value as literal
         if (literalParser(condition.right_expr, fields_desc.field_type()[left_field_id],
                           fields_desc.field_length()[left_field_id], buff.get()))
-            throw InvalidExpr_Criteria(condition.right_expr);
+            throw DBError::InvalidConditionOperand<ERRORTYPE>(condition.right_expr, error_info...);
         right_value.assign(buff.get(), fields_desc.field_length()[left_field_id]);
          
         return { 2, left_field_id, right_field_id, condition.op, right_value };
@@ -1295,7 +1206,7 @@ private:
         uint64 expected_size = fields_desc.size() - 
             (fields_desc.field_name()[fields_desc.primary_key_field_id()].length() == 0? 1: 0);
         if (values.size() != expected_size)
-            throw WrongTupleSize(table_name, values, values.size(), expected_size);
+            throw DBError::WrongTupleSize(table_name, values, expected_size);
 
         for (int i = 0; i < values.size(); ++i) {
             int rtv = literalParser(values[i],
@@ -1304,9 +1215,11 @@ private:
                                     buffer + fields_desc.offset()[i]
                                    );
             // parse failed
-            if (rtv == 1) throw LiteralParseFailed(values[i]);
+            if (rtv == 1) 
+                throw DBError::LiteralParseFailed<DBError::InsertRecordFailed>(values[i], table_name, values);
             // out of range
-            if (rtv == 2) throw LiteralOutofrange(values[i]);
+            if (rtv == 2) 
+                throw DBError::LiteralOutOfRange<DBError::InsertRecordFailed>(values[i], table_name, values);
             args.push_back(buffer + fields_desc.offset()[i]);
         }
 
@@ -1324,7 +1237,7 @@ private:
 
         // check constraint
         if (check_constraint && !meetConditions(buffer, *check_constraint, table_manager)) 
-            throw AgainstCheckConstraint_Insert(table_name, values);
+            throw DBError::CheckConstraintFailed<DBError::InsertRecordFailed>(table_name, values);
 
         // check foreign key constraint
         auto eqr = referencing_tables.equal_range(table_name);
@@ -1339,19 +1252,19 @@ private:
                            std::string(pointer_convert<const char*>(args[std::get<0>(ite->second)]), 
                                        fields_desc.field_length()[std::get<0>(ite->second)]));
             if (selectRID(foreign_table_manager, std::vector<Condition>(1, cond)).size() == 0)
-                throw AgainstForeignKeyConstraint_Insert(table_name, values);
+                throw DBError::ReferencedNotExists<DBError::InsertRecordFailed>(values[std::get<0>(ite->second)], std::get<1>(ite->second), table_name, values);
         }
 
         auto rid = table_manager->insertRecord(args);
         // insert failed
         if (rid == RID(0, 1)) 
-            throw WrongTupleSize(table_name, values, args.size(), fields_desc.size());
+            throw DBError::WrongTupleSize(table_name, values, expected_size);
         else if (rid == RID(0, 3)) 
-            throw NotNullExpected_Insert(table_name, values);
+            throw DBError::NotNullExpected<DBError::InsertRecordFailed>(table_name, values);
         else if (rid == RID(0, 4))
-            throw DuplicatePrimaryKey_Insert(table_name, values);
+            throw DBError::DuplicatePrimaryKey<DBError::InsertRecordFailed>(table_name, values);
         else if (!rid)
-            throw InsertRecordFailed(table_name, values);
+            throw DBError::InsertRecordFailed(table_name, values);
         return rid;
     }
 
@@ -1362,7 +1275,7 @@ private:
         // check file exists or not
         if (!boost::filesystem::exists(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX) || 
             !boost::filesystem::is_regular_file(db_inuse + '/' + table_name + DBTableManager::TABLE_SUFFIX)) 
-            throw TableNotExists(table_name);
+            return nullptr;
 
         // open table
         DBTableManager* table_manager(new DBTableManager);
@@ -1552,187 +1465,6 @@ public:
     // literal parser
     DBFields::LiteralParser literalParser;
 
-    // error classes:
-    struct ParseFailed { };
-    struct PathExists {
-        std::string name;
-        PathExists(const std::string& n): name(n) { }
-    };
-    struct DBNotExists {
-        std::string name;
-        DBNotExists(const std::string& n): name(n) { }
-    };
-    struct CreateDBFailed { 
-        std::string name; 
-        CreateDBFailed(const std::string& n): name(n) { }
-    };
-    struct PrimaryKeyRequiredByForeignKeyConstraint {
-        std::string field_name;
-        std::string table_name;
-        PrimaryKeyRequiredByForeignKeyConstraint(const std::string& tn, const std::string& fn): field_name(fn), table_name(tn) { }
-    };
-    struct PrimaryKeyTypeDismatch {
-        std::string field_name, foreign_table_name, foreign_field_name;
-        PrimaryKeyTypeDismatch(const std::string& fn, const std::string& ftn, const std::string& ffn): field_name(fn), foreign_table_name(ftn), foreign_field_name(ffn) { }
-    };
-    struct PrimaryKeyLengthDismatch {
-        std::string field_name, foreign_table_name, foreign_field_name;
-        PrimaryKeyLengthDismatch(const std::string& fn, const std::string& ftn, const std::string& ffn): field_name(fn), foreign_table_name(ftn), foreign_field_name(ffn) { }
-    };
-    struct TableReferenced {
-        std::string refed_name, refing_name;
-        TableReferenced(const std::string& n1, const std::string& n2): refed_name(n1), refing_name(n2) { }
-    };
-    struct RemoveFailed {
-        std::string name;
-        RemoveFailed(const std::string& n): name(n) { }
-    };
-    struct FieldNameTooLong {
-        std::string name;
-        uint64 length, max_length;
-        FieldNameTooLong(const std::string& n, const uint64 l, const uint64 maxl): name(n), length(l), max_length(maxl) { }
-    };
-    struct DuplicateFieldName {
-        std::string name;
-        DuplicateFieldName(const std::string& n): name(n) { }
-    };
-    struct UnsupportedType {
-        std::string type_name;
-        bool is_unsigned;
-        bool is_signed;
-        UnsupportedType(const std::string& t, const bool isu, const bool iss): type_name(t), is_unsigned(isu), is_signed(iss) { }
-    };
-    struct FieldLengthRequired {
-        std::string field_name;
-        std::string field_type;
-        FieldLengthRequired(const std::string& n, const std::string& t): field_name(n), field_type(t) { };
-    };
-    struct InvalidPrimaryKey {
-        std::string name;
-        InvalidPrimaryKey(const std::string& n): name(n) { }
-    };
-    struct DBNotOpened { };
-    struct CreateTableFailed {
-        std::string name;
-        CreateTableFailed(const std::string& n): name(n) { }
-    };
-    struct OpenTableFailed {
-        std::string name;
-        OpenTableFailed(const std::string& n): name(n) { }
-        virtual std::string getInfo() const { return ""; }
-    };
-    struct TableNotExists: OpenTableFailed {
-        TableNotExists(const std::string& n): OpenTableFailed(n) { }
-        virtual std::string getInfo() const { return "Table not exists. "; }
-    };
-    struct RemoveTableFailed {
-        std::string name;
-        RemoveTableFailed(const std::string& n): name(n) { }
-    };
-    struct InvalidFieldName {
-        std::string name;
-        InvalidFieldName(const std::string& n): name(n) { }
-    };
-    struct CreateIndexFailed {
-        std::string table_name;
-        std::string field_name;
-        CreateIndexFailed(const std::string& tn, const std::string& fn): table_name(tn), field_name(fn) { }
-    };
-    struct RemoveIndexFailed {
-        std::string table_name;
-        std::string field_name;
-        RemoveIndexFailed(const std::string& tn, const std::string& fn): table_name(tn), field_name(fn) { }
-    };
-    struct InsertRecordFailed {
-        std::string table_name;
-        std::vector<std::string> values;
-        InsertRecordFailed(const std::string& tn, const std::vector<std::string>& vs): table_name(tn), values(vs) { }
-        virtual std::string getInfo() const { return ""; }
-    };
-    struct LiteralParseFailed {
-        std::string literal;
-        LiteralParseFailed(const std::string& l): literal(l) { }
-    };
-    struct LiteralOutofrange {
-        std::string literal;
-        LiteralOutofrange(const std::string& l): literal(l) { }
-    };
-    struct WrongTupleSize: InsertRecordFailed {
-        uint64 wrong_size;
-        uint64 right_size;
-        WrongTupleSize(const std::string& tn, const std::vector<std::string>& vs, const uint64 ws, const uint64 rs): 
-            InsertRecordFailed(tn, vs), wrong_size(ws), right_size(rs) { }
-        virtual std::string getInfo() const { 
-            return "Expected a tuple with size equal to " + 
-                   std::to_string(right_size) + ", " + 
-                   std::to_string(wrong_size) + " provided. "; 
-        }
-    };
-    struct NotNullExpected_Insert: InsertRecordFailed {
-        NotNullExpected_Insert(const std::string& tn, const std::vector<std::string>& vs):
-            InsertRecordFailed(tn, vs) { }
-        virtual std::string getInfo() const {
-            return "Not null expected. ";
-        }
-    };
-    struct DuplicatePrimaryKey_Insert: InsertRecordFailed {
-        DuplicatePrimaryKey_Insert(const std::string& tn, const std::vector<std::string>& vs):
-            InsertRecordFailed(tn, vs) { }
-        virtual std::string getInfo() const {
-            return "Duplicate primary key. ";
-        }
-    };
-    struct AgainstCheckConstraint_Insert: InsertRecordFailed {
-        AgainstCheckConstraint_Insert(const std::string& tn, const std::vector<std::string>& vs):
-            InsertRecordFailed(tn, vs) { }
-        virtual std::string getInfo() const {
-            return "Against check constraint. ";
-        }
-    };
-    struct AgainstForeignKeyConstraint_Insert: InsertRecordFailed {
-        AgainstForeignKeyConstraint_Insert(const std::string& tn, const std::vector<std::string>& vs):
-            InsertRecordFailed(tn, vs) { }
-        virtual std::string getInfo() const {
-            return "Against foreign key constraint. ";
-        }
-    };
-    struct InvalidCriteria {
-        virtual std::string getInfo() const { return ""; }
-    };
-    struct InvalidExpr_Criteria: InvalidCriteria {
-        std::string expr;
-        virtual std::string getInfo() const { return expr; }
-        InvalidExpr_Criteria(const std::string& l): expr(l) { }
-    };
-    struct UpdateFailed { 
-        virtual std::string getInfo() const { return ""; }
-    };
-    struct NotNullExpected_Update: UpdateFailed {
-        std::string field_name;
-        NotNullExpected_Update(const std::string& fn): field_name(fn) { }
-        virtual std::string getInfo() const {
-            return "Field \"" + field_name + "\" expected a non-null value. ";
-        }
-    };
-    struct DuplicatePrimaryKey_Update: UpdateFailed {
-        virtual std::string getInfo() const { 
-            return "Duplicate primary key. ";
-        }
-    };
-    struct AgainstCheckConstraint_Update: UpdateFailed {
-        virtual std::string getInfo() const {
-            return "Against check constraint. ";
-        }
-    };
-    struct AgainstForeignKeyConstraint_Update: UpdateFailed {
-        virtual std::string getInfo() const {
-            return "Against foreign key constraint. ";
-        }
-    };
-    struct RecordReferenced {
-        std::string table_name;
-        RecordReferenced(const std::string& tn): table_name(tn) { }
-    };
 };
 
 
