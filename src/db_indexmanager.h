@@ -44,7 +44,7 @@ class Database::DBIndexManager {
 
     struct BTreeNode {
         
-        BTreeNode() : _position(0), _size(0), _leaf(1), EntrySize(0), MaxSons(0), DataLength(0)
+        BTreeNode() : EntrySize(0), MaxSons(0), DataLength(0), _position(0), _size(0), _leaf(1)
         { _data = nullptr; }
 
         // these three members are set during initialization
@@ -266,7 +266,7 @@ class Database::DBIndexManager {
 
 
 public:
-    DBIndexManager(const std::string& file): _file(file), _page_size(0), _num_pages(0), _num_records(0), _data_length(0)
+    DBIndexManager(const std::string& file): _num_pages(0), _page_size(0), _data_length(0), _num_records(0), _file(file)
     { _node_tracker = nullptr; }
 
     ~DBIndexManager() {
