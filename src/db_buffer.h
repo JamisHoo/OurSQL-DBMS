@@ -31,7 +31,7 @@ public:
 #endif
     class LRU {
     public:
-        LRU(const uint64 maxsize): _max_size(maxsize), _unused_buffer(0) {
+        LRU(const uint64 maxsize): _unused_buffer(0), _max_size(maxsize) {
             assert(maxsize);
         }
 
@@ -127,8 +127,9 @@ public:
 
 public:
     DBBuffer(const std::string& filename, const uint64 buffer_size): 
-        _file(filename), _buffer_size(buffer_size),
-        _buffer(new char[buffer_size]), _lru(nullptr) { }
+        _file(filename), _lru(nullptr),
+        _buffer(new char[buffer_size]), 
+        _buffer_size(buffer_size) { }
 
     ~DBBuffer() {
         if (isopen()) close();
