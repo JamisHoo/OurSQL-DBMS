@@ -321,7 +321,7 @@ public:
             return { 0, 1 };
 
         // check null
-        for (uint i = 0; i < args.size(); ++i) 
+        for (std::size_t i = 0; i < args.size(); ++i) 
             if (_fields.notnull()[i] == 1 &&
                 pointer_convert<const char*>(args[i])[0] == '\x00')
                 return { 0, 3 };
@@ -822,7 +822,7 @@ public:
 
         // generate fields description
         char field_info_buffer[FIELD_INFO_LENGTH];
-        for (uint64 i = 0; i < fields.size(); ++i) {
+        for (std::size_t i = 0; i < fields.size(); ++i) {
             memset(field_info_buffer, ALIGN, FIELD_INFO_LENGTH);
             fields.generateFieldDescription(i, field_info_buffer);
             assert(field_info_buffer[FIELD_INFO_LENGTH - 1] == '\x00');
@@ -901,7 +901,7 @@ public:
     // returns page id in which there's at least one empty slot
     // returns 0 if not found
     uint64 findEmptySlot() const {
-        for (uint64 i = 0; i < _empty_slots_map.size(); ++i) 
+        for (std::size_t i = 0; i < _empty_slots_map.size(); ++i) 
             if (_empty_slots_map[i] == 1) return i;
         return 0;
     }

@@ -485,7 +485,7 @@ private:
             
             // TODO : use special outputer
             std::cout << "name, type, primary, not null, index" << std::endl;
-            for (int i = 0; i < fields_desc.size(); ++i) {
+            for (std::size_t i = 0; i < fields_desc.size(); ++i) {
                 // empty field name means this is a auto created primary key field
                 if (fields_desc.field_name()[i].length() == 0) continue; 
                 std::cout << fields_desc.field_name()[i] << ' ' <<
@@ -890,7 +890,7 @@ private:
             // record operations, roll back if error occurs
             std::vector< std::tuple<RID, uint64, void*> > rollback_info;
             try {
-                for (uint64 i = 0; i < rids.size(); ++i) {
+                for (std::size_t i = 0; i < rids.size(); ++i) {
                     // check constraint
                     if (record_buff.get()) {
                         int rtv = table_manager->selectRecord(rids[i], record_buff.get());
@@ -902,7 +902,7 @@ private:
                             throw DBError::CheckConstraintFailed<DBError::UpdateRecordFailed>(query.table_name);
                     }
 
-                    for (uint64 j = 0; j < modify_field_ids.size(); ++j) {
+                    for (std::size_t j = 0; j < modify_field_ids.size(); ++j) {
                         char* old_arg_pos = old_args_buffer.get() + i * fields_desc.recordLength() + fields_desc.offset()[modify_field_ids[j]];
                         int rtv = table_manager->modifyRecord(rids[i], modify_field_ids[j], args[j], old_arg_pos);
                         // modify succeed
@@ -1208,7 +1208,7 @@ private:
         if (values.size() != expected_size)
             throw DBError::WrongTupleSize(table_name, values, expected_size);
 
-        for (int i = 0; i < values.size(); ++i) {
+        for (std::size_t i = 0; i < values.size(); ++i) {
             int rtv = literalParser(values[i],
                                     fields_desc.field_type()[i],
                                     fields_desc.field_length()[i],
