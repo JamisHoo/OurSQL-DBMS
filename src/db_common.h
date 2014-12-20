@@ -45,6 +45,10 @@ struct RID {
         return !(*this == rid);
     }
 
+    inline bool operator<(const RID& rid) const {
+        return pageID == rid.pageID? slotID < rid.slotID: pageID < rid.pageID;
+    }
+
     // conversion to bool
     operator bool() {
         return pageID;
