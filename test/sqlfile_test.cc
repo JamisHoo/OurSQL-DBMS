@@ -15,8 +15,7 @@
 #include <iostream>
 #include "../src/db_query.h"
 
-inline std::string trim(std::string str)
-{
+inline std::string trim(std::string str) {
     str.erase(0, str.find_first_not_of(" \n\t\r"));       //prefixing spaces
     str.erase(str.find_last_not_of(" \n\t\r") + 1);         //surfixing spaces
     return str;
@@ -43,14 +42,4 @@ int main() {
         }
     }
     
-/*
-cout << query.execute("CREATE DATABASE orderDB;");
-cout << query.execute("USE orderDB;");
-cout << query.execute("CREATE TABLE book ( id int(10) NOT NULL, title varchar(100) NOT NULL, authors varchar(200), publisher_id int(10) NOT NULL, copies int(10), PRIMARY KEY  (id));");
-    
-cout << query.execute("INSERT INTO book VALUES (200011,'Not Without My Daughter','David Adams Richards',101177,567);");
-cout << query.execute("INSERT INTO book VALUES (1000, 'fuck \\\" shit', 213, 213);");
-
-    std::cout << std::endl;
-    */
 } 
