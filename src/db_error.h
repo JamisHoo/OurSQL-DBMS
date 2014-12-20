@@ -118,7 +118,7 @@ struct ReferencedNotExists: ForeignKeyFailed<T> {
     std::string value;
     template <class ...Para>
     ReferencedNotExists(const std::string v, const std::string rtn, const Para&... p): 
-        value(v), refed_table_name(rtn), ForeignKeyFailed<T>(p...) { }
+        ForeignKeyFailed<T>(p...), refed_table_name(rtn), value(v) { }
     virtual std::string getInfo() const {
         return ForeignKeyFailed<T>::getInfo() + "Value " + ForeignKeyFailed<T>::quoted(value) + 
                " not exists in referenced table " + ForeignKeyFailed<T>::quoted(refed_table_name) + ". ";
@@ -160,7 +160,7 @@ struct InvalidCondition: T {
     struct InvalidConditionOperator: InvalidCondition<T> {
         std::string op;
         template <class ...Para>
-        InvalidConditionOperator(const std::string& o, const Para&... p): op(o), InvalidCondition<T>(p...) { }
+        InvalidConditionOperator(const std::string& o, const Para&... p): InvalidCondition<T>(p...), op(o) { }
         virtual std::string getInfo() const {
             return InvalidCondition<T>::getInfo() + "Invalid operator " + 
                    InvalidCondition<T>::quoted(op) + " in condition clause. ";
@@ -170,7 +170,7 @@ struct InvalidCondition: T {
     struct InvalidConditionOperand: InvalidCondition<T> {
         std::string operand;
         template <class ...Para>
-        InvalidConditionOperand(const std::string& o, const Para&... p): operand(o), InvalidCondition<T>(p...) { }
+        InvalidConditionOperand(const std::string& o, const Para&... p): InvalidCondition<T>(p...), operand(o) { }
         virtual std::string getInfo() const {
             return InvalidCondition<T>::getInfo() + "Invalid operand " + 
                    InvalidCondition<T>::quoted(operand) + " in condition clause. ";
