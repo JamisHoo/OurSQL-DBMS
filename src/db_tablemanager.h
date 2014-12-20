@@ -778,7 +778,6 @@ public:
 
     // parse 2nd page of database file
     void parseDataDescriptionPage(const char* buffer) {
-        uint64 page_size = _file->pageSize();
         uint64 pos = 0;
 
         // fields num
@@ -891,11 +890,11 @@ public:
     
     // parse a page header
     std::array<uint64, 3> parsePageHeader(const char* buffer) const {
-        return std::array<uint64, 3>{
+        return std::array<uint64, 3>{{
             *pointer_convert<const uint64*>(buffer),
             *pointer_convert<const uint64*>(buffer + sizeof(uint64)),
             *pointer_convert<const uint64*>(buffer + 2 * sizeof(uint64))
-        };
+        }};
     }
 
     // returns page id in which there's at least one empty slot
