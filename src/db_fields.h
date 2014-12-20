@@ -52,7 +52,7 @@ public:
     struct MinGenerator {
         // generate minimum value of type type, save to buff
         // assert buff is cleared by caller
-        void operator()(const uint64 type, void* buff) {
+        void operator()(const uint64 type, void* buff) const {
             // not null flag
             pointer_convert<char*>(buff)[0] = '\xff';
             char* data = pointer_convert<char*>(buff) + 1;
@@ -638,11 +638,15 @@ public:
         return _field_name;
     }
 
-    const std::vector<bool> indexed() const {
+    std::vector<bool>& indexed() {
         return _indexed;
     }
 
-    const std::vector<bool> notnull() const {
+    const std::vector<bool>& indexed() const {
+        return _indexed;
+    }
+
+    const std::vector<bool>& notnull() const {
         return _notnull;
     }
 

@@ -664,6 +664,9 @@ public:
         traverseRecords(insertExistingRecords);
 
         assert(_index[field_id]->getNumRecords() == _index[_fields.primary_key_field_id()]->getNumRecords());
+
+        assert(_fields.indexed()[field_id] == false);
+        _fields.indexed()[field_id] = true;
         
         return 0;
     }
@@ -699,6 +702,9 @@ public:
         assert(offset[0] != '\x00');
         offset[0] = '\x00';
         _file->writePage(2, buffer.get());
+
+        assert(_fields.indexed()[field_id] == true);
+        _fields.indexed()[field_id] = false;
 
         return 0;
     }
