@@ -85,7 +85,7 @@ private:
         std::string op;
         std::string right_literal;
         Condition(const int t, const uint64 li, const uint64 ri, const std::string& o, const std::string& rl):
-            type(t), left_id(li), op(o), right_id(ri), right_literal(rl) { }
+            type(t), left_id(li), right_id(ri), op(o), right_literal(rl) { }
         Condition() { }
     };
 
@@ -1061,8 +1061,6 @@ private:
             return table_manager->findRecords(0, [](const char*) { return 1; });
 
 
-        DBFields::Comparator comp;
-        // comp.type = field_type;
         const auto& fields_desc = table_manager->fieldsDesc();
         std::string null_value = std::string(fields_desc.recordLength(), '\x00');
 
@@ -1075,6 +1073,8 @@ private:
                         return table_manager->fieldsDesc().indexed()[cond.left_id] == 0; 
                     }) == condition_right_literal.end()) {
             // TODO: use index
+            // DBFields::Comparator comp;
+            // comp.type = field_type;
             assert(0);
 
         } else {
