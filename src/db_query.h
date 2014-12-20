@@ -1327,25 +1327,28 @@ private:
         }
     }
 
-    // TODO: rewrite this
     std::vector<Condition> loadConditions(const std::string& filename) const {
         std::ifstream fin(filename, std::fstream::in | std::fstream::binary);
         std::vector<Condition> conditions;
-        while (1) {
+        std::string buff((std::istreambuf_iterator<char>(fin)),
+                          std::istreambuf_iterator<char>());
+        const char* pos = buff.data();
+        while (pos != buff.data() + buff.length()) {
             Condition cond;
-            if (!fin.read(pointer_convert<char*>(&cond.type), sizeof(cond.type)))
-                break;
-            fin.read(pointer_convert<char*>(&cond.left_id), sizeof(cond.left_id));
-            fin.read(pointer_convert<char*>(&cond.right_id), sizeof(cond.right_id));
-            uint64 length;
-            fin.read(pointer_convert<char*>(&length), sizeof(length));
-            std::unique_ptr<char[]> buff(new char[length]);
-            fin.read(buff.get(), length);
-            cond.op.assign(buff.get(), length);
-            fin.read(pointer_convert<char*>(&length), sizeof(length));
-            buff.reset(new char[length]);
-            fin.read(buff.get(), length);
-            cond.right_literal.assign(buff.get(), length);
+            cond.type = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(cond.type);
+            cond.left_id = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(cond.left_id);
+            cond.right_id = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(cond.right_id);
+            uint64 length = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(uint64);
+            cond.op.assign(pos, length);
+            pos += length;
+            length = *pointer_convert<const uint64*>(pos);
+            pos += sizeof(uint64);
+            cond.right_literal.assign(pos, length);
+            pos += length;
             conditions.push_back(cond);
         }
         return conditions;
@@ -1395,22 +1398,6 @@ private:
         }
     }
 
-#ifdef DEBUG
-    void displayForeignKey() const {
-        std::cout << "----------------------------------" << std::endl;
-        std::cout << "Referenced tables: " << std::endl;
-        for (auto t: referenced_tables)
-            std::cout << t.first << ' ' << std::get<0>(t.second) << ' ' 
-                                        << std::get<1>(t.second) << ' '
-                                        << std::get<2>(t.second) << std::endl;
-        std::cout << "Referencing tables : " << std::endl;
-        for (auto t: referencing_tables) 
-            std::cout << t.first << ' ' << std::get<0>(t.second) << ' ' 
-                                        << std::get<1>(t.second) << ' '
-                                        << std::get<2>(t.second) << std::endl;
-        std::cout << "----------------------------------" << std::endl;
-    }
-#endif
 
 private:
     // member function pointers to parser action
