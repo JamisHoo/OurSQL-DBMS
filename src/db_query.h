@@ -36,16 +36,17 @@ public:
     static constexpr char* REFERENCING_CONSTRAINT_SUFFIX = (char*)".refing";
 
 
-    DBQuery() { }
+    DBQuery(std::ostream& o = std::cout, std::ostream& e = std::cerr): 
+        out(o), err(e) { }
 
     ~DBQuery() {
         closeDBInUse();
     }
 
-    bool execute(const std::string& str, std::ostream& out = std::cout, std::ostream& err = std::cerr) {
+    bool execute(const std::string& str) {
 #ifdef DEBUG
-        std::cout << "----------------------------\n";
-        std::cout << "Stmt: " << str << std::endl;
+        out << "----------------------------\n";
+        out << "Stmt: " << str << std::endl;
 #endif
         try {
             // try to parse with different patterns
@@ -200,7 +201,7 @@ private:
             for (auto f = boost::filesystem::directory_iterator("."); 
                  f != boost::filesystem::directory_iterator(); ++f) 
                 if (boost::filesystem::is_directory(f->path()))
-                    std::cout << f->path().filename().string() << std::endl;
+                    out << f->path().filename().string() << std::endl;
 
             return 0;
         }
@@ -306,8 +307,6 @@ private:
             std::map< std::tuple< std::string, uint64>, std::tuple<std::string, uint64> > foreign_keys;
             // check foreign key constraints
             for (const auto& fk: query.foreignkeys) {
-                // DEBUG
-                // std::cout << fk.field_name << ' ' << fk.foreign_table_name << ' ' << fk.foreign_field_name << std::endl;
                 // get referencing field id
                 auto ite = std::find(dbfields.field_name().begin(), dbfields.field_name().end(), fk.field_name);
                 if (ite == dbfields.field_name().end()) 
@@ -401,7 +400,7 @@ private:
                  f != boost::filesystem::directory_iterator(); ++f) 
                 if (boost::filesystem::is_regular_file(f->path()) &&
                     boost::filesystem::extension(f->path()) == DBTableManager::TABLE_SUFFIX)
-                    std::cout << f->path().stem().filename().string() << std::endl;
+                    out << f->path().stem().filename().string() << std::endl;
 
             return 0;
         }
@@ -483,17 +482,16 @@ private:
             
             const DBFields& fields_desc = table_manager->fieldsDesc();
             
-            // TODO : use special outputer
-            std::cout << "name, type, primary, not null, index" << std::endl;
+            out << "name, type, primary, not null, index" << std::endl;
             for (std::size_t i = 0; i < fields_desc.size(); ++i) {
                 // empty field name means this is a auto created primary key field
                 if (fields_desc.field_name()[i].length() == 0) continue; 
-                std::cout << fields_desc.field_name()[i] << ' ' <<
+                out << fields_desc.field_name()[i] << ' ' <<
                              DBFields::datatype_name_map.at(fields_desc.field_type()[i]);
                 
                 if (fields_desc.field_type()[i] == DBFields::TYPE_CHAR || fields_desc.field_type()[i] == DBFields::TYPE_UCHAR)
-                    std::cout << "(" << fields_desc.field_length()[i] - 1 << ')';
-                std::cout << ' ' <<
+                    out << "(" << fields_desc.field_length()[i] - 1 << ')';
+                out << ' ' <<
                              (fields_desc.field_id()[i] == fields_desc.primary_key_field_id()) << ' ' <<
                              fields_desc.notnull()[i] << ' ' << 
                              fields_desc.indexed()[i] << std::endl;
@@ -940,6 +938,7 @@ private:
 
 private: 
     // output a certain record
+    // TODO: output aligned
     void outputRID(const DBTableManager* table_manager,
                    const DBFields& fields_desc, 
                    const std::vector<uint64> display_field_ids,
@@ -954,9 +953,9 @@ private:
                               fields_desc.field_type()[id],
                               fields_desc.field_length()[id],
                               output_buff);
-                std::cout << output_buff << ' ';
+                out << output_buff << ' ';
             }
-            std::cout << std::endl;
+            out << std::endl;
         }
     }
 
@@ -1451,6 +1450,10 @@ public:
 
     // literal parser
     DBFields::LiteralParser literalParser;
+
+    // outputer
+    std::ostream& out;
+    std::ostream& err;
 
 };
 
