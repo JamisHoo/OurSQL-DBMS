@@ -343,21 +343,37 @@ public:
             const void* a_data = pointer_convert<const char*>(a) + 1;
             const void* b_data = pointer_convert<const char*>(b) + 1;
             switch (type) {
-                case 0:
-                    return *pointer_convert<const int8_t*>(a_data) - 
-                           *pointer_convert<const int8_t*>(b_data);
-                case 1:
-                    return *pointer_convert<const uint8_t*>(a_data) -
-                           *pointer_convert<const uint8_t*>(b_data);
-                case 2:
-                    return *pointer_convert<const int16_t*>(a_data) - 
-                           *pointer_convert<const int16_t*>(b_data);
-                case 3:
-                    return *pointer_convert<const uint16_t*>(a_data) - 
-                           *pointer_convert<const uint16_t*>(b_data);
-                case 4:
-                    return *pointer_convert<const int32_t*>(a_data) -
-                           *pointer_convert<const int32_t*>(b_data);
+                case 0: {
+                    int8_t aa = *pointer_convert<const int8_t*>(a_data);
+                    int8_t bb = *pointer_convert<const int8_t*>(b_data);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                } case 1: {
+                    uint8_t aa = *pointer_convert<const uint8_t*>(a_data);
+                    uint8_t bb = *pointer_convert<const uint8_t*>(b_data);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                } case 2: {
+                    int16_t aa = *pointer_convert<const int16_t*>(a_data);
+                    int16_t bb = *pointer_convert<const int16_t*>(b_data);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                } case 3: {
+                    uint16_t aa = *pointer_convert<const uint16_t*>(a_data);
+                    uint16_t bb = *pointer_convert<const uint16_t*>(b_data);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                } case 4: {
+                    int32_t aa = *pointer_convert<const int32_t*>(a_data);
+                    int32_t bb = *pointer_convert<const int32_t*>(b_data);
+                    if (aa > bb) return 1;
+                    if (aa < bb) return -1;
+                    return 0;
+                }
                 case 5: {
                     uint32_t aa = *pointer_convert<const uint32_t*>(a_data);
                     uint32_t bb = *pointer_convert<const uint32_t*>(b_data);
