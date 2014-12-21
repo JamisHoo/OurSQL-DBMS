@@ -79,6 +79,7 @@ struct SimpleSelectStatement {
         std::string field_name;
         std::string order;
     };
+    std::string group_by_field_name;
     OrderByClause order_by;
 };
 struct DeleteStatement {
@@ -112,6 +113,7 @@ struct Keyword_symbols: qi::symbols<> {
            ("drop")
            ("false")
            ("from")
+           ("group")
            ("index")
            ("insert")
            ("into")
@@ -484,19 +486,27 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
                    (omit[no_skip[+qi::space]] >> 
                     qi::no_case["and"] >> 
                     omit[no_skip[+qi::space]]))) >>
+                (group_by | qi::attr(std::string())) >>
                 (order_by | qi::attr(SimpleSelectStatement::OrderByClause())) >>
                 ';' >>
                 qi::eoi;
-
+        
+        group_by = qi::no_case["group"] >> 
+                   omit[no_skip[+qi::space]] >>
+                   qi::no_case["by"] >>
+                   omit[no_skip[+qi::space]] >>
+                   sql_identifier;
+        
         order_by = qi::no_case["order"] >>
                    omit[no_skip[+qi::space]] >>
                    qi::no_case["by"] >>
                    omit[no_skip[+qi::space]] >>
                    sql_identifier >> 
                    (qi::as_string[qi::no_case["asc"]] | qi::as_string[qi::no_case["desc"]] | qi::attr(std::string()));
-
+        
     }
 private:
+    qi::rule<std::string::const_iterator, std::string(), qi::space_type> group_by;
     qi::rule<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> start;
     qi::rule<std::string::const_iterator, SimpleSelectStatement::OrderByClause(), qi::space_type> order_by;
 };
@@ -607,6 +617,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
                           (std::vector<std::string>, field_names)
                           (std::string, table_name)
                           (std::vector<::Database::QueryProcess::SimpleCondition>, conditions)
+                          (std::string, group_by_field_name)
                           (::Database::QueryProcess::SimpleSelectStatement::OrderByClause, order_by))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DeleteStatement,
                           (std::string, table_name)
