@@ -656,9 +656,14 @@ private:
             const DBFields& fields_desc = table_manager->fieldsDesc();
             // check field names
             std::vector<uint64> display_field_ids;
+            std::vector<std::string> functions;
             std::set<uint64> check_duplicate_field_id;
             for (const auto& field_name: query.field_names) {
-                if (field_name == "*") { 
+                if (field_name.field_name == "*") { 
+                    // no aggregate functions can be applied to *
+                    // TODO: excepet for count()
+                    if (field_name.func.length())
+                        throw DBError::AggregateFailed(field_name.func, field_name.field_name, query.table_name);
                     for (const auto& field_id: fields_desc.field_id()) 
                         if (fields_desc.field_name()[field_id].length()) {
                             display_field_ids.push_back(field_id);
@@ -667,12 +672,13 @@ private:
                 } else {
                     auto ite = std::find(fields_desc.field_name().begin(),
                                          fields_desc.field_name().end(),
-                                         field_name);
+                                         field_name.field_name);
                     // invalid field name
                     if (ite == fields_desc.field_name().end()) 
-                        throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(field_name, query.table_name);
+                        throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(field_name.field_name, query.table_name);
                     uint64 field_id = ite - fields_desc.field_name().begin();
                     display_field_ids.push_back(field_id);
+                    functions.push_back(field_name.func);
                     check_duplicate_field_id.insert(field_id);
                 }
             }
@@ -687,13 +693,13 @@ private:
 
             // select records
             auto rids = selectRID(table_manager, conditions);
+            // save inermidiate result if necessary
+            std::unique_ptr<char[]> result;
+            uint64 result_size = 0;
 
-#ifdef DEBUG
-            std::cout << query.group_by_field_name << std::endl;
-#endif
             // group by
             if (query.group_by_field_name.length()) {
-                // TODO
+                // TODO: enable order by 
                 if (query.order_by.field_name.length()) 
                     err << "Warning: ORDER BY with GROUP BY not supported yet. ORDER BY will be ignored. ";
 
@@ -709,9 +715,72 @@ private:
                 auto groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
 
                 // TODO: aggregate 
-                std::vector<RID> tmp;
-                for (const auto ite: groups) tmp.push_back(*ite);
-                rids = tmp;
+                result.reset(new char[fields_desc.recordLength() * groups.size()]);
+                result_size = groups.size();
+                
+                std::unique_ptr<char[]> aggregate_tmp(new char[fields_desc.recordLength() * rids.size()]);
+                DBFields::Aggregator aggregator;
+                // rids between groups[i] and groups[i + 1] is a group
+                for (std::size_t i = 0; i < groups.size(); ++i) {
+                    // read the first in the group to result buffer
+                    table_manager->selectRecord(*groups[i], result.get() + i * fields_desc.recordLength());
+                    std::vector<void*> args;
+                    // read all of this group to aggregate buffer
+                    for (auto ite2 = groups[i]; ite2 != (i + 1 == groups.size()? rids.end(): groups[i + 1]); ++ite2) {
+                        args.push_back(aggregate_tmp.get() + fields_desc.recordLength() * (ite2 - groups[i]));
+                        table_manager->selectRecord(*ite2, args.back());
+                    }
+                    // calculate aggregate value and save to result buffer
+                    // check each field to be displayed
+                    for (std::size_t j = 0; j < display_field_ids.size(); ++j) {
+                        // if there's a fucntion
+                        if (functions[j].size()) {
+                            // paras of aggregator: pointers to all data, offset, type, length, result save to where
+                            int rtv;
+                            if (functions[j] == "sum") {
+                                rtv = aggregator.sum(args, fields_desc.offset()[display_field_ids[j]], 
+                                    fields_desc.field_type()[display_field_ids[j]],
+                                    fields_desc.field_length()[display_field_ids[j]],
+                                    result.get() + i * fields_desc.recordLength() + 
+                                    fields_desc.offset()[display_field_ids[j]]);
+                            } else if (functions[j] == "avg") {
+                                rtv = aggregator.avg(args, fields_desc.offset()[display_field_ids[j]], 
+                                    fields_desc.field_type()[display_field_ids[j]],
+                                    fields_desc.field_length()[display_field_ids[j]],
+                                    result.get() + i * fields_desc.recordLength() + 
+                                    fields_desc.offset()[display_field_ids[j]]);
+                            } else if (functions[j] == "max") {
+#ifdef DEBUG
+for (int k = 0; k < fields_desc.recordLength(); ++k)
+    printf("%02x ", int(result[i * fields_desc.recordLength() + k]) & 0xff);
+    printf("\n");
+#endif
+                                rtv = aggregator.max(args, fields_desc.offset()[display_field_ids[j]], 
+                                    fields_desc.field_type()[display_field_ids[j]],
+                                    fields_desc.field_length()[display_field_ids[j]],
+                                    result.get() + i * fields_desc.recordLength() + 
+                                    fields_desc.offset()[display_field_ids[j]]);
+#ifdef DEBUG
+for (int k = 0; k < fields_desc.recordLength(); ++k)
+    printf("%02x ", int(result[i * fields_desc.recordLength() + k]) & 0xff);
+    printf("\n");
+#endif
+                            } else if (functions[j] == "min") {
+                                rtv = aggregator.min(args, fields_desc.offset()[display_field_ids[j]], 
+                                    fields_desc.field_type()[display_field_ids[j]],
+                                    fields_desc.field_length()[display_field_ids[j]],
+                                    result.get() + i * fields_desc.recordLength() + 
+                                    fields_desc.offset()[display_field_ids[j]]);
+                            } else assert(0);
+                            if (rtv) 
+                                throw DBError::AggregateFailed(functions[j], fields_desc.field_name()[display_field_ids[j]], query.table_name);
+                        }
+                    }
+                }
+
+                // std::vector<RID> tmp;
+                // for (const auto ite: groups) tmp.push_back(*ite);
+                // rids = tmp;
             }
 
             // order by
@@ -726,7 +795,10 @@ private:
             }
 
             // output
-            outputRID(table_manager, display_field_ids, rids);
+            if (result_size) 
+                outputResult(table_manager, display_field_ids, result.get(), result_size);
+            else 
+                outputRID(table_manager, display_field_ids, rids);
 
             return 0;
         }
@@ -978,8 +1050,8 @@ private:
     // output a certain record
     // TODO: output aligned
     void outputRID(const DBTableManager* table_manager,
-                   const std::vector<uint64> display_field_ids,
-                   const std::vector<RID> rids) const {
+                   const std::vector<uint64>& display_field_ids,
+                   const std::vector<RID>& rids) const {
         const DBFields& fields_desc = table_manager->fieldsDesc();
         std::unique_ptr<char[]> buff(new char[fields_desc.recordLength()]);
 
@@ -997,12 +1069,23 @@ private:
         }
     }
 
-    /*
-    // process aggregate functions
-    void aggregateFunction(const DBTableManager* table_manager,
-                           const std::vector<RID>& rids, 
-                           const std::vector<std::vetor<RID>::const_iterator& groups,
-    */                     
+    // output intermidiate result
+    void outputResult(const DBTableManager* table_manager,
+                      const std::vector<uint64>& display_field_ids,
+                      const char* buff, const uint64 num) const {
+        const DBFields& fields_desc = table_manager->fieldsDesc();
+        std::string output_buff;
+        for (uint64 i = 0; i < num; ++i) {
+            for (const auto id: display_field_ids) {
+                literalParser(buff + fields_desc.offset()[id] + fields_desc.recordLength() * i,
+                              fields_desc.field_type()[id],
+                              fields_desc.field_length()[id],
+                              output_buff);
+                out << output_buff << ' ';
+            }
+            out << std::endl;
+        }
+    }
 
     // group by field_id
     // assert rids is sorted
@@ -1183,7 +1266,7 @@ private:
             for (const auto& cond: condition_right_literal) {
                 // generate min value
                 memset(min_value.get(), 0x00, fields_desc.recordLength());
-                minGenerator(fields_desc.field_type()[cond.left_id], min_value.get());
+                minGenerator(fields_desc.field_type()[cond.left_id], min_value.get(), fields_desc.field_length()[cond.left_id]);
 
                 std::vector< std::vector<RID> > include_rids;
                 std::vector< std::vector<RID> > exclude_rids;

@@ -72,7 +72,11 @@ struct InsertRecordStatement {
     std::vector<ValueTuple> value_tuples;
 };
 struct SimpleSelectStatement {
-    std::vector<std::string> field_names;
+    struct SelectFieldName {
+        std::string func;
+        std::string field_name;
+    };
+    std::vector<SelectFieldName> field_names;
     std::string table_name;
     std::vector<SimpleCondition> conditions;
     struct OrderByClause {
@@ -102,8 +106,10 @@ struct Keyword_symbols: qi::symbols<> {
         add
            ("and")
            ("asc")
+           ("avg")
            ("by")
            ("check")
+           ("count")
            ("create")
            ("database")
            ("databases")
@@ -120,6 +126,8 @@ struct Keyword_symbols: qi::symbols<> {
            ("is")
            ("key")
            ("like")
+           ("min")
+           ("max")
            ("not")
            ("null")
            ("on")
@@ -129,6 +137,7 @@ struct Keyword_symbols: qi::symbols<> {
            ("set")
            ("show")
            ("signed")
+           ("sum")
            ("table")
            ("tables")
            ("true")
@@ -167,6 +176,17 @@ struct Operator: qi::symbols<char, std::string> {
            (">=", ">=")
            ("<=", "<=")
            ("is", "is")
+          ;
+    }
+};
+
+struct Aggregate: qi::symbols<char, std::string> {
+    Aggregate() {
+        add("avg", "avg")
+           ("count", "count")
+           ("max", "max")
+           ("min", "min")
+           ("sum", "sum")
           ;
     }
 };
@@ -214,6 +234,10 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_b
 // definition of sql operators
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_operators = 
     qi::no_case[Operator()] | sql_like | sql_notlike;
+
+// definition of aggregate funtions
+const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_aggregate_functions = 
+    qi::no_case[Aggregate()];
 
 // simple condition
 // left_expr operator right_expr
@@ -476,7 +500,7 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
     SimpleSelectStatementParser(): SimpleSelectStatementParser::base_type(start) {
         start = qi::no_case["select"] >>
                 omit[no_skip[+qi::space]] >>
-                ((sql_identifier % ',') | qi::as_string[qi::char_('*')]) >>
+                (field_name % ',') >>
                 qi::no_case["from"] >>
                 omit[no_skip[+qi::space]] >>
                 sql_identifier >>
@@ -490,6 +514,9 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
                 (order_by | qi::attr(SimpleSelectStatement::OrderByClause())) >>
                 ';' >>
                 qi::eoi;
+        
+        field_name = sql_aggregate_functions >> '(' >> (sql_identifier | qi::as_string[qi::char_('*')]) >> ')' |
+                     qi::attr(std::string()) >> (sql_identifier | qi::as_string[qi::char_('*')]);
         
         group_by = qi::no_case["group"] >> 
                    omit[no_skip[+qi::space]] >>
@@ -506,6 +533,7 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
         
     }
 private:
+    qi::rule<std::string::const_iterator, SimpleSelectStatement::SelectFieldName(), qi::space_type> field_name;
     qi::rule<std::string::const_iterator, std::string(), qi::space_type> group_by;
     qi::rule<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> start;
     qi::rule<std::string::const_iterator, SimpleSelectStatement::OrderByClause(), qi::space_type> order_by;
@@ -610,11 +638,14 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleCondition,
                           (std::string, left_expr)
                           (std::string, op)
                           (std::string, right_expr))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement::SelectFieldName,
+                          (std::string, func)
+                          (std::string, field_name))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement::OrderByClause,
                           (std::string, field_name)
                           (std::string, order))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
-                          (std::vector<std::string>, field_names)
+                          (std::vector<::Database::QueryProcess::SimpleSelectStatement::SelectFieldName>, field_names)
                           (std::string, table_name)
                           (std::vector<::Database::QueryProcess::SimpleCondition>, conditions)
                           (std::string, group_by_field_name)
