@@ -53,7 +53,7 @@ public:
     struct MinGenerator {
         // generate minimum value of type type, save to buff
         // assert buff is cleared by caller
-        void operator()(const uint64 type, void* buff) const {
+        void operator()(const uint64 type, void* buff, const uint64 length) const {
             // not null flag
             pointer_convert<char*>(buff)[0] = '\xff';
             char* data = pointer_convert<char*>(buff) + 1;
@@ -94,20 +94,16 @@ public:
                     bool x = std::numeric_limits<bool>::min();
                     memcpy(data, &x, sizeof(bool));
                     break;
-                } case TYPE_CHAR: {
-                    char x = std::numeric_limits<char>::min();
-                    memcpy(data, &x, sizeof(char));
+                } case TYPE_CHAR: 
+                  case TYPE_UCHAR: 
+                    memset(data, 0x00, length);
                     break;
-                } case TYPE_UCHAR: {
-                    unsigned char x = std::numeric_limits<unsigned char>::min();
-                    memcpy(data, &x, sizeof(unsigned char));
-                    break;
-                } case TYPE_FLOAT: {
-                    float x = std::numeric_limits<float>::min();
+                  case TYPE_FLOAT: {
+                    float x = std::numeric_limits<float>::lowest();
                     memcpy(data, &x, sizeof(float));
                     break;
                 } case TYPE_DOUBLE: {
-                    double x = std::numeric_limits<double>::min();
+                    double x = std::numeric_limits<double>::lowest();
                     memcpy(data, &x, sizeof(double));
                     break;
                 }
@@ -322,6 +318,296 @@ public:
                     break;
             }
             return 0;
+        }
+    };
+
+    struct Aggregator {
+        // returns 0 if succeed, 1 if type error
+        int sum(const std::vector<void*>& data, const uint64 offset, 
+                const uint64 type, const uint64 length, void* result) const {
+            uint64 count;
+            switch (type) {
+                case TYPE_INT8: {
+                    int8_t res = 0;
+                    count = getSum<int8_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT8: {
+                    uint8_t res = 0;
+                    count = getSum<uint8_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_INT16: {
+                    int16_t res = 0;
+                    count = getSum<int16_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT16: {
+                    uint16_t res = 0;
+                    count = getSum<uint16_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_INT32: {
+                    int32_t res = 0;
+                    count = getSum<int32_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT32: {
+                    uint32_t res = 0;
+                    count = getSum<uint32_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_INT64: {
+                    int64_t res = 0;
+                    count = getSum<int64_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT64: {
+                    uint64_t res = 0;
+                    count = getSum<uint64_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_FLOAT: {
+                    float res = 0;
+                    count = getSum<float>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_DOUBLE: {
+                    double res = 0;
+                    count = getSum<double>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } default: 
+                    return 1;
+            }
+            if (!count) memset(result, 0x00, length);
+            return 0;
+        }
+        int avg(const std::vector<void*>& data, const uint64 offset, 
+                const uint64 type, const uint64 length, void* result) const {
+            uint64 count;
+            switch (type) {
+                case TYPE_INT8: {
+                    int8_t res = 0;
+                    count = getAvg<int8_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT8: {
+                    uint8_t res = 0;
+                    count = getAvg<uint8_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_INT16: {
+                    int16_t res = 0;
+                    count = getAvg<int16_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT16: {
+                    uint16_t res = 0;
+                    count = getAvg<uint16_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_INT32: {
+                    int32_t res = 0;
+                    count = getAvg<int32_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT32: {
+                    uint32_t res = 0;
+                    count = getAvg<uint32_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_INT64: {
+                    int64_t res = 0;
+                    count = getAvg<int64_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_UINT64: {
+                    uint64_t res = 0;
+                    count = getAvg<uint64_t>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_FLOAT: {
+                    float res = 0;
+                    count = getAvg<float>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_DOUBLE: {
+                    double res = 0;
+                    count = getAvg<double>(data, offset, res);
+                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } default: 
+                    return 1;
+            }
+            if (!count) memset(result, 0x00, length);
+            return 0;
+        }
+        int max(const std::vector<void*>& data, const uint64 offset, 
+                const uint64 type, const uint64 length, void* result) const {
+            MinGenerator minGenerator;
+            minGenerator(type, result, length);
+            uint64 count;
+            switch (type) {
+                case TYPE_INT8: 
+                    count = getMax<int8_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT8: 
+                    count = getMax<uint8_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_INT16:
+                    count = getMax<int16_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT16:
+                    count = getMax<uint16_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_INT32:
+                    count = getMax<int32_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT32:
+                    count = getMax<uint32_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_INT64:
+                    count = getMax<int64_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT64:
+                    count = getMax<uint64_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_BOOL:
+                    count = getMax<bool>(data, type, offset, length, result);
+                    break;
+                case TYPE_CHAR:
+                    count = getMax<char>(data, type, offset, length, result);
+                    break;
+                case TYPE_UCHAR:
+                    count = getMax<unsigned char>(data, type, offset, length, result);
+                    break;
+                case TYPE_FLOAT:
+                    count = getMax<float>(data, type, offset, length, result);
+                    break;
+                case TYPE_DOUBLE:
+                    count = getMax<double>(data, type, offset, length, result);
+                    break;
+                default:
+                    return 1;
+            }
+            if (!count) memset(result, 0x00, length);
+            return 0;
+        }
+        int min(const std::vector<void*>& data, const uint64 offset, 
+                const uint64 type, const uint64 length, void* result) const {
+            memset(result, 0x00, length);
+            uint64 count;
+            switch (type) {
+                case TYPE_INT8: 
+                    count = getMin<int8_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT8: 
+                    count = getMin<uint8_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_INT16:
+                    count = getMin<int16_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT16:
+                    count = getMin<uint16_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_INT32:
+                    count = getMin<int32_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT32:
+                    count = getMin<uint32_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_INT64:
+                    count = getMin<int64_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_UINT64:
+                    count = getMin<uint64_t>(data, type, offset, length, result);
+                    break;
+                case TYPE_BOOL:
+                    count = getMin<bool>(data, type, offset, length, result);
+                    break;
+                case TYPE_CHAR:
+                    count = getMin<char>(data, type, offset, length, result);
+                    break;
+                case TYPE_UCHAR:
+                    count = getMin<unsigned char>(data, type, offset, length, result);
+                    break;
+                case TYPE_FLOAT:
+                    count = getMin<float>(data, type, offset, length, result);
+                    break;
+                case TYPE_DOUBLE:
+                    count = getMin<double>(data, type, offset, length, result);
+                    break;
+                default:
+                    return 1;
+            }
+            if (!count) memset(result, 0x00, length);
+            return 0;
+        }
+
+    private:
+        template <class T>
+        uint64 getSum(const std::vector<void*>& data, const uint64 offset, T& initial) const {
+            uint64 count = 0;
+            for (const auto p: data) {
+                // if is null, ignore
+                if (pointer_convert<const char*>(p)[offset] == '\x00') continue;
+                ++count;
+                initial += *pointer_convert<const T*>(pointer_convert<const char*>(p) + 1 + offset);
+            }
+            return count;
+        }
+        template <class T>
+        uint64 getAvg(const std::vector<void*>& data, const uint64 offset ,T& initial) const {
+            uint64 count = getSum(data, offset, initial);
+            if (count) initial = initial / count;
+            return count;
+        }
+        template <class T>
+        uint64 getMax(const std::vector<void*>& data, const uint64 type, const uint64 offset, const uint64 length, void* initial) const {
+            Comparator comp;
+            comp.type = type;
+            uint64 count = 0;
+            for (std::size_t i = 0; i < data.size(); ++i) {
+                if (pointer_convert<const char*>(data[i])[offset] == '\x00') continue;
+                ++count;
+                if (comp(pointer_convert<const char*>(data[i]) + offset, initial, length) > 0)
+                    memcpy(initial, pointer_convert<const char*>(data[i]) + offset, length);
+            }
+            return count;
+        }
+        template <class T>
+        uint64 getMin(const std::vector<void*>& data, const uint64 type, const uint64 offset, const uint64 length, void* initial) const {
+            Comparator comp;
+            comp.type = type;
+            uint64 count = 0;
+            for (std::size_t i = 0; i < data.size(); ++i) {
+                if (pointer_convert<const char*>(data[i])[offset] == '\x00') continue;
+                ++count;
+                if (comp(pointer_convert<const char*>(data[i]) + offset, initial, length) < 0)
+                    memcpy(initial, pointer_convert<const char*>(data[i]) + offset, length);
+            }
+            return count;
         }
     };
 
