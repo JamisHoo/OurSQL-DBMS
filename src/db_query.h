@@ -688,12 +688,33 @@ private:
             // select records
             auto rids = selectRID(table_manager, conditions);
 
-            // TODO: group by
-            // TODO: aggregate 
 #ifdef DEBUG
-            std::cout << query.order_by.field_name << std::endl;
-            std::cout << query.order_by.order << std::endl;
+            std::cout << query.group_by_field_name << std::endl;
 #endif
+            // group by
+            if (query.group_by_field_name.length()) {
+                // TODO
+                if (query.order_by.field_name.length()) 
+                    err << "Warning: ORDER BY with GROUP BY not supported yet. ORDER BY will be ignored. ";
+
+                auto ite = std::find(fields_desc.field_name().begin(),
+                                     fields_desc.field_name().end(),
+                                     query.group_by_field_name);
+                if (ite == fields_desc.field_name().end())
+                    throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(query.group_by_field_name, query.table_name);
+                // sort 
+                sortRID(table_manager, rids, ite - fields_desc.field_name().begin(), 1);
+                
+                // divide into groups
+                auto groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
+
+                // TODO: aggregate 
+                std::vector<RID> tmp;
+                for (const auto ite: groups) tmp.push_back(*ite);
+                rids = tmp;
+            }
+
+            // order by
             if (query.order_by.field_name.length()) {
                 auto ite = std::find(fields_desc.field_name().begin(),
                                      fields_desc.field_name().end(),
@@ -976,7 +997,49 @@ private:
         }
     }
 
-    // sort rids in asc(0) | desc(1) order
+    /*
+    // process aggregate functions
+    void aggregateFunction(const DBTableManager* table_manager,
+                           const std::vector<RID>& rids, 
+                           const std::vector<std::vetor<RID>::const_iterator& groups,
+    */                     
+
+    // group by field_id
+    // assert rids is sorted
+    std::vector<std::vector<RID>::const_iterator> grouping(
+        const DBTableManager* table_manager,
+        const std::vector<RID>& rids, const uint64 field_id) {
+        std::vector<std::vector<RID>::const_iterator> groups;
+        if (!rids.size()) return groups;
+
+        const DBFields& fields_desc = table_manager->fieldsDesc();
+
+        DBFields::Comparator comp;
+        comp.type = fields_desc.field_type()[field_id];
+        
+        std::unique_ptr<char[]> buff1(new char[fields_desc.recordLength()]);
+        std::unique_ptr<char[]> buff2(new char[fields_desc.recordLength()]);
+
+        // equal(0) or not(1)
+        auto comp_rule = [&table_manager, &fields_desc, &field_id, &comp, &buff1, &buff2]
+            (const RID rid1, const RID rid2)->bool {
+            table_manager->selectRecord(rid1, buff1.get());
+            table_manager->selectRecord(rid2, buff2.get());
+            int comp_result = comp(buff1.get() + fields_desc.offset()[field_id],
+                                   buff2.get() + fields_desc.offset()[field_id],
+                                   fields_desc.field_length()[field_id]);
+            return comp_result == 0;
+        };
+        
+        groups.push_back(rids.begin());
+        for (auto ite = rids.begin() + 1; ite != rids.end(); ++ite) 
+            if (!comp_rule(*ite, *(ite - 1)))
+                groups.push_back(ite);
+
+        return groups;
+    }
+
+    // sort rids in asc(1) | desc(0) order
     void sortRID(const DBTableManager* table_manager,
                  std::vector<RID>& rids, const uint64 field_id, bool order) {
         const DBFields& fields_desc = table_manager->fieldsDesc();
