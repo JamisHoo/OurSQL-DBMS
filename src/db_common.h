@@ -29,6 +29,7 @@ class DBFields;
 class DBBuffer;
 template<class /* Comparator */> class DBIndexManager;
 class DBQuery;
+class DBInterface;
 
 struct RID {
     uint64 pageID;

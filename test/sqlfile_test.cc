@@ -13,33 +13,22 @@
  *  Description: 
  *****************************************************************************/
 #include <iostream>
+#include <regex>
 #include "../src/db_query.h"
-
-inline std::string trim(std::string str) {
-    str.erase(0, str.find_first_not_of(" \n\t\r"));       //prefixing spaces
-    str.erase(str.find_last_not_of(" \n\t\r") + 1);         //surfixing spaces
-    return str;
-}
+#include "../src/db_interface.h"
 
 int main() {
-    using namespace std;
     using namespace Database;
     
     DBQuery query;
-
+    DBInterface ui;
     
-    string str;
-    string tmp;
-    int count = 0;
-    while (getline(cin, tmp)) {
-        if (trim(tmp).front() == '#') continue;
-        str += tmp + ' ';
-        if (trim(tmp).back() == ';') {
-            query.execute(str);
-            str.clear();
-            ++count;
-            if (count == -1) break;
-        }
+    std::string str;
+    while (std::getline(std::cin, str)) {
+        ui.feed(str);
+        while (ui.ready()) 
+            query.execute(ui.get());
     }
+    
     
 } 
