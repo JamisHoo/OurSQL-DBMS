@@ -13,28 +13,44 @@
  *  Description: 
  *****************************************************************************/
 #include <iostream>
+#include <fstream>
 #include <regex>
 #include "../src/db_query.h"
 #include "../src/db_interface.h"
 
-int main() {
+int main(int argc, char** argv) {
     using namespace Database;
+
+    // argc == 1, stdin
+    // argc == 2, read from file
+    if (argc > 2) return 1;
     
     DBQuery query;
     DBInterface ui;
+
+    std::ifstream fin;
+    // open file
+    if (argc == 2)
+        fin.open(argv[1]);
     
+    // if stdin mode, output prompt
+    if (argc == 1) std::clog << "yoursql> " << std::flush;
+
     std::string str;
-    std::clog << "yoursql> " << std::flush;
-    while (std::getline(std::cin, str)) {
+    while (std::getline(argc == 1? std::cin: fin, str)) {
+        // read a line
         ui.feed(str + '\n');
-        while (ui.ready()) 
-            query.execute(ui.get());
-        if (ui.emptyBuff()) 
-            std::clog << "yoursql> " << std::flush;
-        else
-            std::clog << "       > " << std::flush;
+
+        // fetch commands and execute
+        while (ui.ready()) query.execute(ui.get());
+
+        // if stdin mode, output prompt
+        if (argc == 1) {
+            if (ui.emptyBuff()) std::clog << "yoursql> " << std::flush;
+            else std::clog << "       > " << std::flush;
+        }
     }
-    std::clog << std::endl;
+    if (argc == 1) std::clog << std::endl;
     
     
 } 
