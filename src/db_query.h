@@ -661,7 +661,7 @@ private:
             for (const auto& field_name: query.field_names) {
                 if (field_name.field_name == "*") { 
                     // no aggregate functions can be applied to *
-                    // TODO: excepet for count()
+                    // TODO: except for count()
                     if (field_name.func.length())
                         throw DBError::AggregateFailed(field_name.func, field_name.field_name, query.table_name);
                     for (const auto& field_id: fields_desc.field_id()) 
@@ -701,7 +701,7 @@ private:
             if (query.group_by_field_name.length()) {
                 // TODO: enable order by 
                 if (query.order_by.field_name.length()) 
-                    err << "Warning: ORDER BY with GROUP BY not supported yet. ORDER BY will be ignored. ";
+                    throw DBError::BothGroupAndOrder(query.table_name);
 
                 auto ite = std::find(fields_desc.field_name().begin(),
                                      fields_desc.field_name().end(),
@@ -714,7 +714,7 @@ private:
                 // divide into groups
                 auto groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
 
-                // TODO: aggregate 
+                // aggeragate
                 result.reset(new char[fields_desc.recordLength() * groups.size()]);
                 result_size = groups.size();
                 
@@ -750,21 +750,11 @@ private:
                                     result.get() + i * fields_desc.recordLength() + 
                                     fields_desc.offset()[display_field_ids[j]]);
                             } else if (functions[j] == "max") {
-#ifdef DEBUG
-for (int k = 0; k < fields_desc.recordLength(); ++k)
-    printf("%02x ", int(result[i * fields_desc.recordLength() + k]) & 0xff);
-    printf("\n");
-#endif
                                 rtv = aggregator.max(args, fields_desc.offset()[display_field_ids[j]], 
                                     fields_desc.field_type()[display_field_ids[j]],
                                     fields_desc.field_length()[display_field_ids[j]],
                                     result.get() + i * fields_desc.recordLength() + 
                                     fields_desc.offset()[display_field_ids[j]]);
-#ifdef DEBUG
-for (int k = 0; k < fields_desc.recordLength(); ++k)
-    printf("%02x ", int(result[i * fields_desc.recordLength() + k]) & 0xff);
-    printf("\n");
-#endif
                             } else if (functions[j] == "min") {
                                 rtv = aggregator.min(args, fields_desc.offset()[display_field_ids[j]], 
                                     fields_desc.field_type()[display_field_ids[j]],
@@ -778,9 +768,6 @@ for (int k = 0; k < fields_desc.recordLength(); ++k)
                     }
                 }
 
-                // std::vector<RID> tmp;
-                // for (const auto ite: groups) tmp.push_back(*ite);
-                // rids = tmp;
             }
 
             // order by
