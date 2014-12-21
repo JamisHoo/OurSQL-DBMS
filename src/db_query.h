@@ -688,7 +688,7 @@ private:
             // select records
             auto rids = selectRID(table_manager, conditions);
             // output
-            outputRID(table_manager, fields_desc, display_field_ids, rids);
+            outputRID(table_manager, display_field_ids, rids);
 
             return 0;
         }
@@ -940,9 +940,9 @@ private:
     // output a certain record
     // TODO: output aligned
     void outputRID(const DBTableManager* table_manager,
-                   const DBFields& fields_desc, 
                    const std::vector<uint64> display_field_ids,
                    const std::vector<RID> rids) const {
+        const DBFields& fields_desc = table_manager->fieldsDesc();
         std::unique_ptr<char[]> buff(new char[fields_desc.recordLength()]);
 
         std::string output_buff;
