@@ -1073,9 +1073,6 @@ private:
                                cond.op == "like" || 
                                cond.op == "not like";
                     }) == condition_right_literal.end()) {
-#ifdef DEBUG
-            std::cout << "Debug: use index " << condition_right_literal.size() << std::endl;
-#endif
             // intersected rids
             std::set<RID> intersected_rids;
             std::unique_ptr<char[]> min_value(new char[fields_desc.recordLength()]);
@@ -1112,7 +1109,7 @@ private:
                     // [literal, literal]
                     exclude_rids.push_back(table_manager->findRecords(cond.left_id, cond.right_literal.data()));
                 } else assert(0);
-
+                // all include sets
                 std::set<RID> include_rids_set;
                 std::size_t size_include = 0, size_exclude = 0;
                 for (const auto& i: include_rids) {
@@ -1120,34 +1117,20 @@ private:
                     size_include += i.size();
                 }
                 assert(include_rids_set.size() == size_include);
+                // all exclude sets
                 std::set<RID> exclude_rids_set;
                 for (const auto& e: exclude_rids) {
                     exclude_rids_set.insert(e.begin(), e.end());
                     size_exclude += e.size();
                 }
                 assert(exclude_rids_set.size() == size_exclude);
-#ifdef DEBUG    
-                for (const auto& r: include_rids[0]) std::cout << r << std::endl;
-                std::cout << "---" << std::endl;
-                for (const auto& r: exclude_rids[0]) std::cout << r << std::endl;
-                std::cout << "---" << std::endl;
-                for (const auto& r: include_rids_set) std::cout << r << std::endl;
-                std::cout << "---" << std::endl;
-                for (const auto& r: exclude_rids_set) std::cout << r << std::endl;
-                for (int i = 0; i < 5; ++i)
-                    printf("%02x ", int(cond.right_literal.data()[i]) & 0xff);
-                std::cout << std::endl;
-#endif
+                // difference set
                 std::set<RID> difference_rids;
                 std::set_difference(include_rids_set.begin(), include_rids_set.end(), 
                                     exclude_rids_set.begin(), exclude_rids_set.end(),
                                     std::inserter(difference_rids, difference_rids.end()));
                 assert(difference_rids.size() == size_include - size_exclude);
-#ifdef DEBUG
-                std::cout << "---" << std::endl;
-                for (const auto& r: difference_rids) std::cout << r << std::endl;
-                std::cout << "---" << std::endl;
-#endif
+                // get total intersection set
                 // first time in loop
                 if (first_loop) {
                     intersected_rids = difference_rids;
@@ -1159,11 +1142,6 @@ private:
                 std::set_intersection(difference_rids.begin(), difference_rids.end(),
                                       intersected_rids.begin(), intersected_rids.end(), 
                                       std::inserter(tmp, tmp.end()));
-#ifdef DEBUG
-                std::cout << "---" << std::endl;
-                for (const auto& r: tmp) std::cout << r << std::endl;
-                std::cout << "---" << std::endl;
-#endif
             }
             rids.assign(intersected_rids.begin(), intersected_rids.end());
         } else {
