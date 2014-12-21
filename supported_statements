@@ -47,19 +47,19 @@ UPDATE <table name> SET <field name> = <new value>
         WHERE <field name> = <some value>;
 
 # simple select
+# FINISHED
 SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];
 SELECT * FROM <table name> [WHERE <simple condition>];
 # simple condition excludes table name
 
+# extention
+# like in condition
+# FINISHED
+<left expr> [NOT] LIKE <EMACScript regex>
+
 # complex select
 SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> WHERE <complex condition>;
-
-# extention
-# like in condition
-<left expr> [NOT] LIKE <EMACScript regex>
-
-
 
 # inner join
 SELECT <table name>.<field name> [, <table name>.<field name>]*
