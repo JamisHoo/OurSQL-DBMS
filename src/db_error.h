@@ -366,6 +366,14 @@ struct SimpleSelectFailed: Error {
         return Error::getInfo() + "Failed when selecting from " + quoted(table_name) + ". ";
     }
 };
+    struct AggregateFailed: SimpleSelectFailed {
+        std::string function, field_name;
+        AggregateFailed(const std::string& f, const std::string& fn, const std::string& tn):
+            SimpleSelectFailed(tn), function(f), field_name(fn) { }
+        virtual std::string getInfo() const {
+            return SimpleSelectFailed::getInfo() + "Invalid aggregate funtion " + quoted(function) + " applied to " + quoted(field_name) + ". ";
+        }
+    };
     
 struct DeleteRecordFailed: Error {
     std::string table_name;
