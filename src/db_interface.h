@@ -28,7 +28,10 @@ public:
     void feed(const std::string& str) { 
         for (const auto c: str) {
             if (_in_comment) {
-                if (c == '\n') _in_comment = 0;
+                if (c == '\n') {
+                    _in_comment = 0;
+                    _buff += c;
+                }
                 continue;
             } else if (_escaped) {
                 _escaped = 0;
@@ -70,6 +73,10 @@ public:
         return _commands.size();
     }
 
+    bool emptyBuff() const {
+        return !trim(_buff).size();
+    }
+
     std::string get() {
         std::string tmp = _commands.front();
         _commands.pop();
@@ -77,6 +84,9 @@ public:
     }
 
 private:
+#ifdef DEBUG
+public:
+#endif
     std::string trim(std::string str) const {
         // prefixing spaces
         str.erase(0, str.find_first_not_of(" \n\t\r")); 

@@ -24,11 +24,17 @@ int main() {
     DBInterface ui;
     
     std::string str;
+    std::clog << "yoursql> " << std::flush;
     while (std::getline(std::cin, str)) {
-        ui.feed(str);
+        ui.feed(str + '\n');
         while (ui.ready()) 
             query.execute(ui.get());
+        if (ui.emptyBuff()) 
+            std::clog << "yoursql> " << std::flush;
+        else
+            std::clog << "       > " << std::flush;
     }
+    std::clog << std::endl;
     
     
 } 
