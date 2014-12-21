@@ -687,6 +687,23 @@ private:
 
             // select records
             auto rids = selectRID(table_manager, conditions);
+
+            // TODO: group by
+            // TODO: aggregate 
+#ifdef DEBUG
+            std::cout << query.order_by.field_name << std::endl;
+            std::cout << query.order_by.order << std::endl;
+#endif
+            if (query.order_by.field_name.length()) {
+                auto ite = std::find(fields_desc.field_name().begin(),
+                                     fields_desc.field_name().end(),
+                                     query.order_by.field_name);
+                if (ite == fields_desc.field_name().end())
+                    throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(query.order_by.field_name, query.table_name);
+                sortRID(table_manager, rids, ite - fields_desc.field_name().begin(),
+                        query.order_by.order == "" || query.order_by.order == "asc");
+            }
+
             // output
             outputRID(table_manager, display_field_ids, rids);
 
@@ -957,6 +974,29 @@ private:
             }
             out << std::endl;
         }
+    }
+
+    // sort rids in asc(0) | desc(1) order
+    void sortRID(const DBTableManager* table_manager,
+                 std::vector<RID>& rids, const uint64 field_id, bool order) {
+        const DBFields& fields_desc = table_manager->fieldsDesc();
+
+        DBFields::Comparator comp;
+        comp.type = fields_desc.field_type()[field_id];
+        
+        std::unique_ptr<char[]> buff1(new char[fields_desc.recordLength()]);
+        std::unique_ptr<char[]> buff2(new char[fields_desc.recordLength()]);
+
+        auto comp_rule = [&table_manager, &fields_desc, &field_id, &comp, &buff1, &buff2, &order]
+            (const RID rid1, const RID rid2)->bool {
+            table_manager->selectRecord(rid1, buff1.get());
+            table_manager->selectRecord(rid2, buff2.get());
+            int comp_result = comp(buff1.get() + fields_desc.offset()[field_id],
+                                   buff2.get() + fields_desc.offset()[field_id],
+                                   fields_desc.field_length()[field_id]);
+            return order? comp_result < 0: comp_result > 0;
+        };
+        std::sort(rids.begin(), rids.end(), comp_rule);
     }
 
     // check whether data meets all conditions

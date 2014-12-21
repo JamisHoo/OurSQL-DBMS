@@ -75,6 +75,11 @@ struct SimpleSelectStatement {
     std::vector<std::string> field_names;
     std::string table_name;
     std::vector<SimpleCondition> conditions;
+    struct OrderByClause {
+        std::string field_name;
+        std::string order;
+    };
+    OrderByClause order_by;
 };
 struct DeleteStatement {
     std::string table_name;
@@ -95,6 +100,8 @@ struct Keyword_symbols: qi::symbols<> {
     Keyword_symbols() {
         add
            ("and")
+           ("asc")
+           ("by")
            ("check")
            ("create")
            ("database")
@@ -114,6 +121,7 @@ struct Keyword_symbols: qi::symbols<> {
            ("not")
            ("null")
            ("on")
+           ("order")
            ("primary")
            ("select")
            ("set")
@@ -476,11 +484,21 @@ struct SimpleSelectStatementParser: qi::grammar<std::string::const_iterator, Sim
                    (omit[no_skip[+qi::space]] >> 
                     qi::no_case["and"] >> 
                     omit[no_skip[+qi::space]]))) >>
+                (order_by | qi::attr(SimpleSelectStatement::OrderByClause())) >>
                 ';' >>
                 qi::eoi;
+
+        order_by = qi::no_case["order"] >>
+                   omit[no_skip[+qi::space]] >>
+                   qi::no_case["by"] >>
+                   omit[no_skip[+qi::space]] >>
+                   sql_identifier >> 
+                   (qi::as_string[qi::no_case["asc"]] | qi::as_string[qi::no_case["desc"]] | qi::attr(std::string()));
+
     }
 private:
     qi::rule<std::string::const_iterator, SimpleSelectStatement(), qi::space_type> start;
+    qi::rule<std::string::const_iterator, SimpleSelectStatement::OrderByClause(), qi::space_type> order_by;
 };
 
 // parser of DELETE FROM <table name> [WHERE <conditoon>];
@@ -582,10 +600,14 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleCondition,
                           (std::string, left_expr)
                           (std::string, op)
                           (std::string, right_expr))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement::OrderByClause,
+                          (std::string, field_name)
+                          (std::string, order))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
                           (std::vector<std::string>, field_names)
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::SimpleCondition>, conditions))
+                          (std::vector<::Database::QueryProcess::SimpleCondition>, conditions)
+                          (::Database::QueryProcess::SimpleSelectStatement::OrderByClause, order_by))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DeleteStatement,
                           (std::string, table_name)
                           (std::vector<::Database::QueryProcess::SimpleCondition>, conditions))
