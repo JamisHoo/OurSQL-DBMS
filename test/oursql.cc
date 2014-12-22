@@ -32,6 +32,14 @@ int main(int argc, char** argv) {
     // open file
     if (argc == 2)
         fin.open(argv[1]);
+    else {
+        std::clog << "Welcome to OurSQL(Version 1.0) monitor. Commands end with ;. " << std::endl;
+        std::clog << std::endl;
+        std::clog << "Copyright (c) 2014 Jamis Hoo, Terran Lee. " << std::endl;
+        std::clog << std::endl;
+        std::clog << "Distributed under the MIT license. " << std::endl;
+        std::clog << std::endl;
+    }
     
     std::string str;
     while (true) {
