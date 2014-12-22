@@ -359,6 +359,16 @@ public:
 
     struct Aggregator {
         // returns 0 if succeed, 1 if type error
+        int count(const std::vector<void*>& data, const uint64 offset,
+                  void* result) const {
+            uint64 count = 0;
+            for (const auto d: data) 
+                if (pointer_convert<const char*>(d)[offset] == '\xff')
+                    ++count;
+            memcpy(pointer_convert<char*>(result) + 1, &count, sizeof(uint64));
+            pointer_convert<char*>(result)[0] = '\xff';
+            return 0;
+        }
         int sum(const std::vector<void*>& data, const uint64 offset, 
                 const uint64 type, const uint64 length, void* result) const {
             uint64 count;

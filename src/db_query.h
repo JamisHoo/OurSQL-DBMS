@@ -633,7 +633,7 @@ private:
     }
 
     // parse as statement "SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];"
-    //                  or "SELECT * FROM <table name> [WHERE <condition>];"
+    //                 or "SELECT * FROM <table name> [WHERE <condition>];"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
     // returns other values if parse succeed but execute failed.
@@ -658,7 +658,8 @@ private:
             DBFields new_fields_desc = fields_desc;
 
             // check field names
-            // id of fields to display, won't expand even if there's aggregation
+            // id of fields aggregation function really applied to.
+            // won't expand even if there's aggregation
             std::vector<uint64> original_field_ids;
             // id of fields to display, expand if there's aggregations
             std::vector<uint64> display_field_ids;
@@ -666,16 +667,30 @@ private:
             std::set<uint64> check_duplicate_field_id;
             for (const auto& field_name: query.field_names) {
                 if (field_name.field_name == "*") { 
-                    // no aggregate functions can be applied to *
-                    // TODO: except for count()
-                    if (field_name.func.length())
+                    // no aggregate functions can be applied to * except 'count'
+                    if (field_name.func.length() && field_name.func != "count")
                         throw DBError::AggregateFailed(field_name.func, field_name.field_name, query.table_name);
-                    for (const auto& field_id: fields_desc.field_id()) 
-                        if (fields_desc.field_name()[field_id].length()) {
-                            display_field_ids.push_back(field_id);
-                            original_field_ids.push_back(field_id);
-                            check_duplicate_field_id.insert(field_id);
-                        }
+                    if (field_name.func == "count") {
+                        new_fields_desc.insert(DBFields::TYPE_UINT64, 
+                                              DBFields::typeLength(DBFields::TYPE_UINT64),
+                                              0, 0, 1, "count(*)");
+                        display_field_ids.push_back(new_fields_desc.field_id().back());
+                        functions.push_back(field_name.func);
+                        for (const auto field_id: fields_desc.field_id()) 
+                            if (fields_desc.field_name()[field_id].length()) {
+                                check_duplicate_field_id.insert(field_id);
+                                original_field_ids.push_back(field_id);
+                            }
+                        original_field_ids[display_field_ids.size() - 1] = fields_desc.primary_key_field_id();
+                    } else {
+                        for (const auto field_id: fields_desc.field_id()) 
+                            if (fields_desc.field_name()[field_id].length()) {
+                                display_field_ids.push_back(field_id);
+                                original_field_ids.push_back(field_id);
+                                functions.push_back(std::string());
+                                check_duplicate_field_id.insert(field_id);
+                            }
+                    }
                 } else {
                     auto ite = std::find(fields_desc.field_name().begin(),
                                          fields_desc.field_name().end(),
@@ -692,11 +707,13 @@ private:
 
                         if (field_name.func == "count") {
                             new_type = DBFields::TYPE_UINT64;
-                            new_length = DBFields::typeLength(DBFields::TYPE_UINT64);;
+                            new_length = DBFields::typeLength(DBFields::TYPE_UINT64);
                             new_not_null = 1;
                         } else if (field_name.func == "max" || field_name.func == "min" || field_name.func == "sum") {
-                        // TODO: sum may overflow, won't fix,
+                        // TODO: sum may overflow,
                         //       avg may also overflow because it calculates sum first
+                        // Solution is to use uint64 to store result for integer and double for floating point number.
+                        // Maybe I won't fix it 'cause it's kind of complicated.
                             new_type = fields_desc.field_type()[field_id];
                             new_length = fields_desc.field_length()[field_id] - 1;
                         } else if (field_name.func == "avg") {
@@ -738,9 +755,9 @@ private:
             } intermediate(*this);
             
 
-            // group by
-            if (query.group_by_field_name.length()) {
-
+            // group by 
+            // or aggregate function(s) without group by
+            if (query.group_by_field_name.length() || new_fields_desc.size() > fields_desc.size()) {
                 // create intermediate table manager
                 std::tie(intermediate.table_manager_number, intermediate.table_manager) = getTempTable(-1);
                 assert(intermediate.table_manager_number >= 0);
@@ -757,7 +774,14 @@ private:
                 sortRID(table_manager, rids, ite - fields_desc.field_name().begin(), 1);
                 
                 // divide into groups
-                auto groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
+                std::vector<std::vector<RID>::const_iterator> groups;
+                // if group by
+                if (query.group_by_field_name.length())
+                    groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
+                // else aggregate funtion(s) without group by
+                // this is the same as just one group
+                else 
+                    groups.push_back(rids.begin());
 
                 // aggeragate
                 // store record to be inserted into intermediate table
@@ -810,6 +834,10 @@ private:
                                     fields_desc.field_length()[original_field_ids[j]],
                                     inter_record_buffer.get() + 
                                     new_fields_desc.offset()[display_field_ids[j]]);
+                            } else if (functions[j] == "count") {
+                                rtv = aggregator.count(args, fields_desc.offset()[original_field_ids[j]],
+                                                       inter_record_buffer.get() + 
+                                                       new_fields_desc.offset()[display_field_ids[j]]);
                             } else assert(0);
                             if (rtv) 
                                 throw DBError::AggregateFailed(functions[j], fields_desc.field_name()[original_field_ids[j]], query.table_name);
@@ -835,7 +863,6 @@ private:
                         rids, ite - new_fields_desc.field_name().begin(),
                         query.order_by.order == "" || query.order_by.order == "asc");
             }
-
 
             outputRID(intermediate.table_manager? intermediate.table_manager: table_manager, display_field_ids, rids);
             return 0;
@@ -1107,26 +1134,6 @@ private:
         }
     }
 
-    // TODO: deprecated
-    // output intermidiate result
-    /*
-    void outputResult(const DBFields& fields_desc,
-                      const std::vector<uint64>& display_field_ids,
-                      const char* buff, const uint64 num) const {
-        // const DBFields& fields_desc = table_manager->fieldsDesc();
-        std::string output_buff;
-        for (uint64 i = 0; i < num; ++i) {
-            for (const auto id: display_field_ids) {
-                literalParser(buff + fields_desc.offset()[id] + fields_desc.recordLength() * i,
-                              fields_desc.field_type()[id],
-                              fields_desc.field_length()[id],
-                              output_buff);
-                out << output_buff << ' ';
-            }
-            out << std::endl;
-        }
-    }
-    */
 
     // group by field_id
     // assert rids is sorted
