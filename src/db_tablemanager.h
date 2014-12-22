@@ -149,6 +149,7 @@ public:
         
         // INDEX MANIPULATE
         // create index for primary key
+        // TODO: won't automatically create index for non-primary field
         assert(_index.size() == 0);
         _index.assign(fields.size(), nullptr);
         _index[fields.primary_key_field_id()] = new DBIndexManager<DBFields::Comparator>(

@@ -45,8 +45,8 @@ public:
 
     bool execute(const std::string& str) {
 #ifdef DEBUG
-        out << "----------------------------\n";
-        out << "Stmt: " << str << std::endl;
+        err << "----------------------------\n";
+        err << "Stmt: " << (str.length() > 100? str.substr(0, 100): str) << std::endl;
 #endif
         try {
             // try to parse with different patterns
@@ -656,6 +656,9 @@ private:
             const DBFields& fields_desc = table_manager->fieldsDesc();
             // used for internmediate result
             DBFields new_fields_desc = fields_desc;
+            for (std::size_t i = 0; i < new_fields_desc.indexed().size(); ++i)
+                if (i != new_fields_desc.primary_key_field_id())
+                    new_fields_desc.indexed()[i] = false;
 
             // check field names
             // id of fields aggregation function really applied to.
