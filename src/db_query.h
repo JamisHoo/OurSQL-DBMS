@@ -1380,6 +1380,7 @@ private:
                 std::set_intersection(difference_rids.begin(), difference_rids.end(),
                                       intersected_rids.begin(), intersected_rids.end(), 
                                       std::inserter(tmp, tmp.end()));
+                intersected_rids = tmp;
             }
             rids.assign(intersected_rids.begin(), intersected_rids.end());
         } else {
