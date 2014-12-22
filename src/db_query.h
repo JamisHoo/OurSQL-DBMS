@@ -765,22 +765,23 @@ private:
                 assert(intermediate.table_manager->create("temp_table", new_fields_desc, DBTableManager::DEFAULT_PAGE_SIZE) == 0);
                 assert(intermediate.table_manager->open("temp_table") == 0);
 
-                auto ite = std::find(fields_desc.field_name().begin(),
-                                     fields_desc.field_name().end(),
-                                     query.group_by_field_name);
-                if (ite == fields_desc.field_name().end())
-                    throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(query.group_by_field_name, query.table_name);
-                // sort 
-                sortRID(table_manager, rids, ite - fields_desc.field_name().begin(), 1);
-                
                 // divide into groups
                 std::vector<std::vector<RID>::const_iterator> groups;
+
                 // if group by
-                if (query.group_by_field_name.length())
+                if (query.group_by_field_name.length()) {
+                    auto ite = std::find(fields_desc.field_name().begin(),
+                                         fields_desc.field_name().end(),
+                                         query.group_by_field_name);
+                    if (ite == fields_desc.field_name().end())
+                        throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(query.group_by_field_name, query.table_name);
+                    // sort 
+                    sortRID(table_manager, rids, ite - fields_desc.field_name().begin(), 1);
+
                     groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
                 // else aggregate funtion(s) without group by
                 // this is the same as just one group
-                else 
+                } else 
                     groups.push_back(rids.begin());
 
                 // aggeragate
