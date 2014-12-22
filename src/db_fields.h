@@ -50,6 +50,44 @@ public:
     // <type code> -> <type name>
     static const std::map< uint64, std::string > datatype_name_map;
 
+    struct TypeLength {
+        uint64 operator()(const uint64 type) const {
+            switch (type) {
+                case TYPE_INT8:
+                    return sizeof(int8_t);
+                case TYPE_UINT8:
+                    return sizeof(uint8_t);
+                case TYPE_INT16:
+                    return sizeof(int16_t);
+                case TYPE_UINT16:
+                    return sizeof(uint16_t);
+                case TYPE_INT32:
+                    return sizeof(int32_t);
+                case TYPE_UINT32:
+                    return sizeof(uint32_t);
+                case TYPE_INT64:
+                    return sizeof(int64_t);
+                case TYPE_UINT64:
+                    return sizeof(uint64_t);
+                case TYPE_BOOL:
+                    return sizeof(bool);
+                case TYPE_CHAR:
+                    // uncertain
+                    return 0;
+                case TYPE_UCHAR:
+                    // uncertain
+                    return 0;
+                case TYPE_FLOAT:
+                    return sizeof(float);
+                case TYPE_DOUBLE:
+                    return sizeof(double);
+                default:
+                    assert(0);
+                    return 0;
+            }
+        }
+    };
+
     struct MinGenerator {
         // generate minimum value of type type, save to buff
         // assert buff is cleared by caller
@@ -394,73 +432,56 @@ public:
             return 0;
         }
         int avg(const std::vector<void*>& data, const uint64 offset, 
-                const uint64 type, const uint64 length, void* result) const {
+                const uint64 type, void* result) const {
             uint64 count;
+            double average = 0;
             switch (type) {
                 case TYPE_INT8: {
                     int8_t res = 0;
-                    count = getAvg<int8_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<int8_t>(data, offset, res, average);
                     break;
                 } case TYPE_UINT8: {
                     uint8_t res = 0;
-                    count = getAvg<uint8_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<uint8_t>(data, offset, res, average);
                     break;
                 } case TYPE_INT16: {
                     int16_t res = 0;
-                    count = getAvg<int16_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<int16_t>(data, offset, res, average);
                     break;
                 } case TYPE_UINT16: {
                     uint16_t res = 0;
-                    count = getAvg<uint16_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<uint16_t>(data, offset, res, average);
                     break;
                 } case TYPE_INT32: {
                     int32_t res = 0;
-                    count = getAvg<int32_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<int32_t>(data, offset, res, average);
                     break;
                 } case TYPE_UINT32: {
                     uint32_t res = 0;
-                    count = getAvg<uint32_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<uint32_t>(data, offset, res, average);
                     break;
                 } case TYPE_INT64: {
                     int64_t res = 0;
-                    count = getAvg<int64_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<int64_t>(data, offset, res, average);
                     break;
                 } case TYPE_UINT64: {
                     uint64_t res = 0;
-                    count = getAvg<uint64_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<uint64_t>(data, offset, res, average);
                     break;
                 } case TYPE_FLOAT: {
                     float res = 0;
-                    count = getAvg<float>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<float>(data, offset, res, average);
                     break;
                 } case TYPE_DOUBLE: {
                     double res = 0;
-                    count = getAvg<double>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length);
-                    pointer_convert<char*>(result)[0] = '\xff';
+                    count = getAvg<double>(data, offset, res, average);
                     break;
                 } default: 
                     return 1;
             }
-            if (!count) memset(result, 0x00, length);
+            memcpy(pointer_convert<char*>(result) + 1, &average, sizeof(average));
+            pointer_convert<char*>(result)[0] = '\xff';
+            if (!count) memset(result, 0x00, sizeof(average) + 1);
             return 0;
         }
         int max(const std::vector<void*>& data, const uint64 offset, 
@@ -578,9 +599,10 @@ public:
             return count;
         }
         template <class T>
-        uint64 getAvg(const std::vector<void*>& data, const uint64 offset ,T& initial) const {
+        uint64 getAvg(const std::vector<void*>& data, const uint64 offset ,T& initial, double& result) const {
             uint64 count = getSum(data, offset, initial);
-            if (count) initial = initial / count;
+            // if (count) initial = initial / count;
+            if (count) result = double(initial) / count;
             return count;
         }
         template <class T>
@@ -978,6 +1000,7 @@ const std::map< std::tuple<std::string, bool, bool>,
                            std::tuple<Database::uint64, Database::uint64, bool> > Database::DBFields::datatype_map = { 
         // (type name, is unsigned, is signed) ------> (type number, length, must provide a length)
         // 8 bit int, defalut signed
+        // TODO: use TypeLength to get length
         { std::make_tuple("int8", 0, 0),       std::make_tuple( 0, 1, 0) },
         // signed 8 bit int
         { std::make_tuple("int8", 0, 1),       std::make_tuple( 0, 1, 0) },
