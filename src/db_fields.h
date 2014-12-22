@@ -989,7 +989,7 @@ private:
 
 };
 
-// TODO: move this to a seperate cc file.
+// move these definitions to seperate cc file if multi-definition errors when compiling
 constexpr Database::uint64 Database::DBFields::TYPE_UINT64;
 
 const std::map< std::tuple<std::string, bool, bool>, 

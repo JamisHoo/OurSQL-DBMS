@@ -88,6 +88,7 @@ T pointer_convert(const T2* pointer) {
    For fear that nanosecond-accurary clock isn't supported by  
    either hardware or software, doubel-check is still recommended.
 */
+// move these definitions to seperate cc file if multi-definition errors when compiling
 const std::chrono::system_clock::duration sys_clock_epoch = 
     std::chrono::system_clock::now() - std::chrono::system_clock::from_time_t(0);
 const std::chrono::high_resolution_clock::time_point hr_clock_epoch = 
