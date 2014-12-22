@@ -692,7 +692,7 @@ private:
 
                         if (field_name.func == "count") {
                             new_type = DBFields::TYPE_UINT64;
-                            new_length = typeLength(DBFields::TYPE_UINT64);;
+                            new_length = DBFields::typeLength(DBFields::TYPE_UINT64);;
                             new_not_null = 1;
                         } else if (field_name.func == "max" || field_name.func == "min" || field_name.func == "sum") {
                         // TODO: sum may overflow, won't fix,
@@ -701,7 +701,7 @@ private:
                             new_length = fields_desc.field_length()[field_id] - 1;
                         } else if (field_name.func == "avg") {
                             new_type = DBFields::TYPE_DOUBLE;
-                            new_length = typeLength(DBFields::TYPE_DOUBLE);
+                            new_length = DBFields::typeLength(DBFields::TYPE_DOUBLE);
                         } else assert(0);
                         
                         new_fields_desc.insert(new_type, new_length, 0, 0, new_not_null, new_name);
@@ -727,15 +727,26 @@ private:
 
             // select records
             auto rids = selectRID(table_manager, conditions);
-            // save inermidiate result if necessary
-            std::unique_ptr<char[]> result;
-            uint64 result_size = 0;
+
+            // intermediate result
+            struct Intermediate {
+                DBQuery& parent;
+                DBTableManager* table_manager = nullptr;
+                int table_manager_number;
+                Intermediate(DBQuery& p): parent(p), table_manager_number(-1) { }
+                ~Intermediate() { parent.removeTempTable(table_manager_number); }
+            } intermediate(*this);
+            
 
             // group by
             if (query.group_by_field_name.length()) {
-                // TODO: enable order by 
-                if (query.order_by.field_name.length()) 
-                    throw DBError::BothGroupAndOrder(query.table_name);
+
+                // create intermediate table manager
+                std::tie(intermediate.table_manager_number, intermediate.table_manager) = getTempTable(-1);
+                assert(intermediate.table_manager_number >= 0);
+                assert(intermediate.table_manager);
+                assert(intermediate.table_manager->create("temp_table", new_fields_desc, DBTableManager::DEFAULT_PAGE_SIZE) == 0);
+                assert(intermediate.table_manager->open("temp_table") == 0);
 
                 auto ite = std::find(fields_desc.field_name().begin(),
                                      fields_desc.field_name().end(),
@@ -749,15 +760,20 @@ private:
                 auto groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
 
                 // aggeragate
-                result.reset(new char[new_fields_desc.recordLength() * groups.size()]);
-                result_size = groups.size();
-                
+                // store record to be inserted into intermediate table
+                std::unique_ptr<char[]> inter_record_buffer(new char[new_fields_desc.recordLength()]);
+                std::vector<void*> inter_insert_args;
+                for (const auto off: new_fields_desc.offset())
+                    inter_insert_args.push_back(inter_record_buffer.get() + off);
+                // record intermediate rids, to replace rids later
+                std::vector<RID> inter_rids;
+
                 std::unique_ptr<char[]> aggregate_tmp(new char[fields_desc.recordLength() * rids.size()]);
                 DBFields::Aggregator aggregator;
                 // rids between groups[i] and groups[i + 1] is a group
                 for (std::size_t i = 0; i < groups.size(); ++i) {
                     // read the first in the group to result buffer
-                    table_manager->selectRecord(*groups[i], result.get() + i * new_fields_desc.recordLength());
+                    table_manager->selectRecord(*groups[i], inter_record_buffer.get());
                     std::vector<void*> args;
                     // read all of this group to aggregate buffer
                     for (auto ite2 = groups[i]; ite2 != (i + 1 == groups.size()? rids.end(): groups[i + 1]); ++ite2) {
@@ -775,51 +791,53 @@ private:
                                 rtv = aggregator.sum(args, fields_desc.offset()[original_field_ids[j]], 
                                     fields_desc.field_type()[original_field_ids[j]],
                                     fields_desc.field_length()[original_field_ids[j]],
-                                    result.get() + i * new_fields_desc.recordLength() + 
+                                    inter_record_buffer.get() + 
                                     new_fields_desc.offset()[display_field_ids[j]]);
                             } else if (functions[j] == "avg") {
                                 rtv = aggregator.avg(args, fields_desc.offset()[original_field_ids[j]], 
                                     fields_desc.field_type()[original_field_ids[j]],
-                                    result.get() + i * new_fields_desc.recordLength() + 
+                                    inter_record_buffer.get() + 
                                     new_fields_desc.offset()[display_field_ids[j]]);
                             } else if (functions[j] == "max") {
                                 rtv = aggregator.max(args, fields_desc.offset()[original_field_ids[j]], 
                                     fields_desc.field_type()[original_field_ids[j]],
                                     fields_desc.field_length()[original_field_ids[j]],
-                                    result.get() + i * new_fields_desc.recordLength() + 
+                                    inter_record_buffer.get() + 
                                     new_fields_desc.offset()[display_field_ids[j]]);
                             } else if (functions[j] == "min") {
                                 rtv = aggregator.min(args, fields_desc.offset()[original_field_ids[j]], 
                                     fields_desc.field_type()[original_field_ids[j]],
                                     fields_desc.field_length()[original_field_ids[j]],
-                                    result.get() + i * new_fields_desc.recordLength() + 
+                                    inter_record_buffer.get() + 
                                     new_fields_desc.offset()[display_field_ids[j]]);
                             } else assert(0);
                             if (rtv) 
                                 throw DBError::AggregateFailed(functions[j], fields_desc.field_name()[original_field_ids[j]], query.table_name);
                         }
                     }
+                    // insert into intermediate table
+                    auto inter_rid = intermediate.table_manager->insertRecord(inter_insert_args);
+                    assert(inter_rid);
+                    inter_rids.push_back(inter_rid);
                 }
-
+                rids = inter_rids;
             }
+
 
             // order by
             if (query.order_by.field_name.length()) {
-                auto ite = std::find(fields_desc.field_name().begin(),
-                                     fields_desc.field_name().end(),
+                auto ite = std::find(new_fields_desc.field_name().begin(),
+                                     new_fields_desc.field_name().end(),
                                      query.order_by.field_name);
-                if (ite == fields_desc.field_name().end())
+                if (ite == new_fields_desc.field_name().end())
                     throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(query.order_by.field_name, query.table_name);
-                sortRID(table_manager, rids, ite - fields_desc.field_name().begin(),
+                sortRID(intermediate.table_manager? intermediate.table_manager: table_manager,
+                        rids, ite - new_fields_desc.field_name().begin(),
                         query.order_by.order == "" || query.order_by.order == "asc");
             }
 
-            // output
-            if (result_size) 
-                outputResult(new_fields_desc, display_field_ids, result.get(), result_size);
-            else 
-                outputRID(table_manager, display_field_ids, rids);
 
+            outputRID(intermediate.table_manager? intermediate.table_manager: table_manager, display_field_ids, rids);
             return 0;
         }
         return 1;
@@ -1089,7 +1107,9 @@ private:
         }
     }
 
+    // TODO: deprecated
     // output intermidiate result
+    /*
     void outputResult(const DBFields& fields_desc,
                       const std::vector<uint64>& display_field_ids,
                       const char* buff, const uint64 num) const {
@@ -1106,6 +1126,7 @@ private:
             out << std::endl;
         }
     }
+    */
 
     // group by field_id
     // assert rids is sorted
@@ -1541,6 +1562,34 @@ private:
         return rid;
     }
 
+    // get temporary table, if k < 0, create a new table
+    std::tuple<int, DBTableManager*> getTempTable(const int k) {
+        if (k < 0) {
+            DBTableManager* ptr = new DBTableManager;
+            temp_tables.push_back(ptr);
+            return { temp_tables.size() - 1, ptr };
+        }
+        return { k, temp_tables.at(k) };
+    }
+
+    void removeTempTable(const int k) {
+        if (k < 0) return;
+        assert(temp_tables[k]);
+        assert(temp_tables[k]->remove() == 0);
+        delete temp_tables[k];
+        temp_tables[k] = nullptr;
+    }
+
+    void clearTempTables() {
+        for (auto& ptr: temp_tables) {
+            if (!ptr) continue;
+            assert(ptr->remove() == 0);
+            delete ptr;
+            ptr = nullptr;
+        }
+    }
+
+
     DBTableManager* openTable(const std::string& table_name) {
         auto ptr = tables_inuse.find(table_name);
         if (ptr != tables_inuse.end()) return ptr->second;
@@ -1722,12 +1771,14 @@ public:
     // referenced table name -> referenced field id, referencing table name, referenced field id
     std::unordered_multimap< std::string, std::tuple<uint64, std::string, uint64> > referenced_tables;
 
+    // tables to save intermediate reuslt
+    // tables will be removed when database is closed
+    std::vector<DBTableManager*> temp_tables;
+
     // literal parser
     DBFields::LiteralParser literalParser;
     // min generator
     DBFields::MinGenerator minGenerator;
-    // type length generator
-    DBFields::TypeLength typeLength;
 
     // outputer
     std::ostream& out;

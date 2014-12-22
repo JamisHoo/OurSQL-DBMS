@@ -374,12 +374,6 @@ struct SimpleSelectFailed: Error {
             return SimpleSelectFailed::getInfo() + "Invalid aggregate funtion " + quoted(function) + " applied to " + quoted(field_name) + ". ";
         }
     };
-    struct BothGroupAndOrder: SimpleSelectFailed {
-        BothGroupAndOrder(const std::string& tn): SimpleSelectFailed(tn) { }
-        virtual std::string getInfo() const {
-            return SimpleSelectFailed::getInfo() + "Using both GROUP BY and ORDER BY in a single query is not supported for now. ";
-        }
-    };
     
 struct DeleteRecordFailed: Error {
     std::string table_name;
