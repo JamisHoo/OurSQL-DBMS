@@ -50,43 +50,41 @@ public:
     // <type code> -> <type name>
     static const std::map< uint64, std::string > datatype_name_map;
 
-    struct TypeLength {
-        uint64 operator()(const uint64 type) const {
-            switch (type) {
-                case TYPE_INT8:
-                    return sizeof(int8_t);
-                case TYPE_UINT8:
-                    return sizeof(uint8_t);
-                case TYPE_INT16:
-                    return sizeof(int16_t);
-                case TYPE_UINT16:
-                    return sizeof(uint16_t);
-                case TYPE_INT32:
-                    return sizeof(int32_t);
-                case TYPE_UINT32:
-                    return sizeof(uint32_t);
-                case TYPE_INT64:
-                    return sizeof(int64_t);
-                case TYPE_UINT64:
-                    return sizeof(uint64_t);
-                case TYPE_BOOL:
-                    return sizeof(bool);
-                case TYPE_CHAR:
-                    // uncertain
-                    return 0;
-                case TYPE_UCHAR:
-                    // uncertain
-                    return 0;
-                case TYPE_FLOAT:
-                    return sizeof(float);
-                case TYPE_DOUBLE:
-                    return sizeof(double);
-                default:
-                    assert(0);
-                    return 0;
-            }
+    static const uint64 typeLength(const uint64 type) {
+        switch (type) {
+            case TYPE_INT8:
+                return sizeof(int8_t);
+            case TYPE_UINT8:
+                return sizeof(uint8_t);
+            case TYPE_INT16:
+                return sizeof(int16_t);
+            case TYPE_UINT16:
+                return sizeof(uint16_t);
+            case TYPE_INT32:
+                return sizeof(int32_t);
+            case TYPE_UINT32:
+                return sizeof(uint32_t);
+            case TYPE_INT64:
+                return sizeof(int64_t);
+            case TYPE_UINT64:
+                return sizeof(uint64_t);
+            case TYPE_BOOL:
+                return sizeof(bool);
+            case TYPE_CHAR:
+                // uncertain
+                return 0;
+            case TYPE_UCHAR:
+                // uncertain
+                return 0;
+            case TYPE_FLOAT:
+                return sizeof(float);
+            case TYPE_DOUBLE:
+                return sizeof(double);
+            default:
+                assert(0);
+                return 0;
         }
-    };
+    }
 
     struct MinGenerator {
         // generate minimum value of type type, save to buff
@@ -651,60 +649,59 @@ public:
             const void* a_data = pointer_convert<const char*>(a) + 1;
             const void* b_data = pointer_convert<const char*>(b) + 1;
             switch (type) {
-                case 0: {
+                case TYPE_INT8: {
                     int8_t aa = *pointer_convert<const int8_t*>(a_data);
                     int8_t bb = *pointer_convert<const int8_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 1: {
+                } case TYPE_UINT8: {
                     uint8_t aa = *pointer_convert<const uint8_t*>(a_data);
                     uint8_t bb = *pointer_convert<const uint8_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 2: {
+                } case TYPE_INT16: {
                     int16_t aa = *pointer_convert<const int16_t*>(a_data);
                     int16_t bb = *pointer_convert<const int16_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 3: {
+                } case TYPE_UINT16: {
                     uint16_t aa = *pointer_convert<const uint16_t*>(a_data);
                     uint16_t bb = *pointer_convert<const uint16_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 4: {
+                } case TYPE_INT32: {
                     int32_t aa = *pointer_convert<const int32_t*>(a_data);
                     int32_t bb = *pointer_convert<const int32_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                }
-                case 5: {
+                } case TYPE_UINT32: {
                     uint32_t aa = *pointer_convert<const uint32_t*>(a_data);
                     uint32_t bb = *pointer_convert<const uint32_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 6: {
+                } case TYPE_INT64: {
                     int64_t aa = *pointer_convert<const int64_t*>(a_data);
                     int64_t bb = *pointer_convert<const int64_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 7: {
+                } case TYPE_UINT64: {
                     uint64_t aa = *pointer_convert<const uint64_t*>(a_data);
                     uint64_t bb = *pointer_convert<const uint64_t*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 8:
+                } case TYPE_BOOL:
                     return bool(*pointer_convert<const bool*>(a_data)) -
                            bool(*pointer_convert<const bool*>(b_data));
-                case 9:
-                case 10: {
+                case TYPE_CHAR:
+                case TYPE_UCHAR: {
                     // case insensive
                     static constexpr char charmap[] = {
                         '\000', '\001', '\002', '\003', '\004', '\005', '\006', '\007',
@@ -753,14 +750,13 @@ public:
                     }
                     return 0;
                     // case sensitive
-                    // return memcmp(a, b, length - 1);
-                } case 11: {
+                } case TYPE_FLOAT: {
                     float aa = *pointer_convert<const float*>(a_data);
                     float bb = *pointer_convert<const float*>(b_data);
                     if (aa > bb) return 1;
                     if (aa < bb) return -1;
                     return 0;
-                } case 12: {
+                } case TYPE_DOUBLE: {
                     double aa = *pointer_convert<const double*>(a_data);
                     double bb = *pointer_convert<const double*>(b_data);
                     if (aa > bb) return 1;
@@ -1000,29 +996,28 @@ const std::map< std::tuple<std::string, bool, bool>,
                            std::tuple<Database::uint64, Database::uint64, bool> > Database::DBFields::datatype_map = { 
         // (type name, is unsigned, is signed) ------> (type number, length, must provide a length)
         // 8 bit int, defalut signed
-        // TODO: use TypeLength to get length
-        { std::make_tuple("int8", 0, 0),       std::make_tuple( 0, 1, 0) },
+        { std::make_tuple("int8", 0, 0),   std::make_tuple( 0, typeLength(TYPE_INT8), 0) },
         // signed 8 bit int
-        { std::make_tuple("int8", 0, 1),       std::make_tuple( 0, 1, 0) },
+        { std::make_tuple("int8", 0, 1),   std::make_tuple( 0, typeLength(TYPE_INT8), 0) },
         // unsigned 8 bit int
-        { std::make_tuple("int8", 1, 0),       std::make_tuple( 1, 1, 0) },
-        { std::make_tuple("int16", 0, 0),      std::make_tuple( 2, 2, 0) },
-        { std::make_tuple("int16", 0, 1),      std::make_tuple( 2, 2, 0) },
-        { std::make_tuple("int16", 1, 0),      std::make_tuple( 3, 2, 0) },
-        { std::make_tuple("int32", 0, 0),      std::make_tuple( 4, 4, 0) },
-        { std::make_tuple("int32", 0, 1),      std::make_tuple( 4, 4, 0) },
-        { std::make_tuple("int32", 1, 0),      std::make_tuple( 5, 4, 0) },
-        { std::make_tuple("int64", 0, 0),      std::make_tuple( 6, 8, 0) },
-        { std::make_tuple("int64", 0, 1),      std::make_tuple( 6, 8, 0) },
-        { std::make_tuple("int64", 1, 0),      std::make_tuple( 7, 8, 0) },
+        { std::make_tuple("int8", 1, 0),   std::make_tuple( 1, typeLength(TYPE_UINT8),  0) },
+        { std::make_tuple("int16", 0, 0),  std::make_tuple( 2, typeLength(TYPE_INT16),  0) },
+        { std::make_tuple("int16", 0, 1),  std::make_tuple( 2, typeLength(TYPE_INT16),  0) },
+        { std::make_tuple("int16", 1, 0),  std::make_tuple( 3, typeLength(TYPE_UINT16), 0) },
+        { std::make_tuple("int32", 0, 0),  std::make_tuple( 4, typeLength(TYPE_INT32),  0) },
+        { std::make_tuple("int32", 0, 1),  std::make_tuple( 4, typeLength(TYPE_INT32),  0) },
+        { std::make_tuple("int32", 1, 0),  std::make_tuple( 5, typeLength(TYPE_UINT32), 0) },
+        { std::make_tuple("int64", 0, 0),  std::make_tuple( 6, typeLength(TYPE_INT64),  0) },
+        { std::make_tuple("int64", 0, 1),  std::make_tuple( 6, typeLength(TYPE_INT64),  0) },
+        { std::make_tuple("int64", 1, 0),  std::make_tuple( 7, typeLength(TYPE_UINT64), 0) },
         // signed, unsigned cannot apply to bool and char(varchar)
-        { std::make_tuple("bool", 0, 0),       std::make_tuple( 8, 1, 0) },
-        { std::make_tuple("char", 0, 0),       std::make_tuple(10, 0, 1) },
+        { std::make_tuple("bool", 0, 0),   std::make_tuple( 8, typeLength(TYPE_BOOL),   0) },
+        { std::make_tuple("char", 0, 0),   std::make_tuple(10, typeLength(TYPE_UCHAR),  1) },
         // unsigned float and double not supported.
-        { std::make_tuple("float", 0, 0),      std::make_tuple(11, 4, 0) },
-        { std::make_tuple("float", 0, 1),      std::make_tuple(11, 4, 0) },
-        { std::make_tuple("double", 0, 0),     std::make_tuple(12, 8, 0) },
-        { std::make_tuple("double", 0, 1),     std::make_tuple(12, 8, 0) }
+        { std::make_tuple("float", 0, 0),  std::make_tuple(11, typeLength(TYPE_FLOAT),  0) },
+        { std::make_tuple("float", 0, 1),  std::make_tuple(11, typeLength(TYPE_FLOAT),  0) },
+        { std::make_tuple("double", 0, 0), std::make_tuple(12, typeLength(TYPE_DOUBLE), 0) },
+        { std::make_tuple("double", 0, 1), std::make_tuple(12, typeLength(TYPE_DOUBLE), 0) }
 };
 
 const std::map< Database::uint64, std::string > Database::DBFields::datatype_name_map = {
