@@ -28,6 +28,7 @@
 #include "db_tablemanager.h"
 #include "db_fields.h"
 #include "db_error.h"
+#include "db_outputer.h"
 
 class Database::DBQuery {
 public:
@@ -482,20 +483,23 @@ private:
             
             const DBFields& fields_desc = table_manager->fieldsDesc();
             
-            out << "name, type, primary, not null, index" << std::endl;
+            AlignedOutputer outputer(out);
+            outputer << "Name" << "Type" << "Primary Key" << "Not Null" << "Index" << AlignedOutputer::endl;
             for (std::size_t i = 0; i < fields_desc.size(); ++i) {
                 // empty field name means this is a auto created primary key field
                 if (fields_desc.field_name()[i].length() == 0) continue; 
-                out << fields_desc.field_name()[i] << ' ' <<
-                             DBFields::datatype_name_map.at(fields_desc.field_type()[i]);
+                outputer << fields_desc.field_name()[i]
+                         << (DBFields::datatype_name_map.at(fields_desc.field_type()[i]) +
+                            (fields_desc.field_type()[i] == DBFields::TYPE_CHAR || 
+                             fields_desc.field_type()[i] == DBFields::TYPE_UCHAR? 
+                                "(" + std::to_string(fields_desc.field_length()[i] - 1) + ")": ""));
                 
-                if (fields_desc.field_type()[i] == DBFields::TYPE_CHAR || fields_desc.field_type()[i] == DBFields::TYPE_UCHAR)
-                    out << "(" << fields_desc.field_length()[i] - 1 << ')';
-                out << ' ' <<
-                             (fields_desc.field_id()[i] == fields_desc.primary_key_field_id()) << ' ' <<
-                             fields_desc.notnull()[i] << ' ' << 
-                             fields_desc.indexed()[i] << std::endl;
+                outputer << (fields_desc.field_id()[i] == fields_desc.primary_key_field_id()) 
+                         << fields_desc.notnull()[i] 
+                         << fields_desc.indexed()[i]
+                         << AlignedOutputer::endl;
             }
+            outputer << AlignedOutputer::flush;
             
             return 0;
         }
@@ -1117,12 +1121,13 @@ private:
 
 private: 
     // output a certain record
-    // TODO: output aligned
     void outputRID(const DBTableManager* table_manager,
                    const std::vector<uint64>& display_field_ids,
                    const std::vector<RID>& rids) const {
         const DBFields& fields_desc = table_manager->fieldsDesc();
         std::unique_ptr<char[]> buff(new char[fields_desc.recordLength()]);
+
+        AlignedOutputer outputer(out);
 
         std::string output_buff;
         for (const auto rid: rids) {
@@ -1132,10 +1137,11 @@ private:
                               fields_desc.field_type()[id],
                               fields_desc.field_length()[id],
                               output_buff);
-                out << output_buff << ' ';
+                outputer << output_buff;
             }
-            out << std::endl;
+            outputer << AlignedOutputer::endl;
         }
+        outputer << AlignedOutputer::flush;
     }
 
 

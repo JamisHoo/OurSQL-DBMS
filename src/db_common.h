@@ -30,6 +30,7 @@ class DBBuffer;
 template<class /* Comparator */> class DBIndexManager;
 class DBQuery;
 class DBInterface;
+class AlignedOutputer;
 
 struct RID {
     uint64 pageID;
