@@ -499,7 +499,6 @@ private:
                          << fields_desc.indexed()[i]
                          << AlignedOutputer::endl;
             }
-            outputer << AlignedOutputer::flush;
             
             return 0;
         }
@@ -1141,7 +1140,6 @@ private:
             }
             outputer << AlignedOutputer::endl;
         }
-        outputer << AlignedOutputer::flush;
     }
 
 
