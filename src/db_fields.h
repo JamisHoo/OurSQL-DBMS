@@ -375,71 +375,78 @@ public:
             switch (type) {
                 case TYPE_INT8: {
                     int64 sum_result = 0;
-                    int8_t res = 0;
-                    count = getSum<int8_t>(data, offset, res, sum_result);
+                    int8_t init = 0;
+                    count = getSum<int8_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT8: {
                     int64 sum_result = 0;
-                    uint8_t res = 0;
-                    count = getSum<uint8_t>(data, offset, res, sum_result);
+                    uint8_t init = 0;
+                    count = getSum<uint8_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_INT16: {
                     int64 sum_result = 0;
-                    int16_t res = 0;
-                    count = getSum<int16_t>(data, offset, res, sum_result);
+                    int16_t init = 0;
+                    count = getSum<int16_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT16: {
                     int64 sum_result = 0;
-                    uint16_t res = 0;
-                    count = getSum<uint16_t>(data, offset, res, sum_result);
+                    uint16_t init = 0;
+                    count = getSum<uint16_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_INT32: {
                     int64 sum_result = 0;
-                    int32_t res = 0;
-                    count = getSum<int32_t>(data, offset, res, sum_result);
+                    int32_t init = 0;
+                    count = getSum<int32_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT32: {
                     int64 sum_result = 0;
-                    uint32_t res = 0;
-                    count = getSum<uint32_t>(data, offset, res, sum_result);
+                    uint32_t init = 0;
+                    count = getSum<uint32_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_INT64: {
                     int64 sum_result = 0;
-                    int64_t res = 0;
-                    count = getSum<int64_t>(data, offset, res, sum_result);
+                    int64_t init = 0;
+                    count = getSum<int64_t>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT64: {
                     int64 sum_result = 0;
-                    uint64_t res = 0;
-                    count = getSum<uint64_t>(data, offset, res, sum_result);
+                    uint64_t init = 0;
+                    count = getSum<uint64_t>(data, offset, init, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
+                    pointer_convert<char*>(result)[0] = '\xff';
+                    break;
+                } case TYPE_BOOL: {
+                    int64 sum_result = 0;
+                    bool init = 0;
+                    count = getSum<bool>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_FLOAT: {
                     double sum_result = 0;
-                    float res = 0;
-                    count = getSum<float>(data, offset, res, sum_result);
+                    float init = 0;
+                    count = getSum<float>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(double));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_DOUBLE: {
                     double sum_result = 0;
-                    double res = 0;
-                    count = getSum<double>(data, offset, res, sum_result);
+                    double init = 0;
+                    count = getSum<double>(data, offset, init, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(double));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
@@ -455,44 +462,48 @@ public:
             double average = 0;
             switch (type) {
                 case TYPE_INT8: {
-                    int8_t res = 0;
-                    count = getAvg<int8_t>(data, offset, res, average);
+                    int8_t init = 0;
+                    count = getAvg<int8_t>(data, offset, init, average);
                     break;
                 } case TYPE_UINT8: {
-                    uint8_t res = 0;
-                    count = getAvg<uint8_t>(data, offset, res, average);
+                    uint8_t init = 0;
+                    count = getAvg<uint8_t>(data, offset, init, average);
                     break;
                 } case TYPE_INT16: {
-                    int16_t res = 0;
-                    count = getAvg<int16_t>(data, offset, res, average);
+                    int16_t init = 0;
+                    count = getAvg<int16_t>(data, offset, init, average);
                     break;
                 } case TYPE_UINT16: {
-                    uint16_t res = 0;
-                    count = getAvg<uint16_t>(data, offset, res, average);
+                    uint16_t init = 0;
+                    count = getAvg<uint16_t>(data, offset, init, average);
                     break;
                 } case TYPE_INT32: {
-                    int32_t res = 0;
-                    count = getAvg<int32_t>(data, offset, res, average);
+                    int32_t init = 0;
+                    count = getAvg<int32_t>(data, offset, init, average);
                     break;
                 } case TYPE_UINT32: {
-                    uint32_t res = 0;
-                    count = getAvg<uint32_t>(data, offset, res, average);
+                    uint32_t init = 0;
+                    count = getAvg<uint32_t>(data, offset, init, average);
                     break;
                 } case TYPE_INT64: {
-                    int64_t res = 0;
-                    count = getAvg<int64_t>(data, offset, res, average);
+                    int64_t init = 0;
+                    count = getAvg<int64_t>(data, offset, init, average);
                     break;
                 } case TYPE_UINT64: {
-                    uint64_t res = 0;
-                    count = getAvg<uint64_t>(data, offset, res, average);
+                    uint64_t init = 0;
+                    count = getAvg<uint64_t>(data, offset, init, average);
+                    break;
+                } case TYPE_BOOL: {
+                    bool init = 0;
+                    count = getAvg<bool>(data, offset, init, average);
                     break;
                 } case TYPE_FLOAT: {
-                    float res = 0;
-                    count = getAvg<float>(data, offset, res, average);
+                    float init = 0;
+                    count = getAvg<float>(data, offset, init, average);
                     break;
                 } case TYPE_DOUBLE: {
-                    double res = 0;
-                    count = getAvg<double>(data, offset, res, average);
+                    double init = 0;
+                    count = getAvg<double>(data, offset, init, average);
                     break;
                 } default: 
                     return 1;
