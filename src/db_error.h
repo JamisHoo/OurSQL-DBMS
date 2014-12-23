@@ -392,7 +392,7 @@ struct UpdateRecordFailed: Error {
 };
 
 
-}
-}
+} // namespace DBError
+} // namespace Database
 
 #endif /* DB_ERROR_H_ */
