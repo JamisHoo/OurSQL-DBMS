@@ -29,7 +29,7 @@ public:
     }
     ~AlignedOutputer() {
         // flush before exit
-        (*this)<<AlignedOutputer::flush;
+        (*this) << AlignedOutputer::flush;
     }
     // add a new column
     template <class T>
