@@ -711,20 +711,30 @@ private:
                         uint64 new_type, new_length, new_not_null = 0;
                         std::string new_name = field_name.func + "(" + field_name.field_name + ")";
 
+                        // use uint64 for count
                         if (field_name.func == "count") {
                             new_type = DBFields::TYPE_UINT64;
                             new_length = DBFields::typeLength(DBFields::TYPE_UINT64);
                             new_not_null = 1;
-                        } else if (field_name.func == "max" || field_name.func == "min" || field_name.func == "sum") {
-                        // TODO: sum may overflow,
-                        //       avg may also overflow because it calculates sum first
-                        // Solution is to use uint64 to store result for integer and double for floating point number.
-                        // Maybe I won't fix it 'cause it's kind of complicated.
+                        // use original type for max and min
+                        } else if (field_name.func == "max" || field_name.func == "min") {
                             new_type = fields_desc.field_type()[field_id];
                             new_length = fields_desc.field_length()[field_id] - 1;
+                        // use int64 for sum of integral type 
+                        // double for sum of floating point type
+                        } else if (field_name.func == "sum") {
+                            if (fields_desc.field_type()[field_id] == DBFields::TYPE_FLOAT ||
+                                fields_desc.field_type()[field_id] == DBFields::TYPE_DOUBLE)
+                                new_type = DBFields::TYPE_DOUBLE,
+                                new_length = DBFields::typeLength(DBFields::TYPE_DOUBLE);
+                            else 
+                                new_type = DBFields::TYPE_INT64,
+                                new_length = DBFields::typeLength(DBFields::TYPE_INT64);
+                        // use double for average
                         } else if (field_name.func == "avg") {
                             new_type = DBFields::TYPE_DOUBLE;
                             new_length = DBFields::typeLength(DBFields::TYPE_DOUBLE);
+                        // other aggregate funtions not supported
                         } else assert(0);
                         
                         new_fields_desc.insert(new_type, new_length, 0, 0, new_not_null, new_name);

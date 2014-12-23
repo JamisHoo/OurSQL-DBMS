@@ -374,63 +374,73 @@ public:
             uint64 count;
             switch (type) {
                 case TYPE_INT8: {
+                    int64 sum_result = 0;
                     int8_t res = 0;
-                    count = getSum<int8_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<int8_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT8: {
+                    int64 sum_result = 0;
                     uint8_t res = 0;
-                    count = getSum<uint8_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<uint8_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_INT16: {
+                    int64 sum_result = 0;
                     int16_t res = 0;
-                    count = getSum<int16_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<int16_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT16: {
+                    int64 sum_result = 0;
                     uint16_t res = 0;
-                    count = getSum<uint16_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<uint16_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_INT32: {
+                    int64 sum_result = 0;
                     int32_t res = 0;
-                    count = getSum<int32_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<int32_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT32: {
+                    int64 sum_result = 0;
                     uint32_t res = 0;
-                    count = getSum<uint32_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<uint32_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_INT64: {
+                    int64 sum_result = 0;
                     int64_t res = 0;
-                    count = getSum<int64_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<int64_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_UINT64: {
+                    int64 sum_result = 0;
                     uint64_t res = 0;
-                    count = getSum<uint64_t>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<uint64_t>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(int64));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_FLOAT: {
+                    double sum_result = 0;
                     float res = 0;
-                    count = getSum<float>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<float>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(double));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_DOUBLE: {
+                    int64 sum_result = 0;
                     double res = 0;
-                    count = getSum<double>(data, offset, res);
-                    memcpy(pointer_convert<char*>(result) + 1, &res, length - 1);
+                    count = getSum<double>(data, offset, res, sum_result);
+                    memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(double));
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } default: 
@@ -595,22 +605,23 @@ public:
         }
 
     private:
-        template <class T>
-        uint64 getSum(const std::vector<void*>& data, const uint64 offset, T& initial) const {
+        template <class T, class T1>
+        uint64 getSum(const std::vector<void*>& data, const uint64 offset, T& initial, T1& result) const {
             uint64 count = 0;
+            result = initial;
             for (const auto p: data) {
                 // if is null, ignore
                 if (pointer_convert<const char*>(p)[offset] == '\x00') continue;
                 ++count;
-                initial += *pointer_convert<const T*>(pointer_convert<const char*>(p) + 1 + offset);
+                result += *pointer_convert<const T*>(pointer_convert<const char*>(p) + 1 + offset);
             }
             return count;
         }
         template <class T>
         uint64 getAvg(const std::vector<void*>& data, const uint64 offset ,T& initial, double& result) const {
-            uint64 count = getSum(data, offset, initial);
-            // if (count) initial = initial / count;
-            if (count) result = double(initial) / count;
+            result = 0;
+            uint64 count = getSum(data, offset, initial, result);
+            if (count) result = result / count;
             return count;
         }
         template <class T>
