@@ -1,5 +1,5 @@
 /******************************************************************************
- *  Copyright (c) 2014 Jamis Hoo 
+ *  Copyright (c) 2014 Terran Lee
  *  Distributed under the MIT license 
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
