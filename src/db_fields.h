@@ -437,7 +437,7 @@ public:
                     pointer_convert<char*>(result)[0] = '\xff';
                     break;
                 } case TYPE_DOUBLE: {
-                    int64 sum_result = 0;
+                    double sum_result = 0;
                     double res = 0;
                     count = getSum<double>(data, offset, res, sum_result);
                     memcpy(pointer_convert<char*>(result) + 1, &sum_result, sizeof(double));
