@@ -6,8 +6,8 @@
  *  Project: Database
  *  Filename: db_error.h 
  *  Version: 1.0
- *  Author: Jamis Hoo
- *  E-mail: hjm211324@gmail.com
+ *  Author: Terran Lee
+ *  E-mail: ltrthu@163.com
  *  Date: Dec. 20, 2014
  *  Time: 01:08:13
  *  Description: All kinds of errors

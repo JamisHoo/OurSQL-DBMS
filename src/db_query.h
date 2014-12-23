@@ -7,7 +7,7 @@
  *  Filename: db_query.h 
  *  Version: 1.0
  *  Author: Terran Lee
- *  E-mail: hjm211324@gmail.com
+ *  E-mail: ltrthu@163.com
  *  Date: Dec. 05, 2014
  *  Time: 21:01:37
  *  Description: deal with a query. 
