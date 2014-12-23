@@ -13,7 +13,6 @@
  *  Description: Manage index file of a database.
                  Data structure: B+Tree
  *****************************************************************************/
-// TODO: use uint64 to replace int in for loop
 
 /****************************************
  *  Structure of index file:
@@ -201,7 +200,7 @@ class Database::DBIndexManager {
             else
                 std::cout<<"ordinary ";
             std::cout<<"node at:"<<_position<<std::endl;
-            for(int i=0; i<_size; i++) {
+            for(uint64 i=0; i<_size; i++) {
                 char* entry = atData(i);
 
                 switch(type) {
@@ -234,7 +233,7 @@ class Database::DBIndexManager {
                         break;
                     case 9:
                     case 10:
-                        for(int j=0; j<DataLength; j++)
+                        for(uint64 j=0; j<DataLength; j++)
                             std::cout<<entry[i];
                         break;
                     case 11:
@@ -255,7 +254,7 @@ class Database::DBIndexManager {
         }
 
         void testShow(){
-            for(int i=0; i<_size; i++) {
+            for(uint64 i=0; i<_size; i++) {
                 char* entry = atData(i);
                 std::cout<<*(pointer_convert<bool*>(entry))<<std::endl;
             }
@@ -622,7 +621,7 @@ public:
         _level.top()._block = 1;
         findFirstNode();
         while(true){
-            for(int i=0; i<_node_tracker->_size; i++){
+            for(uint64 i=0; i<_node_tracker->_size; i++){
                 char* key = _node_tracker->getKey(i);
                 uint64 pos = _node_tracker->getPosition(i);
                 func(key, decode(pos));
@@ -640,7 +639,7 @@ public:
     #ifdef DEBUG
     // show every node in this btree
     void show() {
-        for(int i=1; i<_write_to; i++) {
+        for(uint64 i=1; i<_write_to; i++) {
             getBuffer(i);
             _node_tracker->display(_comparator.type);
         }
@@ -743,7 +742,7 @@ private:
 
 // private buffer operations
     void initBuffer() {
-        for(int i=0; i<BUFFER_SIZE; i++) {
+        for(uint64 i=0; i<BUFFER_SIZE; i++) {
             _buffer[i]._node._data = new char[_page_size];
             memset(_buffer[i]._node._data, 0 , _page_size);
             _buffer[i]._node._position = 0;
@@ -757,11 +756,11 @@ private:
 
     // close buffer: release memory and write back pages
     void closeBuffer() {
-        for(int i=0; i<BUFFER_SIZE; i++){
+        for(uint64 i=0; i<BUFFER_SIZE; i++){
             if(_buffer[i]._dirty == true)
                 writeNode(_buffer[i]._node._position, &(_buffer[i]._node));
         }
-        for(int i=0; i<BUFFER_SIZE; i++) {
+        for(uint64 i=0; i<BUFFER_SIZE; i++) {
             delete[] _buffer[i]._node._data;
             _buffer[i]._dirty = false;
         }
@@ -772,7 +771,7 @@ private:
         if(tracker == &_root)
             return;
         uint64 pos = tracker->_position;
-        for(int i=0; i<BUFFER_SIZE; i++)
+        for(uint64 i=0; i<BUFFER_SIZE; i++)
             if(_buffer[i]._node._position == pos){
                 _buffer[i]._dirty = true;
                 return;
@@ -807,7 +806,7 @@ private:
             _node_tracker = &_root;
         }
         else{
-            for(int i=0; i<BUFFER_SIZE; i++)
+            for(uint64 i=0; i<BUFFER_SIZE; i++)
                 if(_buffer[i]._node._position == pos) {
                     _node_tracker = &(_buffer[i]._node);
                     return;
