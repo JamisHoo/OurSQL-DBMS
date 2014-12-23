@@ -670,7 +670,6 @@ private:
             // id of fields to display, expand if there's aggregations
             std::vector<uint64> display_field_ids;
             std::vector<std::string> functions;
-            std::set<uint64> check_duplicate_field_id;
             for (const auto& field_name: query.field_names) {
                 if (field_name.field_name == "*") { 
                     // no aggregate functions can be applied to * except 'count'
@@ -682,19 +681,13 @@ private:
                                               0, 0, 1, "count(*)");
                         display_field_ids.push_back(new_fields_desc.field_id().back());
                         functions.push_back(field_name.func);
-                        for (const auto field_id: fields_desc.field_id()) 
-                            if (fields_desc.field_name()[field_id].length()) {
-                                check_duplicate_field_id.insert(field_id);
-                                original_field_ids.push_back(field_id);
-                            }
-                        original_field_ids[display_field_ids.size() - 1] = fields_desc.primary_key_field_id();
+                        original_field_ids.push_back(fields_desc.primary_key_field_id());
                     } else {
                         for (const auto field_id: fields_desc.field_id()) 
                             if (fields_desc.field_name()[field_id].length()) {
                                 display_field_ids.push_back(field_id);
                                 original_field_ids.push_back(field_id);
                                 functions.push_back(std::string());
-                                check_duplicate_field_id.insert(field_id);
                             }
                     }
                 } else {
@@ -745,13 +738,8 @@ private:
                     }
                     original_field_ids.push_back(field_id);
                     functions.push_back(field_name.func);
-
-                    check_duplicate_field_id.insert(field_id);
                 }
             }
-            // duplicate field_name
-            if (original_field_ids.size() != check_duplicate_field_id.size()) 
-                throw DBError::DuplicateFieldName<DBError::SimpleSelectFailed>("", query.table_name);
 
             // check where clause
             std::vector<Condition> conditions;
