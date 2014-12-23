@@ -63,6 +63,8 @@ public:
                         continue;
                     // parse sucessful but execute failed
                     default:
+                        // all execution error will throw exceptions
+                        // this will never happed
                         assert(0);
                         return 1;
                 }
@@ -94,7 +96,6 @@ private:
     // parse as statement "CREATE DATABASE <database name>"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     int parseAsCreateDBStatement(const std::string& str) {
         QueryProcess::CreateDBStatement query;
         
@@ -118,7 +119,6 @@ private:
     // parse as statement "DROP DATABASE <database name>"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     int parseAsDropDBStatement(const std::string& str) {
         QueryProcess::DropDBStatement query;
         
@@ -151,7 +151,6 @@ private:
     // parse as statement "USE <database name>"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     int parseAsUseDBStatement(const std::string& str) {
         QueryProcess::UseDBStatement query;
 
@@ -190,7 +189,6 @@ private:
     // parse as statement "SHOW DATABASES"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     // this function should always execute succeed if parse succeed 
     int parseAsShowDBStatement(const std::string& str) {
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -212,7 +210,6 @@ private:
     // parse as statement "CREATE TABLE <table name> (+<field name>);"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     int parseAsCreateTableStatement(const std::string& str) {
         QueryProcess::CreateTableStatement query;
 
@@ -385,7 +382,6 @@ private:
     // parse as statement "SHOW TABLES"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     int parseAsShowTablesStatement(const std::string& str) {
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
                                                   str.end(), 
@@ -411,7 +407,6 @@ private:
     // parse as statement "DROP TABLE <table name>"
     // returns 0 if parse and execute succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed
     int parseAsDropTableStatement(const std::string& str) {
         QueryProcess::DropTableStatement query;
         
@@ -463,7 +458,6 @@ private:
     // parse as statement "DESC[RIBE] TABLE <table name>"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsDescTableStatement(const std::string& str) {
         QueryProcess::DescTableStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -508,7 +502,6 @@ private:
     // parse as statement "CREATE INDEX ON <table name> (<field name>)"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsCreateIndexStatement(const std::string& str) {
         QueryProcess::CreateIndexStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -548,7 +541,6 @@ private:
     // parse as statement "DROP INDEX ON <table name> (<field name>)"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsDropIndexStatement(const std::string& str) {
         QueryProcess::DropIndexStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -587,7 +579,6 @@ private:
     // parse as statement "INSERT INTO <table name> VALUES (...);"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsInsertRecordStatement(const std::string& str) {
         QueryProcess::InsertRecordStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -639,7 +630,6 @@ private:
     //                 or "SELECT * FROM <table name> [WHERE <condition>];"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsSimpleSelectStatement(const std::string& str) {
         QueryProcess::SimpleSelectStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -878,7 +868,6 @@ private:
     // parse as statement "DELETE FROM <table name> [WHERE <condition>];"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsDeleteStatement(const std::string& str) {
         QueryProcess::DeleteStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
@@ -938,7 +927,6 @@ private:
     //                     [WHERE <condition>];"
     // returns 0 if parse and execute  succeed
     // returns 1 if parse failed
-    // returns other values if parse succeed but execute failed.
     int parseAsUpdateStatement(const std::string& str) {
         QueryProcess::UpdateStatement query;
         bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
