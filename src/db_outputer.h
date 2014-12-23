@@ -52,6 +52,7 @@ public:
     }
     // flush
     static AlignedOutputer& flush(AlignedOutputer& stream) {
+        // code below using std::cout is extremely slow.
         for (auto ite = stream.data.begin(); ite != stream.data.end() - 1; ++ite) {
             for (std::size_t i = 0; i < ite->size(); ++i)
                 stream.out << (*ite)[i] << std::string(stream.max_length[i] + 1 - (*ite)[i].length(), ' ');
