@@ -84,9 +84,6 @@ public:
     }
 
 private:
-#ifdef DEBUG
-public:
-#endif
     std::string trim(std::string str) const {
         // prefixing spaces
         str.erase(0, str.find_first_not_of(" \n\t\r")); 

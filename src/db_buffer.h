@@ -26,9 +26,6 @@
 
 class Database::DBBuffer {
 private:
-#ifdef DEBUG
-public:
-#endif
     class LRU {
     public:
         LRU(const uint64 maxsize): _unused_buffer(0), _max_size(maxsize) {
@@ -96,16 +93,6 @@ public:
                     std::get<2>(*node.second) = 0;
                 }
         }
-
-#ifdef DEBUG
-    public:
-        void display(std::ostream& out) {
-            for (const auto& i: _stack)
-                out << std::get<0>(i) << ' ' 
-                    << std::get<1>(i) << ' ' 
-                    << std::get<2>(i) << std::endl;
-        }
-#endif
 
     private: 
         // <page ID, buffer page ID, dirty>

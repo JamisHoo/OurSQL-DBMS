@@ -711,9 +711,6 @@ public:
     }
 
 private:   
-#ifdef DEBUG
-public:
-#endif
     // create file description page, 0th page
     void createFileDescriptionPage(const uint64 page_size, char* buffer) const {
         // page size
@@ -1080,63 +1077,8 @@ public:
         
         return std::make_tuple(RID(pageID, empty_slot_num), empty_slot_remained);
     }
-#ifdef DEBUG
-public:
-    void checkIndex() const {
-        // traverse each record in data file, verify in index
-        uint64 num_records = 0;
-        auto verifyIndex = [this, &num_records](const char* record, const RID rid) {
-            for (const auto id: _fields.field_id()) 
-                if (_index[id]) {
-                    auto rids = _index[id]->searchRecords(record + _fields.offset()[id]);
-                    auto ite = find(rids.begin(), rids.end(), rid);
-                    assert(ite != rids.end());
-                }
-            ++num_records;
-        };
-
-        traverseRecords(verifyIndex);
-
-        for (const auto id: _fields.field_id())
-            if (_index[id]) 
-                assert(num_records == _index[id]->getNumRecords());
-
-        uint64 num_records2 = 0;
-        std::unique_ptr<char[]> buffer(new char[_file->pageSize()]);
-
-        uint64 verifyRecord_field_id = 0;
-        // traverse each record in index, verify in data file
-        auto verifyRecord = [this, &buffer, &num_records2, &verifyRecord_field_id](const char* record, const RID rid) {
-            _file->readPage(rid.pageID, buffer.get());
-            
-            char* rightRecord = /* base */
-                                buffer.get() + 
-                                /* page header offset */
-                                PAGE_HEADER_LENGTH + 
-                                /* bitmap offset */
-                                (_num_records_each_page + 8 * sizeof(uint64) - 1) / (8 * sizeof(uint64)) * sizeof(uint64) + 
-                                /* record offset */
-                                _record_length * rid.slotID +
-                                /* field offset */
-                                _fields.offset()[verifyRecord_field_id];
-            assert(!memcmp(rightRecord, record, _fields.field_length()[verifyRecord_field_id]));
-            ++num_records2;
-        };
-        
-        for (auto const id: _fields.field_id())
-            if (_index[id]) {
-                verifyRecord_field_id = id;
-                _index[id]->traverseRecords(verifyRecord);
-            }
-
-        assert(num_records2 % num_records == 0);
-    }
-#endif
    
 private:
-#ifdef DEBUG
-public:
-#endif
     // forbid copying
     DBTableManager (const DBTableManager&) = delete;
     DBTableManager (DBTableManager&&) = delete;
