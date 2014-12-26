@@ -47,7 +47,7 @@ public:
     bool execute(const std::string& str) {
 #ifdef DEBUG
         err << "----------------------------\n";
-        err << "Stmt: " << (str.length() > 100? str.substr(0, 100): str) << std::endl;
+        err << "Stmt: " << (str.length() > 200? str.substr(0, 200): str) << std::endl;
 #endif
         try {
             // try to parse with different patterns
@@ -625,6 +625,45 @@ private:
         return 1;
 
     }
+
+    // parse as SELECT <table name>.<field name> [, <table name>.<field name>]* 
+    //          FROM <table name> [, <table name>] [WHERE <condition>];
+    // returns 0 if parse and execute  succeed
+    // returns 1 if parse failed
+    int parseAsComplexSelectStatement(const std::string& str) {
+        QueryProcess::ComplexSelectStatement query;
+        bool ok = boost::spirit::qi::phrase_parse(str.begin(), 
+                                                  str.end(),
+                                                  complexSelectStatementParser,
+                                                  boost::spirit::qi::space,
+                                                  query);
+        if (ok) {
+#ifdef DEBUG
+            std::cout << "Field names: " << std::endl;
+            for (const auto& n: query.field_names)
+                std::cout << "    " << n.func << '(' << n.field_name.table_name << '.' << n.field_name.field_name << ')' << std::endl;
+            std::cout << "Table names: " << std::endl;
+            for (const auto& n: query.table_names)
+                std::cout << "    " << n << std::endl;
+            std::cout << "Condition: " << std::endl;
+            for (const auto& c: query.conditions)
+                std::cout << c.left_expr.table_name << '.' 
+                          << c.left_expr.field_name << ' '
+                          << c.op << ' ' 
+                          << c.right_expr.table_name << '.'
+                          << c.right_expr.field_name << ' '
+                          << std::endl;
+            std::cout << "Order by: " << query.order_by.field_name.table_name << '.' 
+                      << query.order_by.field_name.field_name << ' ' 
+                      << query.order_by.order << std::endl;
+            std::cout << "Group by: " << query.group_by_field_name.table_name << '.' 
+                      << query.group_by_field_name.field_name << std::endl;
+#endif
+            return 0;
+        }
+        return 1;
+    }
+ 
 
     // parse as statement "SELECT <field name> [, <field name>]* FROM <table name> [WHERE <condition>];"
     //                 or "SELECT * FROM <table name> [WHERE <condition>];"
@@ -1726,7 +1765,7 @@ private:
 private:
     // member function pointers to parser action
     typedef int (DBQuery::*ParseFunctions)(const std::string&);
-    constexpr static int kParseFunctions = 14;
+    constexpr static int kParseFunctions = 15;
     ParseFunctions parseFunctions[kParseFunctions] = {
         &DBQuery::parseAsCreateDBStatement,
         &DBQuery::parseAsDropDBStatement,
@@ -1741,7 +1780,8 @@ private:
         &DBQuery::parseAsInsertRecordStatement,
         &DBQuery::parseAsSimpleSelectStatement,
         &DBQuery::parseAsDeleteStatement,
-        &DBQuery::parseAsUpdateStatement
+        &DBQuery::parseAsUpdateStatement,
+        &DBQuery::parseAsComplexSelectStatement
     };
 
     // parsers
@@ -1759,6 +1799,7 @@ private:
     QueryProcess::SimpleSelectStatementParser simpleSelectStatementParser;
     QueryProcess::DeleteStatementParser deleteStatementParser;
     QueryProcess::UpdateStatementParser updateStatementParser;
+    QueryProcess::ComplexSelectStatementParser complexSelectStatementParser;
 #ifdef DEBUG
 public:
 #endif

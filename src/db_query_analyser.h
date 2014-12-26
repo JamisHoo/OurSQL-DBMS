@@ -33,6 +33,15 @@ struct SimpleCondition {
     std::string op;
     std::string right_expr;
 };
+struct FullFieldName {
+    std::string table_name;
+    std::string field_name;
+};
+struct ComplexCondition {
+    FullFieldName left_expr;
+    std::string op;
+    FullFieldName right_expr;
+};
 struct CreateTableStatement {
     struct FieldDesc {
         std::string field_name;
@@ -86,6 +95,22 @@ struct SimpleSelectStatement {
     std::string group_by_field_name;
     OrderByClause order_by;
 };
+struct ComplexSelectStatement {
+    struct SelectFieldName {
+        std::string func;
+        FullFieldName field_name;
+    };
+    std::vector<SelectFieldName> field_names;
+    std::vector<std::string> table_names;
+    std::vector<ComplexCondition> conditions;
+    struct OrderByClause {
+        FullFieldName field_name;
+        std::string order;
+    };
+    OrderByClause order_by;
+    FullFieldName group_by_field_name;
+};
+        
 struct DeleteStatement {
     std::string table_name;
     std::vector<SimpleCondition> conditions;
@@ -192,7 +217,7 @@ struct Aggregate: qi::symbols<char, std::string> {
 };
 
 // definition of datatype
-const qi::rule<std::string::const_iterator, std::string(), qi::space_type> datatypes =
+const qi::rule<std::string::const_iterator, std::string()> datatypes =
     repository::distinct(qi::alnum | qi::char_('_'))[qi::no_case[Datatype_symbols()]];
 
 // definition of keywords
@@ -200,8 +225,12 @@ const qi::rule<std::string::const_iterator> keywords =
     repository::distinct(qi::alnum | qi::char_('_'))[qi::no_case[Keyword_symbols()]];
 
 // definition of sql identifier
-const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_identifier = 
+const qi::rule<std::string::const_iterator, std::string()> sql_identifier = 
     lexeme[(qi::alpha | qi::char_('_')) >> *(qi::alnum | qi::char_('_'))] - keywords - datatypes;
+
+// definition of full field name
+const qi::rule<std::string::const_iterator, FullFieldName(), qi::space_type> full_field_name = 
+    lexeme[sql_identifier >> '.' >> sql_identifier];
 
 // definition of numeric, integer and float
 const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_float  =
@@ -243,10 +272,31 @@ const qi::rule<std::string::const_iterator, std::string(), qi::space_type> sql_a
 // left_expr operator right_expr
 // OR true(false)
 const qi::rule<std::string::const_iterator, SimpleCondition(), qi::space_type> simple_condition =
+    // true or false
     (sql_bool >> qi::attr(std::string()) >> qi::attr(std::string())) |
+    // left expr
     ((sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool) >>
+    // op
      sql_operators >>
+    // right expr
      (sql_identifier | sql_string | sql_float | sql_null | sql_notnull | sql_bool));
+
+// complex condition
+// left_expr operator right_expr
+const qi::rule<std::string::const_iterator, ComplexCondition(), qi::space_type> complex_condition =
+    // true or false
+    (qi::as<FullFieldName>()[sql_bool >> qi::attr(std::string())] >> qi::attr(std::string()) >> qi::attr(FullFieldName())) |
+    (
+     // tablename.fieldname
+     full_field_name >> 
+     // op
+     sql_operators >> 
+     // tablebane.fieldname
+     (full_field_name | 
+     // literal
+      ((sql_float | sql_string | sql_null | sql_notnull | sql_bool) >> qi::attr(std::string()))
+     )
+    );
 
 // parser of "CREATE DATABASE <database name>"
 struct CreateDBStatementParser: qi::grammar<std::string::const_iterator, CreateDBStatement(), qi::space_type> {
@@ -539,6 +589,57 @@ private:
     qi::rule<std::string::const_iterator, SimpleSelectStatement::OrderByClause(), qi::space_type> order_by;
 };
 
+// parser of SELECT <table name>.<field name> [, <table name>.<field name>]* 
+//           FROM <table name> [, <table name>] [WHERE <condition>];
+struct ComplexSelectStatementParser: qi::grammar<std::string::const_iterator, ComplexSelectStatement(), qi::space_type> {
+    ComplexSelectStatementParser(): ComplexSelectStatementParser::base_type(start) {
+        start = qi::no_case["select"] >>
+                omit[no_skip[+qi::space]] >>
+                (field_name % ',') >>
+                qi::no_case["from"] >>
+                omit[no_skip[+qi::space]] >>
+                (sql_identifier % ',') >>
+                
+                -(qi::no_case["where"] >> 
+                  omit[no_skip[+qi::space]] >> 
+                  (complex_condition % 
+                   (omit[no_skip[+qi::space]] >> 
+                    qi::no_case["and"] >> 
+                    omit[no_skip[+qi::space]]))) >>
+                
+                (group_by | qi::attr(FullFieldName())) >>
+                (order_by | qi::attr(ComplexSelectStatement::OrderByClause())) >>
+                ';' >>
+                qi::eoi;
+        
+        field_name = sql_aggregate_functions >> '(' >> 
+                        (full_field_name | qi::as<FullFieldName>()[qi::as_string['*'] >> qi::attr(std::string())]) >> 
+                                                ')'
+                     |
+                     qi::attr(std::string()) >> 
+                        (full_field_name | qi::as<FullFieldName>()[qi::as_string['*'] >> qi::attr(std::string())]);
+        
+        group_by = qi::no_case["group"] >> 
+                   omit[no_skip[+qi::space]] >>
+                   qi::no_case["by"] >>
+                   omit[no_skip[+qi::space]] >>
+                   full_field_name;
+        
+        order_by = qi::no_case["order"] >>
+                   omit[no_skip[+qi::space]] >>
+                   qi::no_case["by"] >>
+                   omit[no_skip[+qi::space]] >>
+                   full_field_name >> 
+                   (qi::as_string[qi::no_case["asc"]] | qi::as_string[qi::no_case["desc"]] | qi::attr(std::string()));
+        
+    }
+private:
+    qi::rule<std::string::const_iterator, ComplexSelectStatement::SelectFieldName(), qi::space_type> field_name;
+    qi::rule<std::string::const_iterator, FullFieldName(), qi::space_type> group_by;
+    qi::rule<std::string::const_iterator, ComplexSelectStatement(), qi::space_type> start;
+    qi::rule<std::string::const_iterator, ComplexSelectStatement::OrderByClause(), qi::space_type> order_by;
+};
+
 // parser of DELETE FROM <table name> [WHERE <conditoon>];
 struct DeleteStatementParser: qi::grammar<std::string::const_iterator, DeleteStatement(), qi::space_type> {
     DeleteStatementParser(): DeleteStatementParser::base_type(start) {
@@ -650,6 +751,25 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
                           (std::vector<::Database::QueryProcess::SimpleCondition>, conditions)
                           (std::string, group_by_field_name)
                           (::Database::QueryProcess::SimpleSelectStatement::OrderByClause, order_by))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::FullFieldName,
+                          (std::string, table_name)
+                          (std::string, field_name))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::ComplexCondition,
+                          (::Database::QueryProcess::FullFieldName, left_expr)
+                          (std::string, op)
+                          (::Database::QueryProcess::FullFieldName, right_expr))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::ComplexSelectStatement::SelectFieldName,
+                          (std::string, func)
+                          (::Database::QueryProcess::FullFieldName, field_name))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::ComplexSelectStatement::OrderByClause,
+                          (::Database::QueryProcess::FullFieldName, field_name)
+                          (std::string, order))
+BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::ComplexSelectStatement,
+                          (std::vector<::Database::QueryProcess::ComplexSelectStatement::SelectFieldName>, field_names)
+                          (std::vector<std::string>, table_names)
+                          (std::vector<::Database::QueryProcess::ComplexCondition>, conditions)
+                          (::Database::QueryProcess::FullFieldName, group_by_field_name)
+                          (::Database::QueryProcess::ComplexSelectStatement::OrderByClause, order_by))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DeleteStatement,
                           (std::string, table_name)
                           (std::vector<::Database::QueryProcess::SimpleCondition>, conditions))
