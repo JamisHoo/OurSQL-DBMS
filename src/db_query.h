@@ -38,9 +38,13 @@ public:
 
 
     DBQuery(std::ostream& o = std::cout, std::ostream& e = std::cerr): 
-        out(o), err(e) { }
+        out(o), err(e) {
+        temp_dir = uniquePath();
+        boost::filesystem::create_directories(temp_dir);
+    }
 
     ~DBQuery() {
+        boost::filesystem::remove_all(temp_dir);
         closeDBInUse();
     }
 
@@ -795,8 +799,9 @@ private:
                 std::tie(intermediate.table_manager_number, intermediate.table_manager) = getTempTable(-1);
                 assert(intermediate.table_manager_number >= 0);
                 assert(intermediate.table_manager);
-                assert(intermediate.table_manager->create("temp_table", new_fields_desc, DBTableManager::DEFAULT_PAGE_SIZE) == 0);
-                assert(intermediate.table_manager->open("temp_table") == 0);
+                auto temp_file = uniquePath(temp_dir);
+                assert(intermediate.table_manager->create(temp_file.string(), new_fields_desc, DBTableManager::DEFAULT_PAGE_SIZE) == 0);
+                assert(intermediate.table_manager->open(temp_file.string()) == 0);
 
                 // divide into groups
                 std::vector<std::vector<RID>::const_iterator> groups;
@@ -831,6 +836,7 @@ private:
                 // rids between groups[i] and groups[i + 1] is a group
                 for (std::size_t i = 0; i < groups.size(); ++i) {
                     // read the first in the group to result buffer
+                    // TODO: crash when table is empty
                     table_manager->selectRecord(*groups[i], inter_record_buffer.get());
                     std::vector<void*> args;
                     // read all of this group to aggregate buffer
@@ -1613,6 +1619,14 @@ private:
         return { k, temp_tables.at(k) };
     }
 
+    boost::filesystem::path uniquePath(const boost::filesystem::path& dir = ".") const {
+        while (true) {
+            boost::filesystem::path path = boost::filesystem::unique_path("temp%%%%%%%%%%%%%%%%");
+            auto temp = dir;
+            if (!boost::filesystem::exists(temp /= path)) return temp;
+        }
+    }
+
     void removeTempTable(const int k) {
         if (k < 0) return;
         assert(temp_tables[k]);
@@ -1803,6 +1817,10 @@ private:
 #ifdef DEBUG
 public:
 #endif
+    
+    // dir to save temp files
+    boost::filesystem::path temp_dir;
+    
     // database currently using
     std::string db_inuse;
 
