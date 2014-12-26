@@ -33,7 +33,9 @@ int main(int argc, char** argv) {
     if (argc == 2)
         fin.open(argv[1]);
     else {
-        std::clog << "Welcome to OurSQL(Version 1.0) monitor. Commands end with ;. " << std::endl;
+        std::clog << "Welcome to OurSQL(Version 1.0) monitor. " << std::endl;
+        std::clog << std::endl;
+        std::clog << "Commands end with ;. Press Ctrl + D to exit. " << std::endl;
         std::clog << std::endl;
         std::clog << "Copyright (c) 2014 Jamis Hoo, Terran Lee. " << std::endl;
         std::clog << std::endl;
@@ -55,7 +57,7 @@ int main(int argc, char** argv) {
         // fetch commands and execute
         while (ui.ready()) query.execute(ui.get());
     }
-    if (argc == 1) std::clog << std::endl;
+    if (argc == 1) std::clog << "Bye! " << std::endl;
     
     return 0; 
 } 
