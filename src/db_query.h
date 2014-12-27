@@ -1019,7 +1019,8 @@ private:
                     groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
                 // else aggregate funtion(s) without group by
                 // this is the same as just one group
-                } else 
+                // except for table is empty
+                } else if (rids.size())
                     groups.push_back(rids.begin());
 
                 // aggeragate
