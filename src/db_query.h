@@ -106,6 +106,15 @@ private:
         uint64 right_id;
         ComplexCondition(const std::string& ln, const uint64 li, const std::string& o, const std::string& rn, const uint64 ri):
             left_name(ln), left_id(li), op(o), right_name(rn), right_id(ri) { }
+        ComplexCondition reverse() const {
+            std::string new_op;
+            if (op == "<") new_op = ">";
+            else if (op == "<=") new_op = ">=";
+            else if (op == ">") new_op = "<";
+            else if (op == ">=") new_op = "<=";
+            else new_op = op;
+            return { right_name, right_id, new_op, left_name, left_id };
+        }
     };
 
     // intermediate result
@@ -662,27 +671,6 @@ private:
                                                   boost::spirit::qi::space,
                                                   query);
         if (ok) {
-#ifdef DEBUG
-            std::cout << "Field names: " << std::endl;
-            for (const auto& n: query.field_names)
-                std::cout << "    " << n.func << '(' << n.field_name.table_name << '.' << n.field_name.field_name << ')' << std::endl;
-            std::cout << "Table names: " << std::endl;
-            for (const auto& n: query.table_names)
-                std::cout << "    " << n << std::endl;
-            std::cout << "Condition: " << std::endl;
-            for (const auto& c: query.conditions)
-                std::cout << c.left_expr.table_name << '.' 
-                          << c.left_expr.field_name << ' '
-                          << c.op << ' ' 
-                          << c.right_expr.table_name << '.'
-                          << c.right_expr.field_name << ' '
-                          << std::endl;
-            std::cout << "Order by: " << query.order_by.field_name.table_name << '.' 
-                      << query.order_by.field_name.field_name << ' ' 
-                      << query.order_by.order << std::endl;
-            std::cout << "Group by: " << query.group_by_field_name.table_name << '.' 
-                      << query.group_by_field_name.field_name << std::endl;
-#endif
             if (db_inuse.length() == 0) 
                 throw DBError::DBNotOpened<DBError::ComplexSelectFailed>(query.table_names);
 
@@ -760,42 +748,11 @@ private:
                                                    cond.right_expr.table_name,
                                                    right_field_id });
                 }
-#ifdef DEBUG        
-            std::cout << "Table managers: ";
-            for (const auto& i: table_managers)
-                std::cout << i.first << ' ';
-            std::cout << std::endl;
-            std::cout << "Field descs: ";
-            for (const auto& i: fields_descs)
-                std::cout << i.first << ' ';
-            std::cout << std::endl;
-            std::cout << "Simple conditions: " << std::endl;
-            for (const auto& i: simple_conditions) {
-                std::cout << "    " << i.first << ": ";
-                for (const auto& c: i.second)
-                    std::cout << c.type << ' ' << c.left_id << ' ' << c.right_id << ' ' << c.op << ' ' << c.right_literal << " and ";
-                std::cout << std::endl;
-            }
-            std::cout << "Complex conditions: " << std::endl;
-            for (const auto& c: complex_conditions) 
-                std::cout << c.left_name << ' ' << c.left_id << ' ' << c.op << ' ' << c.right_name << ' ' << c.right_id << " and ";
-            std::cout << std::endl;
-#endif
             std::unordered_map< std::string, std::vector<RID> > rids;
 
             // select rids meeting simple conditions
-            for (const auto& tm: table_managers) 
+            for (const auto tm: table_managers) 
                 rids.emplace(tm.first, selectRID(tm.second, simple_conditions[tm.first]));
-
-#ifdef DEBUG
-            for (const auto& rs: rids) {
-                std::vector<uint64> display_field_ids;
-                for (uint64 i = 0; i < table_managers[rs.first]->fieldsDesc().size(); ++i)
-                    display_field_ids.push_back(i);
-                std::cout << rs.first << ": " << std::endl;
-                outputRID(table_managers[rs.first], display_field_ids, rs.second);
-            }
-#endif
 
             // intermediate result
             // ATTENTION: 
@@ -835,52 +792,82 @@ private:
                 }
                 rids[tb.first] = temp_rids;
 
-                temp_table_managers.insert(std::make_pair(tb.first, 
-                                                          intermediates.back().table_manager));
-                // TODO: emplace may be dangerous
+                temp_table_managers.emplace(tb.first, intermediates.back().table_manager);
             }
             // now, records meeting simple conditions are all in temp table managers
             // and rids contains rid to temp table managers
             // table_managers are of no use any more
 
-#ifdef DEBUG
+
+            std::vector<std::string> table_names_inorder;
+            std::unordered_map<std::string, std::vector<ComplexCondition> > complex_conditions_inorder;
             for (const auto& tb: temp_table_managers) {
-                std::cout << tb.first << ' ' << tb.second << std::endl;
-                std::cout << tb.second->fieldsDesc().size() << std::endl;
-                std::cout << tb.first << ": " << std::endl;
-                std::vector<uint64> display_field_ids;
-                for (uint64 i = 0; i < tb.second->fieldsDesc().size(); ++i)
-                    display_field_ids.push_back(i);
-                outputRID(tb.second, display_field_ids, rids[tb.first]);
+                table_names_inorder.push_back(tb.first);
+                complex_conditions_inorder[tb.first] = std::vector<ComplexCondition>();
             }
-#endif
+            for (const auto& cc: complex_conditions) 
+                if (std::find(table_names_inorder.begin(), table_names_inorder.end(), cc.left_name) >
+                    std::find(table_names_inorder.begin(), table_names_inorder.end(), cc.right_name))
+                    complex_conditions_inorder[cc.left_name].emplace_back(cc);
+                else 
+                    complex_conditions_inorder[cc.right_name].push_back(cc.reverse());
 
-
-
-
-            /*
-            // joined table fields desc
+            // fields description for joined table
             DBFields joined_fields_desc;
-            // order of the original tables, used for join order optimization
-            std::vector<std::string> table_order;
-            
-            for (const auto& fs: fields_descs) {
-                for (uint64 i = 0; i < fs.second.size(); ++i) {
-                    uint64 type = fs.second.field_type()[i];
-                    uint64 length = fs.second.field_length()[i];
-                    uint64 not_null = fs.second.field_length()[i];
-                    std::string field_name = fs.first + "." + fs.second.field_name()[i];
-                    // ignore auto-created primary key
-                    if (fs.second.field_name()[i].length())
-                        joined_fields_desc.insert(type, length, 0, 0, not_null, field_name);
+            for (const auto& tn: table_names_inorder) {
+                const DBFields& fields_desc = temp_table_managers[tn]->fieldsDesc();
+                for (uint64 i = 0; i < fields_desc.size(); ++i) {
+                    uint64 type = fields_desc.field_type()[i];
+                    uint64 length = fields_desc.field_length()[i];
+                    uint64 not_null = fields_desc.notnull()[i];
+                    std::string field_name = tn + "." + fields_desc.field_name()[i];
+                    // ignore primary key 
+                    joined_fields_desc.insert(type, length - 1, 0, 0, not_null, field_name);
                 }
-                table_order.push_back(fs.first);
             }
-            */
+            joined_fields_desc.addPrimaryKey();
+            
+            // create intermediate table
+            IntermediateTable intermediate(*this);
+            std::tie(intermediate.table_manager_number,
+                     intermediate.table_manager) = getTempTable(-1);
 
+            auto temp_file = uniquePath(temp_dir);
+            intermediate.table_manager->create(
+                    temp_file.string(), joined_fields_desc, 
+                    DBTableManager::DEFAULT_PAGE_SIZE);
+            // open temp table
+            assert(intermediate.table_manager->open(temp_file.string()) == 0);
+            
+            std::unique_ptr<char[]> buffer(new char[joined_fields_desc.recordLength()]);
+            std::vector<RID> joined_rids;
+            auto innerJoinResult = [this, &temp_table_managers, &table_names_inorder, &buffer, &intermediate, &joined_rids](const std::vector<RID>& new_record) {
+                uint64 offset = 0;
+                for (std::size_t i = 0; i < table_names_inorder.size(); ++i) {
+                    DBTableManager* tb_mgr = temp_table_managers.at(table_names_inorder[i]);
+                    tb_mgr->selectRecord(new_record.at(i), buffer.get() + offset);
+                    offset += tb_mgr->fieldsDesc().recordLength();
+                }
 
+                // add primary key
+                uint64 unique_number = uniqueNumber();
+                buffer[offset] = '\xff';
+                memcpy(buffer.get() + offset + 1, &unique_number, 
+                    intermediate.table_manager->fieldsDesc().field_length()[
+                        intermediate.table_manager->fieldsDesc().primary_key_field_id()] - 1);
 
+                // insert record
+                joined_rids.push_back(intermediate.table_manager->insertRecord(buffer.get()));
+                assert(joined_rids.back());
+            };
 
+            innerJoin(table_names_inorder, temp_table_managers, complex_conditions_inorder, innerJoinResult);
+
+            // output result
+            std::vector<uint64> display_field_ids;
+            for (uint64 i = 0; i < intermediate.table_manager->fieldsDesc().size(); ++i)
+                display_field_ids.push_back(i);
+            outputRID(intermediate.table_manager, display_field_ids, joined_rids);
 
             return 0;
         }
@@ -1444,6 +1431,57 @@ private:
         };
         std::sort(rids.begin(), rids.end(), comp_rule);
     }
+    
+    template <class CALLBACK>
+    void innerJoin(const std::vector<std::string>& table_names,
+                   const std::unordered_map<std::string, DBTableManager*>& table_managers,
+                   const std::unordered_map<std::string, std::vector<ComplexCondition> >& conditions,
+                   CALLBACK callback) const {
+        uint64 max_length = 0;
+        for (const auto tm: table_managers)
+            max_length = std::max(max_length, tm.second->fieldsDesc().recordLength());
+        std::unique_ptr<char[]> buffer(new char[max_length]);
+        std::vector<RID> new_record;
+        innerJoin_assis(table_names, table_managers, conditions, new_record, buffer.get(), callback);
+    }
+
+
+    template <class CALLBACK>
+    void innerJoin_assis(const std::vector<std::string>& table_names,
+                         const std::unordered_map<std::string, DBTableManager*>& table_managers,
+                         const std::unordered_map<std::string, std::vector<ComplexCondition> >& conditions,
+                         std::vector<RID>& new_record,
+                         char* buffer,
+                         CALLBACK callback) const {
+        if (new_record.size() < table_names.size()) {
+            std::string table_name = table_names[new_record.size()];
+            // construct conditions
+            std::vector<Condition> local_conds;
+            for (const auto& cond: conditions.at(table_name)) {
+                assert(cond.left_name == table_name);
+                DBTableManager* table_manager = table_managers.at(cond.right_name);
+                table_manager->selectRecord(
+                    new_record[std::find(table_names.begin(), table_names.end(), cond.right_name) - table_names.begin()], 
+                    buffer);
+                std::string right_literal(buffer + table_manager->fieldsDesc().offset()[cond.right_id],
+                                          table_manager->fieldsDesc().field_length()[cond.right_id]);
+                local_conds.push_back({ 2, cond.left_id, std::numeric_limits<uint64>::max(), cond.op, right_literal });
+            }
+            // select rids
+            auto rids = selectRID(table_managers.at(table_name), local_conds);
+            // for each rid
+            for (const auto rid: rids) {
+                // insert into new_record 
+                new_record.push_back(rid);
+                // recursive 
+                innerJoin_assis(table_names, table_managers, conditions, new_record, buffer, callback);
+                // backtrace
+                new_record.pop_back();
+            }
+        } else 
+            // call back
+            callback(new_record);
+    }
 
     // check whether data meets all conditions
     bool meetConditions(const char* data, 
@@ -1876,11 +1914,11 @@ private:
             return nullptr;
         }
         // insert to open table map
-        tables_inuse.insert({ table_name, table_manager });
+        tables_inuse.emplace(table_name, table_manager);
         // load constraints if exists
         if (boost::filesystem::exists(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX) &&
             boost::filesystem::is_regular_file(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX))
-            tables_check_constraints.insert({ table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX) });
+            tables_check_constraints.emplace(table_name, loadConditions(db_inuse + '/' + table_name + CHECK_CONSTRAINT_SUFFIX));
         return table_manager;
     }
 
