@@ -316,10 +316,10 @@ public:
     // assert number of args == number of fields
     // assert file is open
     // returns rid if succeed, rid(0, 0) otherwise
-    RID insertRecord(const void* arg) {
+    RID insertRecord(void* arg) {
         std::vector<void*> args;
         for (uint64 off: _fields.offset())
-            args.push_back(arg + off);
+            args.push_back(pointer_convert<void*>(pointer_convert<char*>(arg) + off));
         return insertRecord(args);
     }
 
