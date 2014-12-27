@@ -51,7 +51,7 @@ public:
     bool execute(const std::string& str) {
 #ifdef DEBUG
         err << "----------------------------\n";
-        err << "Stmt: " << (str.length() > 200? str.substr(0, 200): str) << std::endl;
+        err << "Stmt: " << (str.length() > 400? str.substr(0, 400): str) << std::endl;
 #endif
         try {
             // try to parse with different patterns
@@ -95,6 +95,26 @@ private:
         Condition(const int t, const uint64 li, const uint64 ri, const std::string& o, const std::string& rl):
             type(t), left_id(li), right_id(ri), op(o), right_literal(rl) { }
         Condition() { }
+    };
+    struct ComplexCondition {
+        // left table name
+        std::string left_name;
+        // left field id
+        uint64 left_id;
+        std::string op;
+        std::string right_name;
+        uint64 right_id;
+        ComplexCondition(const std::string& ln, const uint64 li, const std::string& o, const std::string& rn, const uint64 ri):
+            left_name(ln), left_id(li), op(o), right_name(rn), right_id(ri) { }
+    };
+
+    // intermediate result
+    struct IntermediateTable {
+        DBQuery& parent;
+        DBTableManager* table_manager;
+        int table_manager_number;
+        IntermediateTable(DBQuery& p): parent(p), table_manager(nullptr), table_manager_number(-1) { }
+        ~IntermediateTable() { parent.removeTempTable(table_manager_number); }
     };
 
     // parse as statement "CREATE DATABASE <database name>"
@@ -663,6 +683,205 @@ private:
             std::cout << "Group by: " << query.group_by_field_name.table_name << '.' 
                       << query.group_by_field_name.field_name << std::endl;
 #endif
+            if (db_inuse.length() == 0) 
+                throw DBError::DBNotOpened<DBError::ComplexSelectFailed>(query.table_names);
+
+            // open tables
+            std::unordered_map<std::string, DBTableManager*> table_managers;
+            std::unordered_map<std::string, const DBFields&> fields_descs;
+            for (const auto& tn: query.table_names) {
+                // open table
+                DBTableManager* table_manager = openTable(tn);
+                // open failed
+                if (!table_manager) 
+                    throw DBError::OpenTableFailed<DBError::ComplexSelectFailed>(tn, query.table_names);
+                if (table_managers.emplace(tn, table_manager).second == 0)
+                    throw DBError::DuplicateTableName(query.table_names, tn);
+
+                fields_descs.emplace(tn, table_manager->fieldsDesc());
+            }
+
+            std::unordered_map< std::string, std::vector<Condition> > simple_conditions;
+            for (const auto i: table_managers)
+                simple_conditions.emplace(i.first, std::vector<Condition>());
+
+            std::vector<ComplexCondition> complex_conditions;
+            // check where clause
+            for (const auto& cond: query.conditions) 
+                // constant true condition
+                if (std::regex_match(cond.left_expr.table_name, std::regex("(true)", std::regex_constants::icase)))
+                    continue;
+                // constant false condition
+                else if (std::regex_match(cond.left_expr.table_name, std::regex("(false)", std::regex_constants::icase)))
+                    for (auto& i: simple_conditions)
+                        i.second.push_back(Condition(0, 0, 0, "", ""));
+                // right expr is literal, convert to simple condition
+                // or both exprs have the same table name
+                else if (!cond.right_expr.field_name.length() || cond.left_expr.table_name == cond.right_expr.table_name) {
+                    auto ite_fields_desc = fields_descs.find(cond.left_expr.table_name);
+                    auto ite_simple_conds = simple_conditions.find(cond.left_expr.table_name);
+                    if (ite_fields_desc == fields_descs.end()) 
+                        throw DBError::InvalidConditionOperand<DBError::ComplexSelectFailed>(cond.left_expr.table_name, query.table_names); 
+                    QueryProcess::SimpleCondition simple_cond;
+                    simple_cond.left_expr = cond.left_expr.field_name;
+                    simple_cond.op = cond.op;
+                    simple_cond.right_expr = cond.right_expr.field_name.length()? 
+                        cond.right_expr.field_name: cond.right_expr.table_name;
+                    ite_simple_conds->second.push_back(parseSimpleCondition<DBError::ComplexSelectFailed>(simple_cond, ite_fields_desc->second, query.table_names));
+                // right expr is tablename.fieldname
+                } else {
+                    auto ite_left_fields_desc = fields_descs.find(cond.left_expr.table_name);
+                    auto ite_right_fields_desc = fields_descs.find(cond.right_expr.table_name);
+                    if (ite_left_fields_desc == fields_descs.end())
+                        throw DBError::InvalidConditionOperand<DBError::ComplexSelectFailed>(cond.left_expr.table_name, query.table_names); 
+                    if (ite_right_fields_desc == fields_descs.end())
+                        throw DBError::InvalidConditionOperand<DBError::ComplexSelectFailed>(cond.right_expr.table_name, query.table_names); 
+                    uint64 left_field_id = std::find(ite_left_fields_desc->second.field_name().begin(),
+                                                     ite_left_fields_desc->second.field_name().end(),
+                                                     cond.left_expr.field_name) - 
+                                           ite_left_fields_desc->second.field_name().begin();
+                    if (left_field_id == ite_left_fields_desc->second.field_name().size())
+                        throw DBError::InvalidConditionOperand<DBError::ComplexSelectFailed>(cond.left_expr.field_name, query.table_names);
+                    uint64 right_field_id = std::find(ite_right_fields_desc->second.field_name().begin(),
+                                                      ite_right_fields_desc->second.field_name().end(),
+                                                      cond.right_expr.field_name) - 
+                                            ite_right_fields_desc->second.field_name().begin();
+                    if (right_field_id == ite_right_fields_desc->second.field_name().size())
+                        throw DBError::InvalidConditionOperand<DBError::ComplexSelectFailed>(cond.right_expr.field_name, query.table_names);
+                    if (cond.op != "=" && cond.op != "!=" && cond.op != ">" && cond.op != "<" && cond.op != ">=" && cond.op != "<=")
+                        throw DBError::InvalidConditionOperator<DBError::ComplexSelectFailed>(cond.op, query.table_names);
+                    if (ite_left_fields_desc->second.field_type()[left_field_id] != 
+                        ite_right_fields_desc->second.field_type()[right_field_id])
+                        throw DBError::InvalidConditionOperand<DBError::ComplexSelectFailed>(cond.right_expr.field_name, query.table_names);
+
+                    complex_conditions.push_back({ cond.left_expr.table_name,
+                                                   left_field_id,
+                                                   cond.op,
+                                                   cond.right_expr.table_name,
+                                                   right_field_id });
+                }
+#ifdef DEBUG        
+            std::cout << "Table managers: ";
+            for (const auto& i: table_managers)
+                std::cout << i.first << ' ';
+            std::cout << std::endl;
+            std::cout << "Field descs: ";
+            for (const auto& i: fields_descs)
+                std::cout << i.first << ' ';
+            std::cout << std::endl;
+            std::cout << "Simple conditions: " << std::endl;
+            for (const auto& i: simple_conditions) {
+                std::cout << "    " << i.first << ": ";
+                for (const auto& c: i.second)
+                    std::cout << c.type << ' ' << c.left_id << ' ' << c.right_id << ' ' << c.op << ' ' << c.right_literal << " and ";
+                std::cout << std::endl;
+            }
+            std::cout << "Complex conditions: " << std::endl;
+            for (const auto& c: complex_conditions) 
+                std::cout << c.left_name << ' ' << c.left_id << ' ' << c.op << ' ' << c.right_name << ' ' << c.right_id << " and ";
+            std::cout << std::endl;
+#endif
+            std::unordered_map< std::string, std::vector<RID> > rids;
+
+            // select rids meeting simple conditions
+            for (const auto& tm: table_managers) 
+                rids.emplace(tm.first, selectRID(tm.second, simple_conditions[tm.first]));
+
+#ifdef DEBUG
+            for (const auto& rs: rids) {
+                std::vector<uint64> display_field_ids;
+                for (uint64 i = 0; i < table_managers[rs.first]->fieldsDesc().size(); ++i)
+                    display_field_ids.push_back(i);
+                std::cout << rs.first << ": " << std::endl;
+                outputRID(table_managers[rs.first], display_field_ids, rs.second);
+            }
+#endif
+
+            // intermediate result
+            // ATTENTION: 
+            // DONOT use vector,
+            // use list instead to avoid reallocating when inserting.
+            // Reallocatiing will lead to desctruct and then construct IntermediateTable
+            // which isn't what we want.
+            std::list<IntermediateTable> intermediates;
+
+            std::unordered_map<std::string, DBTableManager*> temp_table_managers;
+
+            // create temp table for each table
+            for (const auto& tb: table_managers) {
+                // create poitner to table manager
+                intermediates.push_back(IntermediateTable(*this));
+                std::tie(intermediates.back().table_manager_number,
+                         intermediates.back().table_manager) = getTempTable(-1);
+                auto temp_file = uniquePath(temp_dir);
+                // create temp table
+                intermediates.back().table_manager->create(
+                    temp_file.string(), fields_descs[tb.first], 
+                    DBTableManager::DEFAULT_PAGE_SIZE);
+                // open temp table
+                assert(intermediates.back().table_manager->open(temp_file.string()) == 0);
+                // create index
+                for (uint64 i = 0; i < intermediates.back().table_manager->fieldsDesc().size(); ++i)
+                    if (intermediates.back().table_manager->fieldsDesc().indexed()[i] && 
+                        i != intermediates.back().table_manager->fieldsDesc().primary_key_field_id())
+                        assert(intermediates.back().table_manager->createIndex(i, "Index name not supported for now. "));
+                // insert records
+                std::unique_ptr<char[]> buff(new char[intermediates.back().table_manager->fieldsDesc().recordLength()]);
+                std::vector<RID> temp_rids;
+                for (const auto rid: rids[tb.first]) {
+                    assert(table_managers[tb.first]->selectRecord(rid, buff.get()) == 0);
+                    temp_rids.push_back(intermediates.back().table_manager->insertRecord(buff.get()));
+                    assert(temp_rids.back());
+                }
+                rids[tb.first] = temp_rids;
+
+                temp_table_managers.insert(std::make_pair(tb.first, 
+                                                          intermediates.back().table_manager));
+                // TODO: emplace may be dangerous
+            }
+            // now, records meeting simple conditions are all in temp table managers
+            // and rids contains rid to temp table managers
+            // table_managers are of no use any more
+
+#ifdef DEBUG
+            for (const auto& tb: temp_table_managers) {
+                std::cout << tb.first << ' ' << tb.second << std::endl;
+                std::cout << tb.second->fieldsDesc().size() << std::endl;
+                std::cout << tb.first << ": " << std::endl;
+                std::vector<uint64> display_field_ids;
+                for (uint64 i = 0; i < tb.second->fieldsDesc().size(); ++i)
+                    display_field_ids.push_back(i);
+                outputRID(tb.second, display_field_ids, rids[tb.first]);
+            }
+#endif
+
+
+
+
+            /*
+            // joined table fields desc
+            DBFields joined_fields_desc;
+            // order of the original tables, used for join order optimization
+            std::vector<std::string> table_order;
+            
+            for (const auto& fs: fields_descs) {
+                for (uint64 i = 0; i < fs.second.size(); ++i) {
+                    uint64 type = fs.second.field_type()[i];
+                    uint64 length = fs.second.field_length()[i];
+                    uint64 not_null = fs.second.field_length()[i];
+                    std::string field_name = fs.first + "." + fs.second.field_name()[i];
+                    // ignore auto-created primary key
+                    if (fs.second.field_name()[i].length())
+                        joined_fields_desc.insert(type, length, 0, 0, not_null, field_name);
+                }
+                table_order.push_back(fs.first);
+            }
+            */
+
+
+
+
+
             return 0;
         }
         return 1;
@@ -782,14 +1001,8 @@ private:
             // select records
             auto rids = selectRID(table_manager, conditions);
 
-            // intermediate result
-            struct Intermediate {
-                DBQuery& parent;
-                DBTableManager* table_manager = nullptr;
-                int table_manager_number;
-                Intermediate(DBQuery& p): parent(p), table_manager_number(-1) { }
-                ~Intermediate() { parent.removeTempTable(table_manager_number); }
-            } intermediate(*this);
+            
+            IntermediateTable intermediate(*this);
             
 
             // group by 
@@ -1459,7 +1672,7 @@ private:
             condition.op = condition.op.length() != 4? "not like": "like";
 
         // convert "tRuE" to "true", "FaLse" to "false"
-        if (std::regex_match(condition.left_expr, std::regex("(ture)", std::regex_constants::icase)))
+        if (std::regex_match(condition.left_expr, std::regex("(true)", std::regex_constants::icase)))
             condition.left_expr = "true";
         if (std::regex_match(condition.left_expr, std::regex("(false)", std::regex_constants::icase)))
             condition.left_expr = "false";

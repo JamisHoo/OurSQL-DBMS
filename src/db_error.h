@@ -374,6 +374,24 @@ struct SimpleSelectFailed: Error {
             return SimpleSelectFailed::getInfo() + "Invalid aggregate funtion " + quoted(function) + " applied to " + quoted(field_name) + ". ";
         }
     };
+
+struct ComplexSelectFailed: Error {
+    std::vector<std::string> table_names;
+    ComplexSelectFailed(const std::vector<std::string>& tns): table_names(tns) { }
+    virtual std::string getInfo() const {
+        std::string info = Error::getInfo() + "Failed when selecting from \"";
+        for (auto ite = table_names.begin(); ite != table_names.end(); ++ite)
+            info += *ite + (ite == table_names.end() - 1? "\". ": ", ");
+        return info;
+    }
+};
+    struct DuplicateTableName: ComplexSelectFailed {
+        std::string table_name;
+        DuplicateTableName(const std::vector<std::string>& tns, const std::string& tn): ComplexSelectFailed(tns), table_name(tn) { }
+        virtual std::string getInfo() const {
+            return ComplexSelectFailed::getInfo() + "Duplicate table name " + table_name + ". ";
+        }
+    };
     
 struct DeleteRecordFailed: Error {
     std::string table_name;
