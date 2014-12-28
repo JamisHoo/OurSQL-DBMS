@@ -66,20 +66,7 @@ SELECT <table name>.<field name> [, <table name>.<field name>]*
 # inner join
 SELECT <table name>.<field name> [, <table name>.<field name>]*
         FROM <table name> [, <table name>]* WHERE <complex condition>;
-# In inner join, on clause and where clause are the same.
-SELECT <table name>.<field name> [, <table name>.<field name>]* 
-        FROM <table name> [INNER] JOIN <table name> {ON | WHERE} <complex condition>;
-# Cross join is the same as inner join with condition clause always equivalent to true.
-# So it will be implemented as inner join.
-SELECT <table name>.<field name> [, <table name>.<field name>]*
-       FROM <table name> CROSS JOIN <table name>;
-
-# outer join, won't support
-SELECT <table name>.<field name> [, <table name>.<field name>]*
-        FROM <table name> {LEFT | RIGHT | FULL} [OUTER] JOIN <table name> 
-        ON <complex condition> [WHERE <complex condition>];
 
 
 
-# TODO
-# consider join three tables or above
+
