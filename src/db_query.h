@@ -1863,6 +1863,8 @@ private:
     }
 
     template <class ERRORTYPE, class ...ERRORINFO>
+    // FIXME: aggregate function returns empty set of rid 
+    // when rid is originally empty.
     std::vector<RID> groupBy(const std::string& group_by_field_name,
                              IntermediateTable& intermediate,
                              const DBFields& new_fields_desc, 
