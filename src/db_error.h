@@ -87,6 +87,16 @@ struct OpenTableFailed: T {
     }
 };
 template <class T>
+struct AggregateFailed: T {
+    std::string function, field_name;
+    template <class ...Para>
+    AggregateFailed(const std::string& f, const std::string& fn, const Para&... p):
+        T(p...), function(f), field_name(fn) { }
+    virtual std::string getInfo() const {
+        return T::getInfo() + "Invalid aggregate funtion " + T::quoted(function) + " applied to " + T::quoted(field_name) + ". ";
+    }
+};
+template <class T>
 struct LiteralParseFailed: T {
     std::string literal;
     template <class ...Para>
@@ -366,14 +376,6 @@ struct SimpleSelectFailed: Error {
         return Error::getInfo() + "Failed when selecting from " + quoted(table_name) + ". ";
     }
 };
-    struct AggregateFailed: SimpleSelectFailed {
-        std::string function, field_name;
-        AggregateFailed(const std::string& f, const std::string& fn, const std::string& tn):
-            SimpleSelectFailed(tn), function(f), field_name(fn) { }
-        virtual std::string getInfo() const {
-            return SimpleSelectFailed::getInfo() + "Invalid aggregate funtion " + quoted(function) + " applied to " + quoted(field_name) + ". ";
-        }
-    };
 
 struct ComplexSelectFailed: Error {
     std::vector<std::string> table_names;
