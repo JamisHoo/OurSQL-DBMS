@@ -158,8 +158,8 @@ public:
             _index[i] = new DBIndexManager<DBFields::Comparator>(
                 table_name + "_" + fields.field_name()[i] + INDEX_SUFFIX);
             rtv = _index[i]->create(page_size,
-                fields.field_length()[fields.primary_key_field_id()],
-                fields.field_type()[fields.primary_key_field_id()]);
+                fields.field_length()[i],
+                fields.field_type()[i]);
             assert(rtv == 0);
             _index[i]->close();
         }
@@ -222,8 +222,6 @@ public:
                     _fields.field_name()[id] + 
                     INDEX_SUFFIX);
                 uint64 rtv = _index[id]->open();
-                std::cout << "Open index: " << _table_name << '.' << _fields.field_name()[id] << std::endl;
-                std::cout << "Open index return value: " << rtv << std::endl;
                 assert(rtv);
             }
         
