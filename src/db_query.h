@@ -1037,7 +1037,6 @@ private:
                 // rids between groups[i] and groups[i + 1] is a group
                 for (std::size_t i = 0; i < groups.size(); ++i) {
                     // read the first in the group to result buffer
-                    // TODO: crash when table is empty
                     table_manager->selectRecord(*groups[i], inter_record_buffer.get());
                     std::vector<void*> args;
                     // read all of this group to aggregate buffer
