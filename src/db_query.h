@@ -863,11 +863,102 @@ private:
 
             innerJoin(table_names_inorder, temp_table_managers, complex_conditions_inorder, innerJoinResult);
 
-            // output result
+            // code below is similar to that in SimpleSelect()
+            DBFields new_fields_desc = intermediate.table_manager->fieldsDesc();
+            
+            std::vector<uint64> original_field_ids;
             std::vector<uint64> display_field_ids;
-            for (uint64 i = 0; i < intermediate.table_manager->fieldsDesc().size(); ++i)
-                display_field_ids.push_back(i);
-            outputRID(intermediate.table_manager, display_field_ids, joined_rids);
+            std::vector<std::string> functions;
+            for (const auto& field_name: query.field_names) 
+                if (field_name.field_name.table_name == "*") {
+                    if (field_name.func.length() && field_name.func != "count")
+                        throw DBError::AggregateFailed<DBError::ComplexSelectFailed>(field_name.func, field_name.field_name.field_name, query.table_names);
+                    if (field_name.func == "count") {
+                        new_fields_desc.insert(DBFields::TYPE_UINT64, 
+                                               DBFields::typeLength(DBFields::TYPE_UINT64),
+                                               0, 0, 1, "count(*)");
+                        display_field_ids.push_back(new_fields_desc.field_id().back());
+                        functions.push_back(field_name.func);
+                        original_field_ids.push_back(intermediate.table_manager->fieldsDesc().primary_key_field_id());
+                    } else {
+                        for (const auto field_id: intermediate.table_manager->fieldsDesc().field_id())
+                            if (intermediate.table_manager->fieldsDesc().field_name()[field_id].length()) {
+                                display_field_ids.push_back(field_id);
+                                original_field_ids.push_back(field_id);
+                                functions.push_back(std::string());
+                            }
+                    }
+                } else {
+                    auto ite = std::find(intermediate.table_manager->fieldsDesc().field_name().begin(),
+                                         intermediate.table_manager->fieldsDesc().field_name().end(),
+                                         std::string(field_name.field_name));
+                    if (ite == intermediate.table_manager->fieldsDesc().field_name().end())
+                        throw DBError::InvalidFieldName<DBError::ComplexSelectFailed>(field_name.field_name, query.table_names);
+                    uint64 field_id = ite - intermediate.table_manager->fieldsDesc().field_name().begin();
+
+                    if (field_name.func.length()) {
+                        uint64 new_type, new_length, new_not_null = 0;
+                        std::string new_name = field_name.func + "(" + std::string(field_name.field_name) + ")";
+                        
+                        if (field_name.func == "count") {
+                            new_type = DBFields::TYPE_UINT64;
+                            new_length = DBFields::typeLength(DBFields::TYPE_UINT64);
+                            new_not_null = 1;
+                        } else if (field_name.func == "max" || field_name.func == "min") {
+                            new_type = intermediate.table_manager->fieldsDesc().field_type()[field_id];
+                            new_length = intermediate.table_manager->fieldsDesc().field_length()[field_id] - 1;
+                        } else if (field_name.func == "sum") {
+                            if (intermediate.table_manager->fieldsDesc().field_type()[field_id] == DBFields::TYPE_FLOAT ||
+                                intermediate.table_manager->fieldsDesc().field_type()[field_id] == DBFields::TYPE_DOUBLE)
+                                new_type = DBFields::TYPE_UINT64,
+                                new_length = DBFields::typeLength(DBFields::TYPE_DOUBLE);
+                            else 
+                                new_type = DBFields::TYPE_INT64;
+                                new_length = DBFields::typeLength(DBFields::TYPE_INT64);
+                        } else if (field_name.func == "avg") {
+                            new_type = DBFields::TYPE_DOUBLE;
+                            new_length = DBFields::typeLength(DBFields::TYPE_DOUBLE);
+                        } else assert(0);
+
+                        new_fields_desc.insert(new_type, new_length, 0, 0, new_not_null, new_name);
+                        display_field_ids.push_back(new_fields_desc.field_id().back());
+                    } else {
+                        display_field_ids.push_back(field_id);
+                    }
+                    original_field_ids.push_back(field_id);
+                    functions.push_back(field_name.func);
+                }
+            
+            IntermediateTable group_by_intermediate(*this);
+
+            // group by 
+            // or aggregate function(s) without group by
+            if (std::string(query.group_by_field_name).length() || 
+                new_fields_desc.size() > intermediate.table_manager->fieldsDesc().size()) {
+                joined_rids = groupBy<DBError::ComplexSelectFailed>
+                    (std::string(query.group_by_field_name), 
+                     group_by_intermediate, new_fields_desc, 
+                     intermediate.table_manager->fieldsDesc(), 
+                     original_field_ids, display_field_ids, 
+                     functions, intermediate.table_manager, joined_rids,
+                     query.table_names);
+            }
+
+            // order by
+            if (std::string(query.order_by.field_name).length()) {
+                auto ite = std::find(new_fields_desc.field_name().begin(),
+                                     new_fields_desc.field_name().end(),
+                                     std::string(query.order_by.field_name));
+                if (ite == new_fields_desc.field_name().end())
+                    throw DBError::InvalidFieldName<DBError::ComplexSelectFailed>(query.order_by.field_name, query.table_names);
+                sortRID(group_by_intermediate.table_manager? 
+                            group_by_intermediate.table_manager: intermediate.table_manager,
+                        joined_rids, ite - new_fields_desc.field_name().begin(),
+                        query.order_by.order == "" || query.order_by.order == "asc");
+            }
+            
+            // output result
+            outputRID(group_by_intermediate.table_manager, display_field_ids, joined_rids);
 
             return 0;
         }
@@ -913,7 +1004,7 @@ private:
                 if (field_name.field_name == "*") { 
                     // no aggregate functions can be applied to * except 'count'
                     if (field_name.func.length() && field_name.func != "count")
-                        throw DBError::AggregateFailed(field_name.func, field_name.field_name, query.table_name);
+                        throw DBError::AggregateFailed<DBError::SimpleSelectFailed>(field_name.func, field_name.field_name, query.table_name);
                     if (field_name.func == "count") {
                         new_fields_desc.insert(DBFields::TYPE_UINT64, 
                                               DBFields::typeLength(DBFields::TYPE_UINT64),
@@ -991,106 +1082,15 @@ private:
             
             IntermediateTable intermediate(*this);
             
-
+            
             // group by 
             // or aggregate function(s) without group by
             if (query.group_by_field_name.length() || new_fields_desc.size() > fields_desc.size()) {
-                // create intermediate table manager
-                std::tie(intermediate.table_manager_number, intermediate.table_manager) = getTempTable(-1);
-                assert(intermediate.table_manager_number >= 0);
-                assert(intermediate.table_manager);
-                auto temp_file = uniquePath(temp_dir);
-                assert(intermediate.table_manager->create(temp_file.string(), new_fields_desc, DBTableManager::DEFAULT_PAGE_SIZE) == 0);
-                assert(intermediate.table_manager->open(temp_file.string()) == 0);
-
-                // divide into groups
-                std::vector<std::vector<RID>::const_iterator> groups;
-
-                // if group by
-                if (query.group_by_field_name.length()) {
-                    auto ite = std::find(fields_desc.field_name().begin(),
-                                         fields_desc.field_name().end(),
-                                         query.group_by_field_name);
-                    if (ite == fields_desc.field_name().end())
-                        throw DBError::InvalidFieldName<DBError::SimpleSelectFailed>(query.group_by_field_name, query.table_name);
-                    // sort 
-                    sortRID(table_manager, rids, ite - fields_desc.field_name().begin(), 1);
-
-                    groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
-                // else aggregate funtion(s) without group by
-                // this is the same as just one group
-                // except for table is empty
-                } else if (rids.size())
-                    groups.push_back(rids.begin());
-
-                // aggeragate
-                // store record to be inserted into intermediate table
-                std::unique_ptr<char[]> inter_record_buffer(new char[new_fields_desc.recordLength()]);
-                std::vector<void*> inter_insert_args;
-                for (const auto off: new_fields_desc.offset())
-                    inter_insert_args.push_back(inter_record_buffer.get() + off);
-                // record intermediate rids, to replace rids later
-                std::vector<RID> inter_rids;
-
-                std::unique_ptr<char[]> aggregate_tmp(new char[fields_desc.recordLength() * rids.size()]);
-                DBFields::Aggregator aggregator;
-                // rids between groups[i] and groups[i + 1] is a group
-                for (std::size_t i = 0; i < groups.size(); ++i) {
-                    // read the first in the group to result buffer
-                    table_manager->selectRecord(*groups[i], inter_record_buffer.get());
-                    std::vector<void*> args;
-                    // read all of this group to aggregate buffer
-                    for (auto ite2 = groups[i]; ite2 != (i + 1 == groups.size()? rids.end(): groups[i + 1]); ++ite2) {
-                        args.push_back(aggregate_tmp.get() + fields_desc.recordLength() * (ite2 - groups[i]));
-                        table_manager->selectRecord(*ite2, args.back());
-                    }
-                    // calculate aggregate value and save to result buffer
-                    // check each field to be displayed
-                    for (std::size_t j = 0; j < display_field_ids.size(); ++j) {
-                        // if there's a fucntion
-                        if (functions[j].size()) {
-                            // paras of aggregator: pointers to all data, offset, type, length, result save to where
-                            int rtv;
-                            if (functions[j] == "sum") {
-                                rtv = aggregator.sum(args, fields_desc.offset()[original_field_ids[j]], 
-                                    fields_desc.field_type()[original_field_ids[j]],
-                                    fields_desc.field_length()[original_field_ids[j]],
-                                    inter_record_buffer.get() + 
-                                    new_fields_desc.offset()[display_field_ids[j]]);
-                            } else if (functions[j] == "avg") {
-                                rtv = aggregator.avg(args, fields_desc.offset()[original_field_ids[j]], 
-                                    fields_desc.field_type()[original_field_ids[j]],
-                                    inter_record_buffer.get() + 
-                                    new_fields_desc.offset()[display_field_ids[j]]);
-                            } else if (functions[j] == "max") {
-                                rtv = aggregator.max(args, fields_desc.offset()[original_field_ids[j]], 
-                                    fields_desc.field_type()[original_field_ids[j]],
-                                    fields_desc.field_length()[original_field_ids[j]],
-                                    inter_record_buffer.get() + 
-                                    new_fields_desc.offset()[display_field_ids[j]]);
-                            } else if (functions[j] == "min") {
-                                rtv = aggregator.min(args, fields_desc.offset()[original_field_ids[j]], 
-                                    fields_desc.field_type()[original_field_ids[j]],
-                                    fields_desc.field_length()[original_field_ids[j]],
-                                    inter_record_buffer.get() + 
-                                    new_fields_desc.offset()[display_field_ids[j]]);
-                            } else if (functions[j] == "count") {
-                                rtv = aggregator.count(args, fields_desc.offset()[original_field_ids[j]],
-                                                       inter_record_buffer.get() + 
-                                                       new_fields_desc.offset()[display_field_ids[j]]);
-                            } else assert(0);
-                            if (rtv) 
-                                throw DBError::AggregateFailed(functions[j], fields_desc.field_name()[original_field_ids[j]], query.table_name);
-                        }
-                    }
-                    // insert into intermediate table
-                    auto inter_rid = intermediate.table_manager->insertRecord(inter_insert_args);
-                    assert(inter_rid);
-                    inter_rids.push_back(inter_rid);
-                }
-                rids = inter_rids;
+                rids = groupBy<DBError::SimpleSelectFailed>
+                    (query.group_by_field_name, intermediate, new_fields_desc, 
+                     fields_desc, original_field_ids, display_field_ids, 
+                     functions, table_manager, rids, query.table_name);
             }
-
 
             // order by
             if (query.order_by.field_name.length()) {
@@ -1859,6 +1859,115 @@ private:
             throw DBError::InsertRecordFailed(table_name, values);
         return rid;
     }
+
+    template <class ERRORTYPE, class ...ERRORINFO>
+    std::vector<RID> groupBy(const std::string& group_by_field_name,
+                             IntermediateTable& intermediate,
+                             const DBFields& new_fields_desc, 
+                             const DBFields& fields_desc,
+                             const std::vector<uint64>& original_field_ids,
+                             const std::vector<uint64>& display_field_ids,
+                             const std::vector<std::string>& functions,
+                             const DBTableManager* table_manager, 
+                             std::vector<RID>& rids,
+                             const ERRORINFO&... error_info) {
+        // create intermediate table manager
+        std::tie(intermediate.table_manager_number, intermediate.table_manager) = getTempTable(-1);
+        assert(intermediate.table_manager_number >= 0);
+        assert(intermediate.table_manager);
+        auto temp_file = uniquePath(temp_dir);
+        assert(intermediate.table_manager->create(temp_file.string(), new_fields_desc, DBTableManager::DEFAULT_PAGE_SIZE) == 0);
+        assert(intermediate.table_manager->open(temp_file.string()) == 0);
+
+        // divide into groups
+        std::vector<std::vector<RID>::const_iterator> groups;
+
+        // if group by
+        if (group_by_field_name.length()) {
+            auto ite = std::find(fields_desc.field_name().begin(),
+                                 fields_desc.field_name().end(),
+                                 group_by_field_name);
+            if (ite == fields_desc.field_name().end())
+                throw DBError::InvalidFieldName<ERRORTYPE>(group_by_field_name, error_info...);
+            // sort 
+            sortRID(table_manager, rids, ite - fields_desc.field_name().begin(), 1);
+
+            groups = grouping(table_manager, rids, ite - fields_desc.field_name().begin());
+        // else aggregate funtion(s) without group by
+        // this is the same as just one group
+        // except for table is empty
+        } else if (rids.size())
+            groups.push_back(rids.begin());
+
+        // aggeragate
+        // store record to be inserted into intermediate table
+        std::unique_ptr<char[]> inter_record_buffer(new char[new_fields_desc.recordLength()]);
+        std::vector<void*> inter_insert_args;
+        for (const auto off: new_fields_desc.offset())
+            inter_insert_args.push_back(inter_record_buffer.get() + off);
+        // record intermediate rids, to replace rids later
+        std::vector<RID> inter_rids;
+
+        std::unique_ptr<char[]> aggregate_tmp(new char[fields_desc.recordLength() * rids.size()]);
+        DBFields::Aggregator aggregator;
+        // rids between groups[i] and groups[i + 1] is a group
+        for (std::size_t i = 0; i < groups.size(); ++i) {
+            // read the first in the group to result buffer
+            table_manager->selectRecord(*groups[i], inter_record_buffer.get());
+            std::vector<void*> args;
+            // read all of this group to aggregate buffer
+            for (auto ite2 = groups[i]; ite2 != (i + 1 == groups.size()? rids.end(): groups[i + 1]); ++ite2) {
+                args.push_back(aggregate_tmp.get() + fields_desc.recordLength() * (ite2 - groups[i]));
+                table_manager->selectRecord(*ite2, args.back());
+            }
+            // calculate aggregate value and save to result buffer
+            // check each field to be displayed
+            for (std::size_t j = 0; j < display_field_ids.size(); ++j) {
+                // if there's a fucntion
+                if (functions[j].size()) {
+                    // paras of aggregator: pointers to all data, offset, type, length, result save to where
+                    int rtv;
+                    if (functions[j] == "sum") {
+                        rtv = aggregator.sum(args, fields_desc.offset()[original_field_ids[j]], 
+                            fields_desc.field_type()[original_field_ids[j]],
+                            fields_desc.field_length()[original_field_ids[j]],
+                            inter_record_buffer.get() + 
+                            new_fields_desc.offset()[display_field_ids[j]]);
+                    } else if (functions[j] == "avg") {
+                        rtv = aggregator.avg(args, fields_desc.offset()[original_field_ids[j]], 
+                            fields_desc.field_type()[original_field_ids[j]],
+                            inter_record_buffer.get() + 
+                            new_fields_desc.offset()[display_field_ids[j]]);
+                    } else if (functions[j] == "max") {
+                        rtv = aggregator.max(args, fields_desc.offset()[original_field_ids[j]], 
+                            fields_desc.field_type()[original_field_ids[j]],
+                            fields_desc.field_length()[original_field_ids[j]],
+                            inter_record_buffer.get() + 
+                            new_fields_desc.offset()[display_field_ids[j]]);
+                    } else if (functions[j] == "min") {
+                        rtv = aggregator.min(args, fields_desc.offset()[original_field_ids[j]], 
+                            fields_desc.field_type()[original_field_ids[j]],
+                            fields_desc.field_length()[original_field_ids[j]],
+                            inter_record_buffer.get() + 
+                            new_fields_desc.offset()[display_field_ids[j]]);
+                    } else if (functions[j] == "count") {
+                        rtv = aggregator.count(args, fields_desc.offset()[original_field_ids[j]],
+                                               inter_record_buffer.get() + 
+                                               new_fields_desc.offset()[display_field_ids[j]]);
+                    } else assert(0);
+                    if (rtv) 
+                        throw DBError::AggregateFailed<ERRORTYPE>(functions[j], fields_desc.field_name()[original_field_ids[j]], error_info...);
+                }
+            }
+            // insert into intermediate table
+            auto inter_rid = intermediate.table_manager->insertRecord(inter_insert_args);
+            assert(inter_rid);
+            inter_rids.push_back(inter_rid);
+        }
+        return inter_rids;
+    }
+
+
 
     // get temporary table, if k < 0, create a new table
     std::tuple<int, DBTableManager*> getTempTable(const int k) {
