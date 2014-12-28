@@ -958,7 +958,9 @@ private:
             }
             
             // output result
-            outputRID(group_by_intermediate.table_manager, display_field_ids, joined_rids);
+            outputRID((group_by_intermediate.table_manager?
+                          group_by_intermediate.table_manager: intermediate.table_manager),
+                      display_field_ids, joined_rids);
 
             return 0;
         }
