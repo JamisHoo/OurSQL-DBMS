@@ -148,21 +148,22 @@ public:
 
         
         // INDEX MANIPULATE
-        // create index for primary key
-        // ATTENTION: won't automatically create index for non-primary field
-        // i.e. fields.index() will be completely ignored.
+        // create index for all indexed fields
         assert(_index.size() == 0);
         _index.assign(fields.size(), nullptr);
-        _index[fields.primary_key_field_id()] = new DBIndexManager<DBFields::Comparator>(
-            table_name + "_" + 
-            fields.field_name().at(fields.primary_key_field_id()) + 
-            INDEX_SUFFIX);
-        rtv = _index[fields.primary_key_field_id()]->create(page_size, 
-                             fields.field_length()[fields.primary_key_field_id()],
-                             fields.field_type()[fields.primary_key_field_id()]);
-        assert(rtv == 0);
-        _index[fields.primary_key_field_id()]->close();
-        
+
+
+        for (uint64 i = 0; i < fields.indexed().size(); ++i) {
+            if (fields.indexed()[i] == 0) continue;
+            _index[i] = new DBIndexManager<DBFields::Comparator>(
+                table_name + "_" + fields.field_name()[i] + INDEX_SUFFIX);
+            rtv = _index[i]->create(page_size,
+                fields.field_length()[fields.primary_key_field_id()],
+                fields.field_type()[fields.primary_key_field_id()]);
+            assert(rtv == 0);
+            _index[i]->close();
+        }
+
         // close table
         _file->close();
 
@@ -221,6 +222,8 @@ public:
                     _fields.field_name()[id] + 
                     INDEX_SUFFIX);
                 uint64 rtv = _index[id]->open();
+                std::cout << "Open index: " << _table_name << '.' << _fields.field_name()[id] << std::endl;
+                std::cout << "Open index return value: " << rtv << std::endl;
                 assert(rtv);
             }
         
