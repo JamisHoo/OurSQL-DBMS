@@ -36,6 +36,9 @@ struct SimpleCondition {
 struct FullFieldName {
     std::string table_name;
     std::string field_name;
+    operator std::string() const {
+        return table_name + "." + field_name;
+    }
 };
 struct ComplexCondition {
     FullFieldName left_expr;
