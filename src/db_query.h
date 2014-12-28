@@ -754,6 +754,7 @@ private:
             for (const auto tm: table_managers) 
                 rids.emplace(tm.first, selectRID(tm.second, simple_conditions[tm.first]));
 
+            
             // intermediate result
             // ATTENTION: 
             // DONOT use vector,
@@ -777,11 +778,6 @@ private:
                     DBTableManager::DEFAULT_PAGE_SIZE);
                 // open temp table
                 assert(intermediates.back().table_manager->open(temp_file.string()) == 0);
-                // create index
-                for (uint64 i = 0; i < intermediates.back().table_manager->fieldsDesc().size(); ++i)
-                    if (intermediates.back().table_manager->fieldsDesc().indexed()[i] && 
-                        i != intermediates.back().table_manager->fieldsDesc().primary_key_field_id())
-                        assert(intermediates.back().table_manager->createIndex(i, "Index name not supported for now. "));
                 // insert records
                 std::unique_ptr<char[]> buff(new char[intermediates.back().table_manager->fieldsDesc().recordLength()]);
                 std::vector<RID> temp_rids;
@@ -839,6 +835,7 @@ private:
             // open temp table
             assert(intermediate.table_manager->open(temp_file.string()) == 0);
             
+            // call back function for inner join
             std::unique_ptr<char[]> buffer(new char[joined_fields_desc.recordLength()]);
             std::vector<RID> joined_rids;
             auto innerJoinResult = [this, &temp_table_managers, &table_names_inorder, &buffer, &intermediate, &joined_rids](const std::vector<RID>& new_record) {
