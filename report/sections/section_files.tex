@@ -1,0 +1,48 @@
+\section{源文件说明}
+    \subsection{编译说明}
+        需要安装Boost 1.57.0 或以上版本。 
+        
+        需要编译器支持C++11。
+
+        测试使用的编译器：
+        \begin{enumerate}
+            \item 
+            Linux
+            
+            gcc version 4.8.3 20140911(Red Hat 4.8.3-7)    
+            \item
+            Max OSX
+
+            Apple LLVM version 6.0 (clang-600.0.56) (based on LLVM 3.5svn)
+            \item 
+            Windows
+
+            gcc version 4.9.2(MinGW-W64)
+        \end{enumerate}
+
+        Microsoft C/C++ Optimizing Compiler Version 18.00.21005.1
+        编译器因尚未支持全部C++11特性，不能通过编译。
+
+    \subsection{文件结构}
+        \dirtree{%
+            .1 /.
+                .2 design\DTcomment{设计资料}.
+                    .3 data\_file\_format\DTcomment{数据文件存储格式}.
+                    .3 index\_file\_format\DTcomment{索引文件存储格式}.
+                    .3 supported\_statements\DTcomment{支持的SQL语句说明}.
+                .2 src\DTcomment{源代码}.
+                    .3 db\_buffer.h\DTcomment{缓冲区管理}.
+                    .3 db\_common.h\DTcomment{公用常量、函数}.
+                    .3 db\_error.h\DTcomment{错误处理}.
+                    .3 db\_fields.h\DTcomment{表属性描述}.
+                    .3 db\_file.h\DTcomment{页式文件管理}.
+                    .3 db\_indexmanager.h\DTcomment{B+树索引}.
+                    .3 db\_interface.h\DTcomment{交互界面}.
+                    .3 db\_outputer.h\DTcomment{交互界面对齐输出器}.
+                    .3 db\_query.h\DTcomment{命令执行}.
+                    .3 db\_query\_analyser.h\DTcomment{命令解析}.
+                    .3 db\_table\_manager.h\DTcomment{系统管理}.
+                    .3 oursql.cc\DTcomment{主函数}.
+                    .3 Makefile\DTcomment{Makefile}.
+                .2 LICENSE\DTcomment{开源协议}.
+        }
