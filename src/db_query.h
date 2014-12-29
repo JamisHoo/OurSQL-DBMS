@@ -1317,7 +1317,7 @@ private:
                         int rtv = table_manager->modifyRecord(rids[i], modify_field_ids[j], args[j], old_arg_pos);
                         // modify succeed
                         if (rtv == 0) 
-                            rollback_info.push_back({ rids[i], modify_field_ids[j], old_arg_pos });
+                            rollback_info.push_back(std::make_tuple(rids[i], modify_field_ids[j], old_arg_pos));
                         // error occurs
                         else {
                             if (rtv == 2) 
@@ -1975,9 +1975,9 @@ private:
         if (k < 0) {
             DBTableManager* ptr = new DBTableManager;
             temp_tables.push_back(ptr);
-            return { temp_tables.size() - 1, ptr };
+            return std::make_tuple(temp_tables.size() - 1, ptr);
         }
-        return { k, temp_tables.at(k) };
+        return std::make_tuple(k, temp_tables.at(k));
     }
 
     boost::filesystem::path uniquePath(const boost::filesystem::path& dir = ".") const {
