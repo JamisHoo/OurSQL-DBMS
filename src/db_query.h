@@ -676,7 +676,7 @@ private:
 
             // open tables
             std::unordered_map<std::string, DBTableManager*> table_managers;
-            std::unordered_map<std::string, const DBFields&> fields_descs;
+            std::unordered_map<std::string, const DBFields> fields_descs;
             for (const auto& tn: query.table_names) {
                 // open table
                 DBTableManager* table_manager = openTable(tn);
