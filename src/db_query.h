@@ -1534,30 +1534,26 @@ private:
             int tmp_result3 = comp(right_value,
                                    null_value.data(),
                                    fields_desc.field_length()[cond.left_id]);
-// DEBUG
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wlogical-op-parentheses"
             // magic, DONOT touch
             if (cond.op == "=")
                 comp_result &= tmp_result ==  0 && 
-                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+                    ((tmp_result2 != 0 && tmp_result3 != 0) || (cond.type == 2 && tmp_result3 == 0));
             else if (cond.op == ">")
                 comp_result &= tmp_result >=  1 && 
-                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+                    ((tmp_result2 != 0 && tmp_result3 != 0) || (cond.type == 2 && tmp_result3 == 0));
             else if (cond.op == "<")
                 comp_result &= tmp_result <= -1 && 
-                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+                    ((tmp_result2 != 0 && tmp_result3 != 0) || (cond.type == 2 && tmp_result3 == 0));
             else if (cond.op == ">=")
                 comp_result &= tmp_result >=  0 && 
-                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+                    ((tmp_result2 != 0 && tmp_result3 != 0) || (cond.type == 2 && tmp_result3 == 0));
             else if (cond.op == "<=")
                 comp_result &= tmp_result <=  0 && 
-                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+                    ((tmp_result2 != 0 && tmp_result3 != 0) || (cond.type == 2 && tmp_result3 == 0));
             else if (cond.op == "!=")
                 comp_result &= tmp_result !=  0 && 
-                    (tmp_result2 != 0 && tmp_result3 != 0 || cond.type == 2 && tmp_result3 == 0);
+                    ((tmp_result2 != 0 && tmp_result3 != 0) || (cond.type == 2 && tmp_result3 == 0));
             else assert(0);
-#pragma GCC diagnostic pop
             if (!comp_result) return false;
         }
         if (comp_result) return true;
