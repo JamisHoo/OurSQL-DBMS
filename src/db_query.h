@@ -797,11 +797,26 @@ private:
 
 
             std::vector<std::string> table_names_inorder;
+            
             std::unordered_map<std::string, std::vector<ComplexCondition> > complex_conditions_inorder;
             for (const auto& tb: temp_table_managers) {
                 table_names_inorder.push_back(tb.first);
                 complex_conditions_inorder[tb.first] = std::vector<ComplexCondition>();
             }
+
+            // adjust table order to optimise performance
+            sort(table_names_inorder.begin(), table_names_inorder.end(),
+                 [&temp_table_managers]
+                     (const std::string& str1, const std::string& str2)->bool {
+                     const DBFields& fields1 = temp_table_managers[str1]->fieldsDesc();
+                     const DBFields& fields2 = temp_table_managers[str2]->fieldsDesc();
+                     return 
+                     fields1.field_name()[fields1.primary_key_field_id()].length() <
+                     fields2.field_name()[fields2.primary_key_field_id()].length();
+
+                 });
+            
+
             for (const auto& cc: complex_conditions) 
                 if (std::find(table_names_inorder.begin(), table_names_inorder.end(), cc.left_name) >
                     std::find(table_names_inorder.begin(), table_names_inorder.end(), cc.right_name))
