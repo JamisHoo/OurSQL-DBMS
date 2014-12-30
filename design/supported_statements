@@ -21,8 +21,6 @@ CREATE TABLE <table name> (<field name> <type>[(<size>)] [NOT NULL]
                          [, PRIMARY KEY (<field name>)]
                          [, CHECK (<condition>)]
                          [, FOREIGN KEY (<field name>) REFERENCES <table name>(<field name>)]*
-                         [, GROUP BY <field name>]
-                         [, ORDER BY <field name> [ASC | DESC]]
                          );
 SHOW TABLES;
 DESC[RIBE] <table name>;
@@ -36,22 +34,24 @@ DROP INDEX ON <table name> (<field name>);
 # insert record
 # FINISHED
 INSERT INTO <table name> VALUES (<value> [, <value>]*)
-                              (, <value> [, <value>]*);
+                              (, <value> [, <value>]*)*;
 
 # delete
 # FINISHED
-DELETE FROM <table name> [WHERE <simple condition>];
+DELETE FROM <table name> [WHERE <conditions>];
 
 # update
 # FINISHED
 UPDATE <table name> SET <field name> = <new value> 
                      [, <field name> = <new value>]* 
-        WHERE <field name> = <some value>;
+        WHERE <conditions>;
 
 # simple select
 # FINISHED
-SELECT <field name> [, <field name>]* FROM <table name> [WHERE <simple condition>];
-SELECT * FROM <table name> [WHERE <simple condition>];
+SELECT <field name | *> [, <field name | *>]* FROM <table name> 
+                    [WHERE <conditions>]
+                    [, GROUP BY <field name>]
+                    [, ORDER BY <field name> [ASC | DESC]];
 # simple condition excludes table name
 
 # extention
@@ -59,13 +59,11 @@ SELECT * FROM <table name> [WHERE <simple condition>];
 # FINISHED
 <left expr> [NOT] LIKE <EMACScript regex>
 
-# complex select
-SELECT <table name>.<field name> [, <table name>.<field name>]*
-        FROM <table name> WHERE <complex condition>;
-
 # inner join
 SELECT <table name>.<field name> [, <table name>.<field name>]*
-        FROM <table name> [, <table name>]* WHERE <complex condition>;
+        FROM <table name> [, <table name>]* [WHERE <complex conditions>]
+                                            [, GROUP BY <table name>.<field name>]
+                                            [, ORDER BY <table name>.<field name> [ASC | DESC]];
 
 
 
