@@ -54,6 +54,9 @@
         \href{http://www.boost.org/doc/libs/1_57_0/libs/spirit/doc/html/index.html}{Boost Spirit}%
         进行词法分析和语法分析。%
         Spirit用法灵活、极易扩展。
+    \subsection{查询优化}
+        在多表内连接时将有索引的放在内层，无索引的放在外层，%
+        可以大大提高性能。
     \subsection{错误处理系统}
         支持数据库不存在、属性名不存在、数据类型不匹配、字面量溢出、%
         违反域完整性约束、违反参照完整性约束、聚集函数作用于不支持的类型等%
