@@ -6,7 +6,7 @@ SOURCE  = oursql.cc
 
 STD11FLAGS = -std=c++11
 
-BOOSTFLAGS = -lboost_system -lboost_filesystem
+BOOSTFLAGS = -lboost_system -lboost_filesystem -lboost_regex
 
 oursql: $(SOURCE) $(HEADERS)
 	$(CXX) $(CXXFLAGS) $(STD11FLAGS) $(BOOSTFLAGS) $< -O2 -o $@

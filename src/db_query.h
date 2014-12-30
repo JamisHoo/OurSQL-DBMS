@@ -24,6 +24,7 @@
 #include <tuple>
 #include <regex>
 #include <boost/filesystem.hpp>
+#include <boost/regex.hpp>
 #include "db_query_analyser.h"
 #include "db_tablemanager.h"
 #include "db_fields.h"
@@ -697,10 +698,10 @@ private:
             // check where clause
             for (const auto& cond: query.conditions) 
                 // constant true condition
-                if (std::regex_match(cond.left_expr.table_name, std::regex("(true)", std::regex_constants::icase)))
+                if (boost::regex_match(cond.left_expr.table_name, boost::regex("(true)", boost::regex_constants::icase)))
                     continue;
                 // constant false condition
-                else if (std::regex_match(cond.left_expr.table_name, std::regex("(false)", std::regex_constants::icase)))
+                else if (boost::regex_match(cond.left_expr.table_name, boost::regex("(false)", boost::regex_constants::icase)))
                     for (auto& i: simple_conditions)
                         i.second.push_back(Condition(0, 0, 0, "", ""));
                 // right expr is literal, convert to simple condition
@@ -1511,7 +1512,7 @@ private:
                 if (isnull) { comp_result &= 0; return false; }
 
                 // match with EMACScript regex grammar, case insensive
-                bool match_result = std::regex_match(literal, std::regex(cond.right_literal.substr(2, cond.right_literal.length() - 3), std::regex::icase));
+                bool match_result = boost::regex_match(literal, boost::regex(cond.right_literal.substr(2, cond.right_literal.length() - 3), boost::regex::icase));
                 comp_result &= cond.op == "like" == match_result;
                 if (!comp_result) return false;
                 continue;
@@ -1699,19 +1700,19 @@ private:
         // convert "nOt(\blank)+nULl" to "not null", "nULl" to "null", "iS" to "is"
         // convert "Not(\black)+ lIKE" to "not like", "lIKE" to "like"
         // i.e. convert all to lower case and remove redundant blank chars
-        if (std::regex_match(condition.left_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
+        if (boost::regex_match(condition.left_expr, boost::regex("((not)(\\s+))?(null)", boost::regex_constants::icase)))
             condition.left_expr = condition.left_expr.length() != 4? "not null": "null";
-        if (std::regex_match(condition.right_expr, std::regex("((not)(\\s+))?(null)", std::regex_constants::icase)))
+        if (boost::regex_match(condition.right_expr, boost::regex("((not)(\\s+))?(null)", boost::regex_constants::icase)))
             condition.right_expr = condition.right_expr.length() != 4? "not null": "null";
-        if (std::regex_match(condition.op, std::regex("(is)", std::regex_constants::icase)))
+        if (boost::regex_match(condition.op, boost::regex("(is)", boost::regex_constants::icase)))
             condition.op = "is";
-        if (std::regex_match(condition.op, std::regex("((not)(\\s+))?(like)", std::regex_constants::icase)))
+        if (boost::regex_match(condition.op, boost::regex("((not)(\\s+))?(like)", boost::regex_constants::icase)))
             condition.op = condition.op.length() != 4? "not like": "like";
 
         // convert "tRuE" to "true", "FaLse" to "false"
-        if (std::regex_match(condition.left_expr, std::regex("(true)", std::regex_constants::icase)))
+        if (boost::regex_match(condition.left_expr, boost::regex("(true)", boost::regex_constants::icase)))
             condition.left_expr = "true";
-        if (std::regex_match(condition.left_expr, std::regex("(false)", std::regex_constants::icase)))
+        if (boost::regex_match(condition.left_expr, boost::regex("(false)", boost::regex_constants::icase)))
             condition.left_expr = "false";
         
         if (condition.left_expr == "true" || condition.left_expr == "false") {
