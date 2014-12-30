@@ -720,10 +720,10 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement::Foreig
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::CreateTableStatement,
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::CreateTableStatement::FieldDesc>, field_descs)
+                          (std::vector< ::Database::QueryProcess::CreateTableStatement::FieldDesc >, field_descs)
                           (std::string, primary_key_name)
-                          (std::vector<::Database::QueryProcess::SimpleCondition>, check)
-                          (std::vector<::Database::QueryProcess::CreateTableStatement::ForeignKeyConstraint>, foreignkeys)
+                          (std::vector< ::Database::QueryProcess::SimpleCondition >, check)
+                          (std::vector< ::Database::QueryProcess::CreateTableStatement::ForeignKeyConstraint >, foreignkeys)
                          )
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DropTableStatement,
                           (std::string, table_name))
@@ -739,7 +739,7 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement::Value
                           (std::vector<std::string>, value_tuple))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::InsertRecordStatement,
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::InsertRecordStatement::ValueTuple>, value_tuples))
+                          (std::vector< ::Database::QueryProcess::InsertRecordStatement::ValueTuple >, value_tuples))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleCondition,
                           (std::string, left_expr)
                           (std::string, op)
@@ -751,9 +751,9 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement::Order
                           (std::string, field_name)
                           (std::string, order))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::SimpleSelectStatement,
-                          (std::vector<::Database::QueryProcess::SimpleSelectStatement::SelectFieldName>, field_names)
+                          (std::vector< ::Database::QueryProcess::SimpleSelectStatement::SelectFieldName >, field_names)
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::SimpleCondition>, conditions)
+                          (std::vector< ::Database::QueryProcess::SimpleCondition >, conditions)
                           (std::string, group_by_field_name)
                           (::Database::QueryProcess::SimpleSelectStatement::OrderByClause, order_by))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::FullFieldName,
@@ -770,21 +770,21 @@ BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::ComplexSelectStatement::Orde
                           (::Database::QueryProcess::FullFieldName, field_name)
                           (std::string, order))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::ComplexSelectStatement,
-                          (std::vector<::Database::QueryProcess::ComplexSelectStatement::SelectFieldName>, field_names)
+                          (std::vector< ::Database::QueryProcess::ComplexSelectStatement::SelectFieldName >, field_names)
                           (std::vector<std::string>, table_names)
-                          (std::vector<::Database::QueryProcess::ComplexCondition>, conditions)
+                          (std::vector< ::Database::QueryProcess::ComplexCondition >, conditions)
                           (::Database::QueryProcess::FullFieldName, group_by_field_name)
                           (::Database::QueryProcess::ComplexSelectStatement::OrderByClause, order_by))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::DeleteStatement,
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::SimpleCondition>, conditions))
+                          (std::vector< ::Database::QueryProcess::SimpleCondition >, conditions))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::UpdateStatement::NewValue,
                           (std::string, field_name)
                           (std::string, value))
 BOOST_FUSION_ADAPT_STRUCT(::Database::QueryProcess::UpdateStatement,
                           (std::string, table_name)
-                          (std::vector<::Database::QueryProcess::UpdateStatement::NewValue>, new_values)
-                          (std::vector<::Database::QueryProcess::SimpleCondition>, conditions))
+                          (std::vector< ::Database::QueryProcess::UpdateStatement::NewValue >, new_values)
+                          (std::vector< ::Database::QueryProcess::SimpleCondition >, conditions))
 
 
 #endif /* DB_QUERY_ANALYSER_H_ */
