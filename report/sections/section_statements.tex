@@ -1,0 +1,169 @@
+\section{语法规则}
+    \begin{enumerate}
+    \item
+    关键字
+
+    不区分大小写。AND, ASC, AVG, BY, CHECK, COUNT, CREATE, DATABASE, DATABASES,
+    DELETE, DESC, DESCRIBE, DROP, FALSE, FROM, GROUP, INDEX, INSERT, INTO,
+    IS, KEY, LIKE, MIN, MAX, NOT, NULL, ON, ORDER, PRIMARY, SELECT, SET, SHOW,
+    SIGNED, SUM, TABLE, TABLES, TRUE, UNSIGNED, UPDATE, USE, VALUES, WHERE.
+    \item
+    数据类型
+    \begin{table}[!hbp]
+        \centering
+        \caption{数据类型}
+        \begin{tabular}{|c|c|}
+        \hline
+        TINYINT [SIGNED] & 有符号8位整型 \\
+        \hline
+        TINYINT UNSIGNED & 无符号8位整型 \\
+        \hline
+        SMALLINT [SIGNED] & 有符号16位整型 \\
+        \hline
+        SMALLINT UNSIGNED & 无符号16位整型 \\
+        \hline
+        INT [SIGNED] & 有符号32位整型 \\
+        \hline
+        INT UNSIGNED & 无符号32位整型 \\
+        \hline
+        BIGINT [SIGNED] & 有符号64位整形 \\
+        \hline
+        BIGINT UNSIGNED & 无符号64位整形 \\
+        \hline
+        BOOL & 布尔型 \\
+        \hline
+        CHAR, VARCHAR & 字符串，必须显式指定长度 \\
+        \hline
+        FLOAT & 32位浮点型 \\
+        \hline
+        DOUBLE & 64位浮点型 \\
+        \hline
+        \end{tabular}
+    \end{table}
+
+    \item
+    SQL标识符
+
+    字母或数字或下划线，以字母或下划线开头，且不能为关键字和数据类型。
+    \item
+    字面量
+
+    整形字面量为十进制整数，浮点型字面量为十进制小数，%
+    布尔型字面量取值为TRUE（不区分大小写，下同）或FALSE，空值为NULL，%
+    字符串必须使用单引号引用，支持反斜线转义，%
+    正则表达式也使用单引号引用。
+    \item
+    运算符
+
+    运算符左值必须是属性名，右值可以是属性名或字面量。%
+    当用在表连接的SELECT语句中，属性名必须显示指定表名。
+    
+    \begin{table}[!hbp]
+        \centering
+        \caption{运算符}
+        \begin{tabular}{|c|c|}
+        \hline
+        = & 相等 \\
+        \hline
+        <>, != & 不相等 \\
+        \hline
+        > & 大于 \\
+        \hline
+        < & 小于 \\
+        \hline
+        >= & 大于等于 \\
+        \hline
+        <= & 小于等于 \\
+        \hline
+        IS & 值为空，右值只能是NULL \\
+        \hline
+        IS NOT & 值不为空，右值只能是NULL \\
+        \hline
+        LIKE & 正则表达式匹配 \\
+        \hline
+        NOT LIKE &  正则表达式不匹配 \\
+        \hline
+        \end{tabular}
+    \end{table}
+    \item
+    CREAETE DATABASE <name>;
+
+    创建名为name的数据库。
+    \item
+    SHOW DATABASES;
+
+    列出所有数据库。
+    \item
+    USE <name>;
+
+    打开名为name的数据库。
+    \item
+    DROP DATABASE <name>;
+
+    删除名为name的数据库。
+    \item
+    CREATE TABLE <table\_name> (<field\_name> <type>[(<size>)] [NOT NULL] 
+                         [,<filed\_name> <type>[(<size>)] [NOT NULL]]* 
+                         [, PRIMARY KEY (<field\_name>)]
+                         [, CHECK (<conditions>)]
+                         [, FOREIGN KEY (<field name>) REFERENCES <table\_name>(<field\_name>)]*
+                         );
+
+    创建名为table\_name的表，包含若干个feild，并设置关系完整性约束。
+    \item
+    SHOW TABLES;
+
+    列出当前数据库的所有表。
+    \item
+    DESC[RIBE] <name>;
+    
+    显示名为name的表信息。
+    \item
+    DROP TABLE <name>;
+
+    删除名为name的表。
+    \item
+    CREATE INDEX ON <table\_name> (<field\_name>);
+    
+    在表table\_name的属性field\_name上创建索引。
+    \item
+    DROP INDEX ON <table\_name> (<field\_name>);
+
+    删除表table\_name的属性field\_name上的索引。
+    \item
+    INSERT INTO <table\_name> VALUES (<value> [, <value>]*)(, <value> [, <value>]*)*;
+
+    插入一系列记录到表table\_name中。
+    \item
+    DELETE FROM <table\_name> [WHERE <conditions>];
+
+    从表table\_name中删除所有满足条件的记录。
+    \item
+    UPDATE <table\_name> SET <field\_name> = <new\_value> 
+                     [, <field\_name> = <new\_value>]* 
+        WHERE <conditions>;
+
+    更新表table\_name中满足条件的记录的部分字段。
+    \item
+    SELECT [AVG|SUM|MAX|MIN|COUNT(]<field\_name | *>[)] 
+           [, [AVG|SUM|MAX|MIN|COUNT(]<field\_name | *>[)]]* FROM <table\_name> 
+                    [WHERE <conditions>]
+                    [, GROUP BY <field\_name>]
+                    [, ORDER BY <field\_name> [ASC | DESC]];
+
+    从表table\_name中选择满足条件的记录，按照某个属性分组，使用聚集函数，%
+    按照某个属性排序， 显示部分属性。
+    \item
+    SELECT [AVG|SUM|MAX|MIN|COUNT(]<table\_name>.<field\_name>[)] 
+           [, [AVG|SUM|MAX|MIN|COUNT(]<table\_name>.<field\_name>[)]]*
+        FROM <table\_name> [, <table\_name>]* [WHERE <conditions>]
+                                            [, GROUP BY <table\_name>.<field\_name>]
+                                            [, ORDER BY <table\_name>.<field\_name> [ASC | DESC]];
+    
+    多表的内连接。
+
+
+
+    \end{enumerate}
+
+
