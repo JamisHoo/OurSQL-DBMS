@@ -69,7 +69,7 @@ public:
                     // parse sucessful but execute failed
                     default:
                         // all execution error will throw exceptions
-                        // this will never happed
+                        // this should never happen
                         assert(0);
                         return 1;
                 }
