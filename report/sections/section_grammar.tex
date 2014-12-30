@@ -3,10 +3,12 @@
     \item
     关键字
 
-    不区分大小写。AND, ASC, AVG, BY, CHECK, COUNT, CREATE, DATABASE, DATABASES,
-    DELETE, DESC, DESCRIBE, DROP, FALSE, FROM, GROUP, INDEX, INSERT, INTO,
-    IS, KEY, LIKE, MIN, MAX, NOT, NULL, ON, ORDER, PRIMARY, SELECT, SET, SHOW,
-    SIGNED, SUM, TABLE, TABLES, TRUE, UNSIGNED, UPDATE, USE, VALUES, WHERE.
+    不区分大小写。AND, ASC, AVG, BY, CHECK, COUNT, CREATE, 
+    DATABASE, DATABASES, DELETE, DESC, DESCRIBE, DROP, 
+    FALSE, FOREIGN, FROM, GROUP, INDEX, INSERT, INTO,
+    IS, KEY, LIKE, MIN, MAX, NOT, NULL, ON, ORDER, 
+    PRIMARY, REFERENCES, SELECT, SET, SHOW, SIGNED, SUM, 
+    TABLE, TABLES, TRUE, UNSIGNED, UPDATE, USE, VALUES, WHERE.
     \item
     数据类型
     \begin{table}[!hbp]
@@ -26,9 +28,9 @@
         \hline
         INT UNSIGNED & 无符号32位整型 \\
         \hline
-        BIGINT [SIGNED] & 有符号64位整形 \\
+        BIGINT [SIGNED] & 有符号64位整型 \\
         \hline
-        BIGINT UNSIGNED & 无符号64位整形 \\
+        BIGINT UNSIGNED & 无符号64位整型 \\
         \hline
         BOOL & 布尔型 \\
         \hline
@@ -42,13 +44,13 @@
     \end{table}
 
     \item
-    SQL标识符
+    标识符
 
-    字母或数字或下划线，以字母或下划线开头，且不能为关键字和数据类型。
+    仅包含字母或数字或下划线，以字母或下划线开头，且不能为关键字和数据类型。
     \item
     字面量
 
-    整形字面量为十进制整数，浮点型字面量为十进制小数，%
+    整型字面量为十进制整数，浮点型字面量为十进制小数，%
     布尔型字面量取值为TRUE（不区分大小写，下同）或FALSE，空值为NULL，%
     字符串必须使用单引号引用，支持反斜线转义，%
     正则表达式也使用单引号引用。
@@ -106,7 +108,7 @@
                          [,<filed\_name> <type>[(<size>)] [NOT NULL]]* 
                          [, PRIMARY KEY (<field\_name>)]
                          [, CHECK (<conditions>)]
-                         [, FOREIGN KEY (<field name>) REFERENCES <table\_name>(<field\_name>)]*
+                         [, FOREIGN KEY (<field\_name>) REFERENCES <table\_name>(<field\_name>)]*
                          );
 
     创建名为table\_name的表，包含若干个feild，并设置关系完整性约束。
