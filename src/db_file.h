@@ -138,7 +138,7 @@ public:
     void readPage(const uint64 i, char* buffer) {
         _fs.seekg(_page_size * i);
         _fs.read(buffer, _page_size);
-        assert(_fs.gcount() == _page_size);
+        assert(_fs.gcount() > 0 && uint64(_fs.gcount()) == _page_size);
     }
 
     uint64 pageSize() const { return _page_size; }

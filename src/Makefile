@@ -8,5 +8,7 @@ STD11FLAGS = -std=c++11
 
 BOOSTFLAGS = -lboost_system -lboost_filesystem -lboost_regex
 
+CXXFLAGS += -Wextra -O2
+
 oursql: $(SOURCE) $(HEADERS)
-	$(CXX) $(CXXFLAGS) $(STD11FLAGS) $(BOOSTFLAGS) $< -O2 -o $@
+	$(CXX) $(CXXFLAGS) $(STD11FLAGS) $(BOOSTFLAGS) $< -o $@
