@@ -50,7 +50,7 @@ public:
     // <type code> -> <type name>
     static const std::map< uint64, std::string > datatype_name_map;
 
-    static const uint64 typeLength(const uint64 type) {
+    static uint64 typeLength(const uint64 type) {
         switch (type) {
             case TYPE_INT8:
                 return sizeof(int8_t);
