@@ -1071,7 +1071,7 @@ private:
                 break;
             }
 
-        assert(empty_slot_num >= 0 && empty_slot_num < _num_records_each_page);
+        assert(empty_slot_num < _num_records_each_page);
 
         // write record
         memcpy(pageBuffer.get() + 
