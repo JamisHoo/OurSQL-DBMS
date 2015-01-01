@@ -1,5 +1,5 @@
 /******************************************************************************
- *  Copyright (c) 2014 Terranlee
+ *  Copyright (c) 2014-2015 Terranlee
  *  Distributed under the MIT license 
  *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
  *  
