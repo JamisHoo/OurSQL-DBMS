@@ -6,7 +6,7 @@ SOURCE  = oursql.cc
 
 STD11FLAGS = -std=c++11
 
-BOOSTFLAGS = -lboost_system -lboost_filesystem -lboost_regex
+BOOSTFLAGS = -lboost_system -lboost_filesystem -lboost_regex -lboost_chrono
 
 CXXFLAGS += -Wextra -O2
 

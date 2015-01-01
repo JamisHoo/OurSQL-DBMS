@@ -15,7 +15,7 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#include <chrono>
+#include <boost/chrono.hpp>
 
 namespace Database {
 
@@ -90,15 +90,15 @@ T pointer_convert(const T2* pointer) {
    either hardware or software, doubel-check is still recommended.
 */
 // move these definitions to seperate cc file if multi-definition errors when compiling
-const std::chrono::system_clock::duration sys_clock_epoch = 
-    std::chrono::system_clock::now() - std::chrono::system_clock::from_time_t(0);
-const std::chrono::high_resolution_clock::time_point hr_clock_epoch = 
-    std::chrono::high_resolution_clock::now();
+const boost::chrono::system_clock::duration sys_clock_epoch = 
+    boost::chrono::system_clock::now() - boost::chrono::system_clock::from_time_t(0);
+const boost::chrono::high_resolution_clock::time_point hr_clock_epoch = 
+    boost::chrono::high_resolution_clock::now();
 
 template <class T = uint64>
 T uniqueNumber() {
-    return std::chrono::duration_cast<std::chrono::nanoseconds>(sys_clock_epoch).count() +
-           std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - hr_clock_epoch).count();
+    return boost::chrono::duration_cast<boost::chrono::nanoseconds>(sys_clock_epoch).count() +
+           boost::chrono::duration_cast<boost::chrono::nanoseconds>(boost::chrono::high_resolution_clock::now() - hr_clock_epoch).count();
 
 }
 
