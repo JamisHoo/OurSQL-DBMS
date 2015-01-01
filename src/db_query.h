@@ -923,7 +923,7 @@ private:
                         } else if (field_name.func == "sum") {
                             if (intermediate.table_manager->fieldsDesc().field_type()[field_id] == DBFields::TYPE_FLOAT ||
                                 intermediate.table_manager->fieldsDesc().field_type()[field_id] == DBFields::TYPE_DOUBLE)
-                                new_type = DBFields::TYPE_UINT64,
+                                new_type = DBFields::TYPE_DOUBLE,
                                 new_length = DBFields::typeLength(DBFields::TYPE_DOUBLE);
                             else 
                                 new_type = DBFields::TYPE_INT64;
