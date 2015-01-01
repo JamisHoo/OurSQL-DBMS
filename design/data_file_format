@@ -1,3 +1,18 @@
+/******************************************************************************
+ *  Copyright (c) 2015 Jamis Hoo 
+ *  Distributed under the MIT license 
+ *  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
+ *  
+ *  Project: Database
+ *  Filename: data_file_format 
+ *  Version: 1.0
+ *  Author: Jamis Hoo
+ *  E-mail: hjm211324@gmail.com
+ *  Date: Jan. 01, 2015
+ *  Time: 21:56:34
+ *  Description: Page formatt
+ *****************************************************************************/
+
 Data File Format(Not finished)
 
 0th Page(Raw file description, only one page):

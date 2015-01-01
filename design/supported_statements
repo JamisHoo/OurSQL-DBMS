@@ -1,9 +1,23 @@
-# This doc shows all commands we should support in our database.
-# assert all commands can run in mysql.
-# <name> means required variable or name.
-# [ ] means optional, that is zero or one.
-# * means zero or more.
-# { | } means 1-out-of-multi.
+###############################################################################
+ #  Copyright (c) 2015 Jamis Hoo 
+ #  Distributed under the MIT license 
+ #  (See accompanying file LICENSE or copy at http://opensource.org/licenses/MIT)
+ #  
+ #  Project: Database
+ #  Filename: test.cc 
+ #  Version: 1.0
+ #  Author: Jamis Hoo
+ #  E-mail: hjm211324@gmail.com
+ #  Date: Jan. 01, 2015
+ #  Time: 21:56:34
+ #  Description: All SQL statements supported in this project.
+ #               All statements can run in MySQL.
+ #               But 'like' and 'check' act differently with MySQL.
+ #               <name> means required variable or name.
+ #               [ ] means optional, that is zero or one.
+ #               * means zero or more.
+ #               { | } means 1-out-of-multi.
+ ##############################################################################
 
 # fundamental:
 
