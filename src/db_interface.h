@@ -40,6 +40,8 @@ public:
                     case 'n': _buff += '\n'; break;
                     case 'r': _buff += '\r'; break;
                     case 't': _buff += '\t'; break;
+                    case '\'': _buff += "\\\'"; break;
+                    case '\\': _buff += "\\\\"; break;
                     default : _buff += c;
                 }
             } else {
