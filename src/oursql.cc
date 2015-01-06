@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
         std::clog << std::endl;
         std::clog << "Commands end with ;. Press Ctrl + D to exit. " << std::endl;
         std::clog << std::endl;
-        std::clog << "Copyright (c) 2014 Jamis Hoo, Terran Lee. " << std::endl;
+        std::clog << "Copyright (c) 2014-2015 Jamis Hoo, Terran Lee. " << std::endl;
         std::clog << std::endl;
         std::clog << "Distributed under the MIT license. " << std::endl;
         std::clog << std::endl;
